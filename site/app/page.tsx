@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { Reveal } from './reveal';
+import { SUPPORT_URL } from './support';
 
 const REPO = 'https://github.com/Luth-infinity/hublink';
 const RELEASE = `${REPO}/releases/latest`;
@@ -37,6 +38,14 @@ function Nav() {
         >
           GitHub
         </a>
+        {SUPPORT_URL && (
+          <a
+            href="#soutenir"
+            className="hidden rounded-full px-3 py-1.5 text-sm text-ink-soft transition-colors hover:text-ink sm:block"
+          >
+            Soutenir
+          </a>
+        )}
         <a
           href="#telecharger"
           className="ml-1 rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition-transform hover:scale-[1.02]"
@@ -315,6 +324,43 @@ function Telecharger() {
   );
 }
 
+function Soutenir() {
+  // Rien plutôt qu'un lien mort : la section disparaît tant que le pseudo n'est
+  // pas renseigné dans support.ts.
+  if (!SUPPORT_URL) return null;
+
+  return (
+    <section id="soutenir" className="px-4 pb-24">
+      <div className="mx-auto max-w-3xl">
+        <div className="reveal rounded-[24px] bg-card p-8 shadow-[0_1px_2px_rgba(11,12,14,.05),0_16px_40px_-20px_rgba(11,12,14,.18)] ring-1 ring-line/60 sm:p-12">
+          <h2 className="headline text-[32px] sm:text-[42px]">Hublink est gratuit. Il n'est pas gratuit à faire.</h2>
+          <p className="mt-5 max-w-[54ch] text-[16px] leading-relaxed text-ink-soft">
+            Pas de compte, pas d'abonnement, pas de collecte : l'app est libre et le restera. Si elle
+            vous fait gagner du temps chaque jour, un café aide à payer les heures du soir et les
+            certificats de signature.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <a
+              href={SUPPORT_URL}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="rounded-full bg-ink px-6 py-3 text-[15px] font-medium text-white transition-transform hover:scale-[1.02]"
+            >
+              Offrir un café
+            </a>
+            <a
+              href={`${REPO}/stargazers`}
+              className="rounded-full px-5 py-3 text-[15px] font-medium text-ink-soft ring-1 ring-line transition-colors hover:text-ink"
+            >
+              Ou juste une étoile sur GitHub
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Footer() {
   return (
     <footer className="px-4 pb-10">
@@ -333,6 +379,11 @@ function Footer() {
           <a href={`${REPO}/issues`} className="hover:text-ink">
             Signaler un bug
           </a>
+          {SUPPORT_URL && (
+            <a href={SUPPORT_URL} target="_blank" rel="noreferrer noopener" className="hover:text-ink">
+              Soutenir
+            </a>
+          )}
         </div>
       </div>
     </footer>
@@ -354,6 +405,7 @@ export default function Page() {
           <Sombre />
           <Limites />
           <Telecharger />
+          <Soutenir />
           <Footer />
         </div>
       </main>

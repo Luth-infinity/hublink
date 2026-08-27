@@ -13,6 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { ExtensionsPanel } from '@/components/ExtensionsPanel';
+import { AboutPanel } from '@/components/AboutPanel';
 
 const SLEEP_CHOICES = [0, 5, 10, 15, 20, 30, 45, 60, 120];
 
@@ -66,6 +67,7 @@ export function SettingsDialog({
             <TabsTrigger value="extensions">Extensions</TabsTrigger>
             <TabsTrigger value="apparence">Apparence</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
+            <TabsTrigger value="apropos">À propos</TabsTrigger>
           </TabsList>
 
           <TabsContent value="comptes" className="max-h-[54vh] overflow-y-auto pr-1">
@@ -177,6 +179,10 @@ export function SettingsDialog({
                 </p>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="apropos" className="max-h-[54vh] overflow-y-auto pr-1">
+            <AboutPanel />
           </TabsContent>
         </Tabs>
       </DialogContent>

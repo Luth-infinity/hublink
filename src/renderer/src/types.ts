@@ -145,6 +145,7 @@ declare global {
       toggleSidebar(collapsed?: boolean): Promise<void>;
       popupMenu(items: MenuItem[]): Promise<string | null>;
       openExternal(url: string): Promise<void>;
+      about(): Promise<{ version: string; electron: string; chrome: string; userData: string }>;
       setTheme(theme: Theme): Promise<void>;
       /** 0 = jamais mettre en veille. */
       setSleepDelay(minutes: number): Promise<void>;

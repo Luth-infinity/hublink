@@ -358,6 +358,13 @@ function registerIpc() {
     if (service) views.withCurrent((wc) => wc.loadURL(service.url));
   });
 
+  ipcMain.handle('app:about', () => ({
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    userData: app.getPath('userData')
+  }));
+
   ipcMain.handle('app:open-external', (_e, url) => {
     if (isExternalUrl(url)) shell.openExternal(url);
   });
