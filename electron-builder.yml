@@ -1,6 +1,6 @@
-appId: fr.posidea.hublink
+appId: com.luthinfinity.hublink
 productName: Hublink
-copyright: Copyright © 2026 Posidea
+copyright: Copyright © 2026 Luth
 
 directories:
   output: release

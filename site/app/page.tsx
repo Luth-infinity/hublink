@@ -29,8 +29,8 @@ function Nav() {
         <a href="#fonctions" className="hidden rounded-full px-3 py-1.5 text-sm text-ink-soft transition-colors hover:text-ink sm:block">
           Fonctionnalités
         </a>
-        <a href="#limites" className="hidden rounded-full px-3 py-1.5 text-sm text-ink-soft transition-colors hover:text-ink md:block">
-          Limites
+        <a href="#a-savoir" className="hidden rounded-full px-3 py-1.5 text-sm text-ink-soft transition-colors hover:text-ink md:block">
+          Bon à savoir
         </a>
         <a
           href={REPO}
@@ -59,7 +59,7 @@ function Nav() {
 
 function Hero() {
   return (
-    <header id="top" className="px-4 pt-16 pb-10 text-center sm:pt-24">
+    <header id="top" className="mx-auto max-w-6xl px-4 pt-16 pb-10 text-center sm:pt-24">
       <p className="reveal mb-5 inline-flex items-center gap-2 rounded-full bg-card px-3 py-1 text-[13px] text-ink-soft ring-1 ring-line">
         <span className="size-1.5 rounded-full bg-emerald-500" />
         Version {VERSION} — macOS et Windows
@@ -110,9 +110,9 @@ function Shot() {
 function Pourquoi() {
   return (
     <section id="pourquoi" className="px-4 py-24">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <h2 className="reveal headline text-[40px] sm:text-[54px]">Le problème, très concrètement.</h2>
-        <div className="reveal mt-8 space-y-5 text-[17px] leading-relaxed text-ink-soft">
+        <div className="reveal mt-8 max-w-[68ch] space-y-5 text-[17px] leading-relaxed text-ink-soft">
           <p>
             Vous travaillez pour trois clients. Chacun a son Microsoft 365, son Slack, son intranet.
             Dans un navigateur, ces comptes se marchent dessus : vous ouvrez Teams pour le client A,
@@ -149,14 +149,14 @@ const FONCTIONS = [
       "Un service ouvert coûte environ 110 Mo. Ceux qu'on ne consulte plus sont libérés après un délai réglable, et se rechargent au clic sans déconnexion."
   },
   {
-    titre: 'Capture de page',
+    titre: 'Capture intégrée',
     texte:
-      "Page entière ou zone visible, vers un fichier ou le presse-papiers. Intégrée à l'app, parce que les extensions de capture ne peuvent pas fonctionner ici."
+      "Page entière ou zone visible, vers un fichier ou le presse-papiers, en deux clics depuis la barre d'outils. Rien à installer."
   },
   {
-    titre: 'Clés d’accès refusées',
+    titre: 'Le bon compte du premier coup',
     texte:
-      "Par défaut, Hublink répond qu'aucun authentificateur de plateforme n'est disponible. Les portails Microsoft retombent sur le mot de passe au lieu de proposer la clé de la session système."
+      "Les portails Microsoft proposent d'emblée la clé d'accès de la session Windows ou macOS — rarement celle du client sur lequel vous travaillez. Hublink laisse la main au mot de passe du compte voulu."
   },
   {
     titre: 'Thème teinté',
@@ -250,32 +250,32 @@ function Sombre() {
   );
 }
 
-function Limites() {
+function ASavoir() {
   return (
-    <section id="limites" className="px-4 py-8">
-      <div className="mx-auto max-w-3xl">
-        <h2 className="reveal headline text-[40px] sm:text-[54px]">Ce qu'il ne fait pas.</h2>
-        <p className="reveal mt-6 text-[17px] leading-relaxed text-ink-soft">
-          Hublink s'appuie sur Electron, qui ne reprend qu'une partie des API d'extension de Chrome.
-          Autant le dire avant le téléchargement.
+    <section id="a-savoir" className="px-4 py-8">
+      <div className="mx-auto max-w-6xl">
+        <h2 className="reveal headline text-[40px] sm:text-[54px]">Bon à savoir.</h2>
+        <p className="reveal mt-6 max-w-[68ch] text-[17px] leading-relaxed text-ink-soft">
+          Quatre points à connaître avant d'installer. Rien de bloquant, mais autant les dire ici
+          plutôt que vous laisser les découvrir.
         </p>
-        <ul className="reveal mt-8 space-y-4">
+        <ul className="reveal mt-8 grid gap-4 sm:grid-cols-2">
           {[
             [
-              'Les gestionnaires de mots de passe',
-              "Dashlane, 1Password et consorts ont besoin d'API absentes d'Electron. Leur application native fonctionne à côté, et leur version web s'ajoute comme n'importe quel service."
+              'Mots de passe',
+              "Votre gestionnaire fonctionne à côté : son application native remplit les champs, et sa version web s'ajoute comme n'importe quel service. Seule son extension de navigateur reste hors jeu."
             ],
             [
-              'Les extensions de capture',
-              "L'API que FireShot et ses équivalents utilisent n'existe pas ici. La capture est intégrée à l'app à la place, page entière comprise."
+              'Captures d’écran',
+              "Hublink capture lui-même, page entière comprise, depuis la barre d'outils. Inutile d'installer une extension dédiée : elles s'appuient sur une API que le moteur n'expose pas."
             ],
             [
-              'La synchronisation',
-              'Vos comptes et services restent sur la machine. Rien ne part vers un serveur — il n’y en a pas.'
+              'Tout reste sur votre machine',
+              "Aucun serveur, aucun compte à créer, rien qui parte ailleurs. En contrepartie, vos services ne se synchronisent pas d'un poste à l'autre : on les rajoute une fois par machine."
             ],
             [
-              'La signature',
-              "Les binaires ne sont pas signés. Au premier lancement : clic droit puis « Ouvrir » sur macOS, « Informations complémentaires » puis « Exécuter quand même » sur Windows."
+              'Premier lancement',
+              "Les binaires ne sont pas encore signés : clic droit puis « Ouvrir » sur macOS, « Informations complémentaires » puis « Exécuter quand même » sur Windows. Une seule fois, puis on n'y revient plus."
             ]
           ].map(([titre, texte]) => (
             <li key={titre} className="rounded-2xl bg-card p-5 ring-1 ring-line/60">
@@ -292,7 +292,7 @@ function Limites() {
 function Telecharger() {
   return (
     <section id="telecharger" className="px-4 py-24">
-      <div className="mx-auto max-w-3xl text-center">
+      <div className="mx-auto max-w-6xl text-center">
         <Logo className="mx-auto size-14" />
         <h2 className="reveal headline mt-6 text-[40px] sm:text-[54px]">Prenez-le, il est libre.</h2>
         <p className="reveal mx-auto mt-5 max-w-[48ch] text-[17px] leading-relaxed text-ink-soft">
@@ -331,7 +331,7 @@ function Soutenir() {
 
   return (
     <section id="soutenir" className="px-4 pb-24">
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <div className="reveal rounded-[24px] bg-card p-8 shadow-[0_1px_2px_rgba(11,12,14,.05),0_16px_40px_-20px_rgba(11,12,14,.18)] ring-1 ring-line/60 sm:p-12">
           <h2 className="headline text-[32px] sm:text-[42px]">Hublink est gratuit. Il n'est pas gratuit à faire.</h2>
           <p className="mt-5 max-w-[54ch] text-[16px] leading-relaxed text-ink-soft">
@@ -402,7 +402,7 @@ export default function Page() {
           <Fonctions />
           <Chiffres />
           <Sombre />
-          <Limites />
+          <ASavoir />
           <Telecharger />
           <Soutenir />
           <Footer />

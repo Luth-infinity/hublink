@@ -10,10 +10,8 @@ const FILE = path.join(app.getPath('userData'), 'hublink.config.json');
 // services du même compte partagent leurs cookies (donc un seul login SSO),
 // deux comptes différents ne se voient jamais.
 const DEFAULT_ACCOUNTS = [
-  { name: 'Avanteam', color: '#3b82f6' },
-  { name: "L'Oréal", color: '#c8a44d' },
-  { name: 'Valiuz', color: '#8b5cf6' },
-  { name: 'Posidea', color: '#f97316' }
+  { name: 'Perso', color: '#3b82f6' },
+  { name: 'Travail', color: '#f97316' }
 ];
 
 function uid(prefix) {
