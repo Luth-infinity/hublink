@@ -1,7 +1,7 @@
 {
   "name": "hublink",
   "productName": "Hublink",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Client desktop leger pour regrouper les webapps de plusieurs comptes clients, avec sessions isolees et extensions Chrome.",
   "main": "src/main/index.js",
   "author": "Posidea",
