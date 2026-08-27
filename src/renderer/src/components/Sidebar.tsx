@@ -19,6 +19,7 @@ type Props = {
   collapsed: boolean;
   /** Identifiants des services libérés de la mémoire. */
   sleeping: string[];
+  isDark: boolean;
   onSelectService: (id: string) => void;
   onAddService: () => void;
   onEditService: (service: Service) => void;
@@ -60,6 +61,7 @@ function SidebarImpl({
   onFilterAccount,
   collapsed,
   sleeping,
+  isDark,
   onSelectService,
   onAddService,
   onEditService,
@@ -73,9 +75,16 @@ function SidebarImpl({
   const [dragging, setDragging] = React.useState<string | null>(null);
   const [dropTarget, setDropTarget] = React.useState<string | null>(null);
 
-  // L'ordre se règle aussi au clavier / à la souris sans glisser : le
-  // glisser-déposer n'est pas praticable dans le rail réduit.
-  const serviceMenu = (service: Service, index: number, total: number) =>
+  // En vue « Tous », les services sont regroupés par compte : l'en-tête dit à
+  // qui ils appartiennent, ce qui rend inutile de le répéter sous chacun.
+  const groups = React.useMemo(() => {
+    if (activeAccountId) return null;
+    return accounts
+      .map((account) => ({ account, items: services.filter((s) => s.accountId === account.id) }))
+      .filter((g) => g.items.length > 0);
+  }, [accounts, services, activeAccountId]);
+
+  const serviceMenu = (service: Service, index: number, total: number, siblings: Service[]) =>
     popup(
       [
         { id: 'up', label: 'Monter', enabled: index > 0 },
@@ -95,10 +104,9 @@ function SidebarImpl({
         { id: 'remove', label: 'Retirer' }
       ],
       {
-        // Le voisin VISIBLE, pas le voisin dans la liste complète : filtré sur
-        // un compte, viser l'index global ne bougerait rien à l'écran.
-        up: () => index > 0 && onReorder(service.id, services[index - 1].id),
-        down: () => index < total - 1 && onReorder(service.id, services[index + 1].id),
+        // Le voisin VISIBLE, pas celui de la liste complète.
+        up: () => index > 0 && onReorder(service.id, siblings[index - 1].id),
+        down: () => index < total - 1 && onReorder(service.id, siblings[index + 1].id),
         reload: () => onReloadService(service),
         external: () => window.hublink.openExternal(service.url),
         links: () => onToggleLinkPolicy(service),
@@ -107,21 +115,96 @@ function SidebarImpl({
       }
     );
 
-
   const titleOf = (service: Service, asleep: boolean) => {
     const account = accountById.get(service.accountId);
-    const parts = [
-      service.name,
-      account && !activeAccountId ? `compte ${account.name}` : null,
-      hostOf(service.url)
-    ];
+    const parts = [service.name, account ? account.name : null, hostOf(service.url)];
     if (asleep) parts.push('en veille');
     return parts.filter(Boolean).join(' — ');
+  };
+
+  /** Une ligne de service dans le panneau déployé. */
+  const ServiceRow = ({
+    service,
+    index,
+    siblings
+  }: {
+    service: Service;
+    index: number;
+    siblings: Service[];
+  }) => {
+    const active = service.id === activeServiceId;
+    const asleep = sleeping.includes(service.id);
+    const account = accountById.get(service.accountId);
+    return (
+      <li
+        onDragOver={(e) => {
+          if (!dragging || dragging === service.id) return;
+          // Réordonner ne change pas de compte : on refuse le dépôt entre groupes.
+          const source = services.find((s) => s.id === dragging);
+          if (source && source.accountId !== service.accountId) return;
+          e.preventDefault();
+          setDropTarget(service.id);
+        }}
+        onDragLeave={() => setDropTarget((prev) => (prev === service.id ? null : prev))}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (dragging && dragging !== service.id) onReorder(dragging, service.id);
+          setDragging(null);
+          setDropTarget(null);
+        }}
+        className={cn(
+          'rounded-md',
+          dropTarget === service.id && 'ring-2 ring-ring/60',
+          dragging === service.id && 'opacity-40'
+        )}
+      >
+        <button
+          type="button"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', service.id);
+            setDragging(service.id);
+          }}
+          onDragEnd={() => {
+            setDragging(null);
+            setDropTarget(null);
+          }}
+          onClick={() => onSelectService(service.id)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            serviceMenu(service, index, siblings.length, siblings);
+          }}
+          title={titleOf(service, asleep)}
+          aria-current={active}
+          className={cn(
+            'flex w-full items-center gap-2.5 rounded-md py-1.5 pr-2 pl-2 text-left transition-colors',
+            active
+              ? 'bg-shell-active text-shell-foreground'
+              : 'text-shell-muted hover:bg-shell-hover hover:text-shell-foreground'
+          )}
+        >
+          <span
+            className="h-5 w-0.5 shrink-0 rounded-full"
+            style={{ backgroundColor: active && account ? account.color : 'transparent' }}
+            aria-hidden
+          />
+          <ServiceIcon service={service} className="size-5" textClassName="text-[9px]" isDark={isDark} />
+          <span className="min-w-0 flex-1 truncate text-[13px]">{service.name}</span>
+          {asleep && <Moon className="size-3 shrink-0 text-shell-muted" aria-hidden />}
+          <Badge count={service.badge} />
+        </button>
+      </li>
+    );
   };
 
   // --- rail : icônes seules -------------------------------------------------
 
   if (collapsed) {
+    // En vue « Tous », le rail montre les comptes ; un clic entre dans l'un
+    // d'eux et le rail bascule alors sur ses services.
+    const showAccounts = !activeAccountId && groups && groups.length > 0;
+
     return (
       <aside className="flex w-14 shrink-0 flex-col border-r border-shell-border bg-shell">
         <AccountSwitch
@@ -132,54 +215,76 @@ function SidebarImpl({
           onSelect={onFilterAccount}
           onManage={onOpenSettings}
         />
-        <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto pb-2">
-          {services.map((service, index) => {
-            const active = service.id === activeServiceId;
-            const asleep = sleeping.includes(service.id);
-            const account = accountById.get(service.accountId);
-            return (
-              <button
-                key={service.id}
-                type="button"
-                onClick={() => onSelectService(service.id)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  serviceMenu(service, index, services.length);
-                }}
-                title={titleOf(service, asleep)}
-                aria-label={service.name}
-                aria-current={active}
-                className={cn(
-                  'relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
-                  active ? 'bg-shell-active' : 'hover:bg-shell-hover'
-                )}
-              >
-                {/* Repère de compte : reste lisible même réduit. */}
-                <span
-                  className="absolute top-1/2 -left-2 h-5 w-[3px] -translate-y-1/2 rounded-full"
-                  style={{ backgroundColor: active && account ? account.color : 'transparent' }}
-                  aria-hidden
-                />
-                <ServiceIcon
-                  service={service}
-                  className={cn('size-[18px]', !active && 'opacity-80', asleep && 'opacity-60')}
-                  textClassName="text-[9px]"
-                />
-                <Badge count={service.badge} className="absolute -top-0.5 -right-0.5 ring-2 ring-shell" />
-              </button>
-            );
-          })}
+        <Separator className="mx-auto w-7 bg-shell-border" />
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onAddService}
-            title="Ajouter un service"
-            aria-label="Ajouter un service"
-            className="mt-1 shrink-0 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
-          >
-            <Plus />
-          </Button>
+        <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto py-2">
+          {showAccounts
+            ? groups.map(({ account, items }) => (
+                <button
+                  key={account.id}
+                  type="button"
+                  onClick={() => onFilterAccount(account.id)}
+                  title={`${account.name} — ${items.length} service${items.length > 1 ? 's' : ''}`}
+                  aria-label={account.name}
+                  className="relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors hover:bg-shell-hover"
+                >
+                  <AccountAvatar account={account} className="size-[22px] rounded-md" textClassName="text-[9px]" />
+                  <Badge
+                    count={unreadByAccount[account.id] || 0}
+                    className="absolute -top-0.5 -right-0.5 ring-2 ring-shell"
+                  />
+                </button>
+              ))
+            : services.map((service) => {
+                const active = service.id === activeServiceId;
+                const asleep = sleeping.includes(service.id);
+                const account = accountById.get(service.accountId);
+                const index = services.indexOf(service);
+                return (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => onSelectService(service.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      serviceMenu(service, index, services.length, services);
+                    }}
+                    title={titleOf(service, asleep)}
+                    aria-label={service.name}
+                    aria-current={active}
+                    className={cn(
+                      'relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
+                      active ? 'bg-shell-active' : 'hover:bg-shell-hover'
+                    )}
+                  >
+                    <span
+                      className="absolute top-1/2 -left-2 h-5 w-[3px] -translate-y-1/2 rounded-full"
+                      style={{ backgroundColor: active && account ? account.color : 'transparent' }}
+                      aria-hidden
+                    />
+                    <ServiceIcon
+                      service={service}
+                      className={cn('size-[18px]', !active && 'opacity-80', asleep && 'opacity-60')}
+                      textClassName="text-[9px]"
+                      isDark={isDark}
+                    />
+                    <Badge count={service.badge} className="absolute -top-0.5 -right-0.5 ring-2 ring-shell" />
+                  </button>
+                );
+              })}
+
+          {!showAccounts && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onAddService}
+              title="Ajouter un service"
+              aria-label="Ajouter un service"
+              className="mt-1 shrink-0 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
+            >
+              <Plus />
+            </Button>
+          )}
         </div>
 
         <Separator className="bg-shell-border" />
@@ -215,87 +320,32 @@ function SidebarImpl({
           />
         </div>
       )}
+
       <div className="flex-1 overflow-y-auto p-2">
-        <ul className="flex flex-col gap-0.5">
-          {services.map((service, index) => {
-            const active = service.id === activeServiceId;
-            const asleep = sleeping.includes(service.id);
-            const account = accountById.get(service.accountId);
-            return (
-              <li
-                key={service.id}
-                onDragOver={(e) => {
-                  if (!dragging || dragging === service.id) return;
-                  e.preventDefault();
-                  setDropTarget(service.id);
-                }}
-                onDragLeave={() => setDropTarget((prev) => (prev === service.id ? null : prev))}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (dragging && dragging !== service.id) onReorder(dragging, service.id);
-                  setDragging(null);
-                  setDropTarget(null);
-                }}
-                className={cn(
-                  'rounded-md',
-                  dropTarget === service.id && 'ring-2 ring-ring/60',
-                  dragging === service.id && 'opacity-40'
-                )}
-              >
-                <button
-                  type="button"
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = 'move';
-                    // Firefox et Chromium exigent une donnée pour amorcer le glisser.
-                    e.dataTransfer.setData('text/plain', service.id);
-                    setDragging(service.id);
-                  }}
-                  onDragEnd={() => {
-                    setDragging(null);
-                    setDropTarget(null);
-                  }}
-                  onClick={() => onSelectService(service.id)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    serviceMenu(service, index, services.length);
-                  }}
-                  title={titleOf(service, asleep)}
-                  aria-current={active}
-                  className={cn(
-                    'flex w-full items-center gap-2.5 rounded-md py-1.5 pr-2 pl-2 text-left transition-colors',
-                    active
-                      ? 'bg-shell-active text-shell-foreground'
-                      : 'text-shell-muted hover:bg-shell-hover hover:text-shell-foreground'
-                  )}
-                >
-                  <span
-                    className="h-6 w-0.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: active && account ? account.color : 'transparent' }}
-                    aria-hidden
-                  />
-                  <ServiceIcon service={service} className="size-5" textClassName="text-[9px]" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] leading-tight">{service.name}</span>
-                    {/* Inutile de répéter le compte quand on est déjà dedans. */}
-                    {account && !activeAccountId && (
-                      <span className="flex items-center gap-1 text-[10px] leading-tight text-shell-muted">
-                        <span
-                          className="size-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: account.color }}
-                          aria-hidden
-                        />
-                        <span className="truncate">{account.name}</span>
-                      </span>
-                    )}
-                  </span>
-                  {asleep && <Moon className="size-3 shrink-0 text-shell-muted" aria-hidden />}
-                  <Badge count={service.badge} />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        {groups
+          ? groups.map(({ account, items }) => (
+              <section key={account.id} className="mb-3">
+                <header className="flex items-center gap-2 px-2 pb-1">
+                  <AccountAvatar account={account} className="size-4 rounded" textClassName="text-[7px]" />
+                  <h2 className="truncate text-[11px] font-semibold tracking-wide text-shell-muted uppercase">
+                    {account.name}
+                  </h2>
+                  <Badge count={unreadByAccount[account.id] || 0} className="ml-auto" />
+                </header>
+                <ul className="flex flex-col gap-0.5">
+                  {items.map((service, index) => (
+                    <ServiceRow key={service.id} service={service} index={index} siblings={items} />
+                  ))}
+                </ul>
+              </section>
+            ))
+          : (
+              <ul className="flex flex-col gap-0.5">
+                {services.map((service, index) => (
+                  <ServiceRow key={service.id} service={service} index={index} siblings={services} />
+                ))}
+              </ul>
+            )}
 
         <Button
           variant="ghost"

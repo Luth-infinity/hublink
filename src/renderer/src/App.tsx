@@ -285,6 +285,7 @@ export default function App() {
             unreadByAccount={unreadByAccount}
             onFilterAccount={filterAccount}
             collapsed={state.sidebarCollapsed}
+            isDark={isDark}
             sleeping={sleeping}
             onSelectService={selectService}
             onAddService={openNewService}
