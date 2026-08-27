@@ -1,0 +1,6 @@
+node_modules/
+release/
+src/renderer/dist/
+.DS_Store
+*.log
+.vite/

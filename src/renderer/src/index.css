@@ -1,0 +1,153 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  /* Le shell (panneau + barre d'outils) a sa propre palette : il encadre une
+     page web dont on ne contrôle pas le fond, et doit s'en détacher. */
+  /* Quasiment blanc : la teinte d'espace doit se deviner, pas assombrir. */
+  --shell-base: oklch(0.991 0.001 265);
+  --shell-raised-base: oklch(1 0 0);
+  --shell-border-base: oklch(0.935 0.003 265);
+  --shell-foreground: oklch(0.26 0.012 265);
+  --shell-muted: oklch(0.53 0.014 265);
+  --shell-hover: oklch(0 0 0 / 5%);
+  --shell-active: oklch(0 0 0 / 9%);
+  --shell-input: oklch(0 0 0 / 6%);
+
+  /* Teinte du compte actif. `--tint-surface` et `--tint-line` sont posées sur
+     <html> par le renderer quand un compte est filtré, et retirées sinon —
+     chaque mélange retombe alors sur sa propre base via le second argument de
+     `var()`, ce qui rend le mix neutre à l'identique (mélanger `transparent`
+     rognerait l'alpha). */
+  --mix-bg: 10%;
+  --mix-raised: 6%;
+  --mix-border: 42%;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  /* Quasiment noir : la teinte du compte se devine, elle n'éclaircit pas. */
+  --shell-base: oklch(0.155 0.004 265);
+  --shell-raised-base: oklch(0.2 0.005 265);
+  --shell-border-base: oklch(0.29 0.008 265);
+  --shell-foreground: oklch(0.95 0.004 265);
+  --shell-muted: oklch(0.74 0.008 265);
+  --shell-hover: oklch(1 0 0 / 6%);
+  --shell-active: oklch(1 0 0 / 11%);
+  --shell-input: oklch(0 0 0 / 25%);
+  /* En sombre la couleur se lit mal : on dose plus fort qu'en clair, tout en
+     gardant un fond franchement sombre. */
+  --mix-bg: 30%;
+  --mix-raised: 24%;
+  --mix-border: 46%;
+}
+
+:root,
+.dark {
+  --shell: color-mix(in oklab, var(--tint-surface, var(--shell-base)) var(--mix-bg), var(--shell-base));
+  --shell-raised: color-mix(
+    in oklab,
+    var(--tint-surface, var(--shell-raised-base)) var(--mix-raised),
+    var(--shell-raised-base)
+  );
+  --shell-border: color-mix(
+    in oklab,
+    var(--tint-line, var(--shell-border-base)) var(--mix-border),
+    var(--shell-border-base)
+  );
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-shell: var(--shell);
+  --color-shell-raised: var(--shell-raised);
+  --color-shell-border: var(--shell-border);
+  --color-shell-foreground: var(--shell-foreground);
+  --color-shell-muted: var(--shell-muted);
+  --color-shell-hover: var(--shell-hover);
+  --color-shell-active: var(--shell-active);
+  --color-shell-input: var(--shell-input);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-shell text-shell-foreground overflow-hidden;
+    font-family:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui, sans-serif;
+    font-size: 13px;
+  }
+  /* Zone de glissement de la fenetre sans barre de titre native. */
+  .drag {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+}

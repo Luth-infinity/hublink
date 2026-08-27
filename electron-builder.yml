@@ -1,0 +1,51 @@
+appId: fr.posidea.hublink
+productName: Hublink
+copyright: Copyright © 2026 Posidea
+
+directories:
+  output: release
+  buildResources: build
+
+# Le renderer est bundle par Vite et le main n'utilise que des modules Electron :
+# aucun node_modules n'a besoin d'etre embarque.
+files:
+  - src/main/**/*
+  - src/preload/**/*
+  - src/renderer/dist/**/*
+  - package.json
+  - '!**/*.map'
+
+asar: true
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  icon: build/icon.icns
+  darkModeSupport: true
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+  icon: build/icon.png
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
+linux:
+  target: [AppImage]
+  category: Network

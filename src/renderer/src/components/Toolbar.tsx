@@ -1,0 +1,185 @@
+import {
+  ArrowLeft,
+  ArrowRight,
+  ExternalLink,
+  Camera,
+  Home,
+  PanelLeft,
+  PanelLeftClose,
+  Puzzle,
+  RotateCw,
+  X
+} from 'lucide-react';
+import type { LoadedExtension, MenuItem, NavState, Service } from '@/types';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+
+type Props = {
+  service: Service | null;
+  nav: NavState | null;
+  isMac: boolean;
+  sidebarCollapsed: boolean;
+  loadedExtensions: LoadedExtension[];
+  onToggleSidebar: () => void;
+  onOpenExtensions: () => void;
+};
+
+export function Toolbar({
+  service,
+  nav,
+  isMac,
+  sidebarCollapsed,
+  loadedExtensions,
+  onToggleSidebar,
+  onOpenExtensions
+}: Props) {
+  const api = window.hublink;
+
+  // Menu natif : un menu HTML serait masqué par la vue web, qui est une vue
+  // native peinte au-dessus du shell.
+  // Les extensions de capture ne peuvent pas fonctionner sous Electron
+  // (`chrome.tabs.captureVisibleTab` n'existe pas) : la capture est native.
+  const openCaptureMenu = async () => {
+    const picked = await api.popupMenu([
+      { id: 'full-save', label: 'Page entière — enregistrer…' },
+      { id: 'full-copy', label: 'Page entière — copier' },
+      { type: 'separator' },
+      { id: 'visible-save', label: 'Zone visible — enregistrer…' },
+      { id: 'visible-copy', label: 'Zone visible — copier' }
+    ]);
+    if (!picked) return;
+    api.capturePage({ fullPage: picked.startsWith('full'), toClipboard: picked.endsWith('copy') });
+  };
+
+  const openExtensionsMenu = async () => {
+    const items: MenuItem[] = loadedExtensions.length
+      ? loadedExtensions.map((ext) => ({
+          id: ext.chromeId,
+          label: ext.hasPopup ? ext.name : `${ext.name} (pas de popup)`,
+          enabled: ext.hasPopup
+        }))
+      : [{ id: 'none', label: 'Aucune extension chargée', enabled: false }];
+
+    const picked = await api.popupMenu([
+      ...items,
+      { type: 'separator' },
+      { id: '__manage', label: 'Gérer les extensions…' }
+    ]);
+    if (picked === '__manage') onOpenExtensions();
+    else if (picked && picked !== 'none') api.extensions.openPopup(picked);
+  };
+
+  return (
+    <div
+      className={cn(
+        'drag flex h-11 shrink-0 items-center gap-1 border-b-2 border-shell-border bg-shell-raised pr-2',
+        // Réserve la zone des feux macOS (x 16 -> 70) : sans cela ils
+        // chevauchent le premier contrôle.
+        isMac ? 'pl-[86px]' : 'pl-2'
+      )}
+    >
+      <div className="no-drag flex items-center gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onToggleSidebar}
+          className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+          aria-label={sidebarCollapsed ? 'Afficher le panneau' : 'Masquer le panneau'}
+          aria-pressed={!sidebarCollapsed}
+          title={`${sidebarCollapsed ? 'Afficher' : 'Masquer'} le panneau (${isMac ? '⌘' : 'Ctrl+'}B)`}
+        >
+          {sidebarCollapsed ? <PanelLeft /> : <PanelLeftClose />}
+        </Button>
+        <span className="mx-1 h-5 w-px shrink-0 bg-shell-border" aria-hidden />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!nav?.canGoBack}
+          onClick={() => api.nav.back()}
+          className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+          aria-label="Précédent"
+          title="Précédent"
+        >
+          <ArrowLeft />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!nav?.canGoForward}
+          onClick={() => api.nav.forward()}
+          className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+          aria-label="Suivant"
+          title="Suivant"
+        >
+          <ArrowRight />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!service}
+          onClick={() => (nav?.loading ? api.nav.stop() : api.nav.reload())}
+          className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+          aria-label={nav?.loading ? 'Arrêter' : 'Recharger'}
+          title={nav?.loading ? 'Arrêter' : 'Recharger'}
+        >
+          {nav?.loading ? <X /> : <RotateCw />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!service}
+          onClick={() => api.nav.home()}
+          className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+          aria-label="Revenir à l'URL du service"
+          title="Revenir à l'URL du service"
+        >
+          <Home />
+        </Button>
+      </div>
+
+      <div className="no-drag mx-1 flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md bg-shell-input px-2.5">
+        <span className="truncate text-[11px] text-shell-muted" title={nav?.url ?? service?.url ?? ''}>
+          {nav?.url ?? service?.url ?? 'Aucun service sélectionné'}
+        </span>
+        {nav?.url && (
+          <button
+            type="button"
+            onClick={() => api.openExternal(nav.url)}
+            className="ml-auto shrink-0 text-shell-muted transition-colors hover:text-shell-foreground"
+            aria-label="Ouvrir dans le navigateur"
+            title="Ouvrir dans le navigateur"
+          >
+            <ExternalLink className="size-3.5" />
+          </button>
+        )}
+      </div>
+
+      <div className="no-drag flex items-center gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!service}
+          onClick={openCaptureMenu}
+          className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+          aria-label="Capturer la page"
+          title="Capturer la page"
+        >
+          <Camera />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={openExtensionsMenu}
+          className="relative text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+          aria-label="Extensions de ce client"
+          title="Extensions de ce client"
+        >
+          <Puzzle />
+          {loadedExtensions.length > 0 && (
+            <span className="absolute right-1 bottom-1 size-1.5 rounded-full bg-emerald-500" />
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
