@@ -45,7 +45,7 @@ export function AboutPanel() {
             <p className="text-sm font-medium">Soutenir le projet</p>
             <p className="text-xs leading-relaxed text-muted-foreground">
               Hublink est gratuit et le restera. Si l'app vous fait gagner du temps, un café aide à
-              payer les heures du soir et les certificats de signature.
+              payer les heures du soir.
             </p>
             <div className="mt-1 flex flex-wrap gap-2">
               <Button size="sm" className="gap-2" onClick={() => open(support)}>

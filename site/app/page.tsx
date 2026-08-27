@@ -336,8 +336,7 @@ function Soutenir() {
           <h2 className="headline text-[32px] sm:text-[42px]">Hublink est gratuit. Il n'est pas gratuit à faire.</h2>
           <p className="mt-5 max-w-[54ch] text-[16px] leading-relaxed text-ink-soft">
             Pas de compte, pas d'abonnement, pas de collecte : l'app est libre et le restera. Si elle
-            vous fait gagner du temps chaque jour, un café aide à payer les heures du soir et les
-            certificats de signature.
+            vous fait gagner du temps chaque jour, un café aide à payer les heures du soir.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a
