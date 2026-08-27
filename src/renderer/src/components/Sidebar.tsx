@@ -201,9 +201,42 @@ function SidebarImpl({
   // --- rail : icônes seules -------------------------------------------------
 
   if (collapsed) {
-    // En vue « Tous », le rail montre les comptes ; un clic entre dans l'un
-    // d'eux et le rail bascule alors sur ses services.
-    const showAccounts = !activeAccountId && groups && groups.length > 0;
+    /** Une icône de service dans le rail. */
+    const RailService = ({ service, siblings }: { service: Service; siblings: Service[] }) => {
+      const active = service.id === activeServiceId;
+      const asleep = sleeping.includes(service.id);
+      const account = accountById.get(service.accountId);
+      return (
+        <button
+          type="button"
+          onClick={() => onSelectService(service.id)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            serviceMenu(service, siblings.indexOf(service), siblings.length, siblings);
+          }}
+          title={titleOf(service, asleep)}
+          aria-label={service.name}
+          aria-current={active}
+          className={cn(
+            'relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
+            active ? 'bg-shell-active' : 'hover:bg-shell-hover'
+          )}
+        >
+          <span
+            className="absolute top-1/2 -left-2 h-5 w-[3px] -translate-y-1/2 rounded-full"
+            style={{ backgroundColor: active && account ? account.color : 'transparent' }}
+            aria-hidden
+          />
+          <ServiceIcon
+            service={service}
+            className={cn('size-[18px]', !active && 'opacity-80', asleep && 'opacity-60')}
+            textClassName="text-[9px]"
+            isDark={isDark}
+          />
+          <Badge count={service.badge} className="absolute -top-0.5 -right-0.5 ring-2 ring-shell" />
+        </button>
+      );
+    };
 
     return (
       <aside className="flex w-14 shrink-0 flex-col border-r border-shell-border bg-shell">
@@ -218,73 +251,45 @@ function SidebarImpl({
         <Separator className="mx-auto w-7 bg-shell-border" />
 
         <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto py-2">
-          {showAccounts
-            ? groups.map(({ account, items }) => (
-                <button
-                  key={account.id}
-                  type="button"
-                  onClick={() => onFilterAccount(account.id)}
-                  title={`${account.name} — ${items.length} service${items.length > 1 ? 's' : ''}`}
-                  aria-label={account.name}
-                  className="relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors hover:bg-shell-hover"
-                >
-                  <AccountAvatar account={account} className="size-[22px] rounded-md" textClassName="text-[9px]" />
-                  <Badge
-                    count={unreadByAccount[account.id] || 0}
-                    className="absolute -top-0.5 -right-0.5 ring-2 ring-shell"
-                  />
-                </button>
-              ))
-            : services.map((service) => {
-                const active = service.id === activeServiceId;
-                const asleep = sleeping.includes(service.id);
-                const account = accountById.get(service.accountId);
-                const index = services.indexOf(service);
-                return (
+          {/* En vue « Tous », le logo du compte coiffe ses services sans les
+              remplacer : on garde l'accès direct à chaque webapp, et le logo
+              reste cliquable pour entrer dans le compte. */}
+          {groups
+            ? groups.map(({ account, items }, index) => (
+                <React.Fragment key={account.id}>
+                  {index > 0 && <Separator className="my-1 w-7 bg-shell-border" />}
                   <button
-                    key={service.id}
                     type="button"
-                    onClick={() => onSelectService(service.id)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      serviceMenu(service, index, services.length, services);
-                    }}
-                    title={titleOf(service, asleep)}
-                    aria-label={service.name}
-                    aria-current={active}
-                    className={cn(
-                      'relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
-                      active ? 'bg-shell-active' : 'hover:bg-shell-hover'
-                    )}
+                    onClick={() => onFilterAccount(account.id)}
+                    title={`${account.name} — n'afficher que ce compte`}
+                    aria-label={account.name}
+                    className="relative grid size-6 shrink-0 place-items-center rounded-md transition-opacity hover:opacity-100"
                   >
-                    <span
-                      className="absolute top-1/2 -left-2 h-5 w-[3px] -translate-y-1/2 rounded-full"
-                      style={{ backgroundColor: active && account ? account.color : 'transparent' }}
-                      aria-hidden
+                    <AccountAvatar
+                      account={account}
+                      className="size-[18px] rounded opacity-70"
+                      textClassName="text-[8px]"
                     />
-                    <ServiceIcon
-                      service={service}
-                      className={cn('size-[18px]', !active && 'opacity-80', asleep && 'opacity-60')}
-                      textClassName="text-[9px]"
-                      isDark={isDark}
-                    />
-                    <Badge count={service.badge} className="absolute -top-0.5 -right-0.5 ring-2 ring-shell" />
                   </button>
-                );
-              })}
+                  {items.map((service) => (
+                    <RailService key={service.id} service={service} siblings={items} />
+                  ))}
+                </React.Fragment>
+              ))
+            : services.map((service) => (
+                <RailService key={service.id} service={service} siblings={services} />
+              ))}
 
-          {!showAccounts && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onAddService}
-              title="Ajouter un service"
-              aria-label="Ajouter un service"
-              className="mt-1 shrink-0 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
-            >
-              <Plus />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onAddService}
+            title="Ajouter un service"
+            aria-label="Ajouter un service"
+            className="mt-1 shrink-0 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
+          >
+            <Plus />
+          </Button>
         </div>
 
         <Separator className="bg-shell-border" />
@@ -325,13 +330,18 @@ function SidebarImpl({
         {groups
           ? groups.map(({ account, items }) => (
               <section key={account.id} className="mb-3">
-                <header className="flex items-center gap-2 px-2 pb-1">
+                <button
+                  type="button"
+                  onClick={() => onFilterAccount(account.id)}
+                  title={`N'afficher que ${account.name}`}
+                  className="mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:bg-shell-hover"
+                >
                   <AccountAvatar account={account} className="size-4 rounded" textClassName="text-[7px]" />
                   <h2 className="truncate text-[11px] font-semibold tracking-wide text-shell-muted uppercase">
                     {account.name}
                   </h2>
                   <Badge count={unreadByAccount[account.id] || 0} className="ml-auto" />
-                </header>
+                </button>
                 <ul className="flex flex-col gap-0.5">
                   {items.map((service, index) => (
                     <ServiceRow key={service.id} service={service} index={index} siblings={items} />
