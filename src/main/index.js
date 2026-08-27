@@ -6,6 +6,7 @@ const views = require('./views');
 const extensions = require('./extensions');
 const { isExternalUrl } = require('./urls');
 const capture = require('./capture');
+const updates = require('./updates');
 
 const isDev = process.argv.includes('--dev') || !app.isPackaged;
 const DEV_SERVER = process.env.HUBLINK_DEV_SERVER || 'http://localhost:5273';
@@ -362,6 +363,8 @@ function registerIpc() {
     const service = store.getService(store.load().activeServiceId);
     if (service) views.withCurrent((wc) => wc.loadURL(service.url));
   });
+
+  ipcMain.handle('update:check', () => updates.check());
 
   ipcMain.handle('app:about', () => ({
     version: app.getVersion(),

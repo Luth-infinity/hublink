@@ -5,7 +5,7 @@ import { SUPPORT_URL } from './support';
 
 const REPO = 'https://github.com/Luth-infinity/hublink';
 const RELEASE = `${REPO}/releases/latest`;
-const VERSION = '0.3.3';
+const VERSION = '0.3.4';
 
 const DOWNLOADS = {
   mac: `${REPO}/releases/download/v${VERSION}/Hublink-${VERSION}-arm64.dmg`,
