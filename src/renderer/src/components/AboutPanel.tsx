@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Bug, Coffee, Star } from 'lucide-react';
+import { ArrowDownToLine, Bug, Check, Coffee, Loader2, RefreshCw, Star } from 'lucide-react';
 import { ISSUES_URL, REPO_URL, SUPPORT_URL } from '@/lib/links';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -17,6 +17,17 @@ function GithubMark() {
 
 export function AboutPanel() {
   const [about, setAbout] = React.useState<About | null>(null);
+  // « idle » tant qu'on n'a rien demandé, pour ne pas afficher un verdict
+  // qu'on n'a pas encore vérifié.
+  const [state, setState] = React.useState<'idle' | 'checking' | 'uptodate' | 'found'>('idle');
+  const [found, setFound] = React.useState<{ version: string; url: string } | null>(null);
+
+  const checkNow = async () => {
+    setState('checking');
+    const update = await window.hublink.checkUpdate();
+    setFound(update);
+    setState(update ? 'found' : 'uptodate');
+  };
 
   React.useEffect(() => {
     window.hublink.about().then(setAbout);
@@ -63,6 +74,33 @@ export function AboutPanel() {
           </div>
         </>
       )}
+
+      <Separator />
+
+      <div className="grid gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-2" disabled={state === 'checking'} onClick={checkNow}>
+            {state === 'checking' ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+            Vérifier les mises à jour
+          </Button>
+          {state === 'uptodate' && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Check className="size-3.5" /> Vous êtes à jour.
+            </span>
+          )}
+        </div>
+        {state === 'found' && found && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3">
+            <p className="flex-1 text-xs text-muted-foreground">
+              <strong className="font-medium text-foreground">Hublink {found.version}</strong> est
+              disponible.
+            </p>
+            <Button size="sm" className="gap-2" onClick={() => open(found.url)}>
+              <ArrowDownToLine /> Télécharger
+            </Button>
+          </div>
+        )}
+      </div>
 
       <Separator />
 

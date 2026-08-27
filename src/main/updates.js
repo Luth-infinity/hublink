@@ -3,10 +3,14 @@ const { app, net } = require('electron');
 const REPO = 'Luth-infinity/hublink';
 const LATEST = `https://api.github.com/repos/${REPO}/releases/latest`;
 
-// Une fois au démarrage, puis une fois par demi-journée : inutile d'interroger
-// GitHub plus souvent pour un logiciel qui sort une version par semaine.
-const INTERVAL = 12 * 60 * 60 * 1000;
-const FIRST_DELAY = 20_000;
+// Une application de ce genre reste ouverte des jours : une vérification par
+// demi-journée laissait passer des versions publiées entre-temps. On repasse
+// toutes les deux heures, et à chaque retour sur la fenêtre.
+const INTERVAL = 2 * 60 * 60 * 1000;
+const FIRST_DELAY = 15_000;
+// Garde-fou sur le retour de focus : l'API GitHub anonyme plafonne à 60
+// requêtes par heure, et on peut revenir sur la fenêtre vingt fois par minute.
+const FOCUS_THROTTLE = 20 * 60 * 1000;
 
 /** Compare deux versions « 0.3.10 » sans dépendance semver. */
 function isNewer(candidate, current) {
@@ -61,16 +65,27 @@ async function check() {
  */
 function watch(onFound) {
   let timer = null;
+  let lastRun = 0;
+
   const run = async () => {
+    lastRun = Date.now();
     const update = await check();
     if (update) onFound(update);
   };
+
   const start = setTimeout(() => {
     run();
     timer = setInterval(run, INTERVAL);
     if (timer.unref) timer.unref();
   }, FIRST_DELAY);
   if (start.unref) start.unref();
+
+  // À appeler au retour sur la fenêtre : c'est le moment où l'utilisateur
+  // regarde, donc celui où la nouvelle doit être fraîche.
+  return function checkOnFocus() {
+    if (Date.now() - lastRun < FOCUS_THROTTLE) return;
+    run();
+  };
 }
 
 module.exports = { check, watch, isNewer };
