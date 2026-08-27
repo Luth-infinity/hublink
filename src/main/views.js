@@ -228,6 +228,22 @@ class ViewManager {
     return view;
   }
 
+  // Rafraîchit la barre d'URL pour le service affiché. Indispensable au moment
+  // d'un changement de service : une vue déjà chargée n'émet aucun événement de
+  // navigation, la barre resterait donc sur l'URL du service précédent.
+  emitNavState(serviceId) {
+    const view = this.views.get(serviceId);
+    if (!view || view.webContents.isDestroyed()) return;
+    const wc = view.webContents;
+    this.onEvent('nav-state', {
+      serviceId,
+      url: wc.getURL(),
+      canGoBack: wc.navigationHistory.canGoBack(),
+      canGoForward: wc.navigationHistory.canGoForward(),
+      loading: wc.isLoading()
+    });
+  }
+
   wire(view, serviceId) {
     const wc = view.webContents;
     const emit = (type, payload) => this.onEvent(type, { serviceId, ...payload });
@@ -332,6 +348,7 @@ class ViewManager {
     view.setBounds(this.bounds);
     view.setVisible(!this.overlay);
     if (!this.overlay) view.webContents.focus();
+    this.emitNavState(serviceId);
   }
 
   // Appelé quand une modale ou un menu du shell s'ouvre / se ferme.

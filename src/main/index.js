@@ -63,7 +63,9 @@ function createWindow() {
     // l'état complet (qui embarque les logos en base64 de tous les clients).
     if (type === 'service-meta') send('service:meta', payload);
     if (type === 'service-slept') send('service:slept', payload);
-    if (type === 'nav-state') send('nav:state', payload);
+    // Une vue en arrière-plan continue de naviguer (rechargement, SPA) : sans ce
+    // filtre, elle écrase la barre d'URL du service réellement affiché.
+    if (type === 'nav-state' && payload.serviceId === views.currentId) send('nav:state', payload);
     if (type === 'load-error') toast('error', `Chargement impossible : ${payload.desc}`);
   };
 
