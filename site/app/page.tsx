@@ -321,10 +321,7 @@ function Footer() {
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-line pt-8 sm:flex-row">
         <p className="flex items-center gap-2 text-[14px] text-ink-soft">
           <Logo className="size-5" />
-          Hublink — un outil de{' '}
-          <a href="https://posidea.fr" className="underline underline-offset-4 hover:text-ink">
-            Posidea
-          </a>
+          Hublink — un outil de Luth
         </p>
         <div className="flex items-center gap-5 text-[14px] text-ink-soft">
           <a href={REPO} className="hover:text-ink">
