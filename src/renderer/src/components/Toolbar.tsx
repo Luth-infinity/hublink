@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ExternalLink,
+  ArrowDownToLine,
   Camera,
   Home,
   PanelLeft,
@@ -10,7 +11,7 @@ import {
   RotateCw,
   X
 } from 'lucide-react';
-import type { LoadedExtension, MenuItem, NavState, Service } from '@/types';
+import type { LoadedExtension, MenuItem, NavState, Service, Update } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -20,6 +21,7 @@ type Props = {
   isMac: boolean;
   sidebarCollapsed: boolean;
   loadedExtensions: LoadedExtension[];
+  update: Update | null;
   onToggleSidebar: () => void;
   onOpenExtensions: () => void;
 };
@@ -30,6 +32,7 @@ export function Toolbar({
   isMac,
   sidebarCollapsed,
   loadedExtensions,
+  update,
   onToggleSidebar,
   onOpenExtensions
 }: Props) {
@@ -155,6 +158,17 @@ export function Toolbar({
       </div>
 
       <div className="no-drag flex items-center gap-0.5">
+        {update && (
+          <button
+            type="button"
+            onClick={() => api.openExternal(update.url)}
+            title={`Hublink ${update.version} est disponible`}
+            className="mr-1 flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-500/25 dark:text-emerald-300"
+          >
+            <ArrowDownToLine className="size-3" />
+            {update.version}
+          </button>
+        )}
         <Button
           variant="ghost"
           size="icon-sm"

@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld('hublink', {
   popupMenu: (items) => invoke('menu:popup', items),
   openExternal: (url) => invoke('app:open-external', url),
   about: () => invoke('app:about'),
+  checkUpdate: () => invoke('update:check'),
+  onUpdateAvailable: (handler) => on('update:available', handler),
   setTheme: (theme) => invoke('app:set-theme', theme),
   setSleepDelay: (minutes) => invoke('app:set-sleep', minutes),
   setBadge: (payload) => ipcRenderer.send('app:badge', payload),

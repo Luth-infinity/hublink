@@ -85,6 +85,11 @@ function createWindow() {
   });
 
   win.once('ready-to-show', () => win.show());
+
+  // On signale la mise à jour, on ne l'installe pas : l'installation silencieuse
+  // exige une application signée sur macOS (contrainte de Squirrel.Mac). Le
+  // signalement, lui, fonctionne sur les deux plateformes sans certificat.
+  updates.watch((update) => send('update:available', update));
 }
 
 function persistWindow() {

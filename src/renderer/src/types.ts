@@ -87,6 +87,9 @@ export type LoadedExtension = {
 
 export type Shortcut = { type: string; index?: number };
 
+/** Version publiée plus récente que celle installée. */
+export type Update = { version: string; url: string; page: string; notes: string };
+
 export type Toast = { variant: 'success' | 'error'; message: string };
 
 export type MenuItem =
@@ -146,6 +149,8 @@ declare global {
       popupMenu(items: MenuItem[]): Promise<string | null>;
       openExternal(url: string): Promise<void>;
       about(): Promise<{ version: string; electron: string; chrome: string; userData: string }>;
+      checkUpdate(): Promise<Update | null>;
+      onUpdateAvailable(handler: (update: Update) => void): () => void;
       setTheme(theme: Theme): Promise<void>;
       /** 0 = jamais mettre en veille. */
       setSleepDelay(minutes: number): Promise<void>;

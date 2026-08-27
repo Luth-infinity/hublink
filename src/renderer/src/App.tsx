@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Toaster, toast } from 'sonner';
 import { Plus } from 'lucide-react';
-import type { Account, AppState, LoadedExtension, NavState, Service, Theme } from '@/types';
+import type { Account, AppState, LoadedExtension, NavState, Service, Theme, Update } from '@/types';
 import { Button } from '@/components/ui/button';
 import { accountTints, useSyncedTheme } from '@/lib/theme';
 import { drawOverlayBadge } from '@/lib/badge';
@@ -34,6 +34,7 @@ export default function App() {
   // Services libérés de la mémoire : on le signale plutôt que de laisser
   // l'utilisateur se demander pourquoi la page s'est rechargée.
   const [sleeping, setSleeping] = React.useState<string[]>([]);
+  const [update, setUpdate] = React.useState<Update | null>(null);
 
   const contentRef = React.useRef<HTMLDivElement>(null);
 
@@ -65,6 +66,8 @@ export default function App() {
   }, []);
 
   React.useEffect(() => api.nav.onState(setNav), []);
+
+  React.useEffect(() => api.onUpdateAvailable(setUpdate), []);
 
   React.useEffect(
     () => api.onToast(({ variant, message }) => (variant === 'error' ? toast.error(message) : toast.success(message))),
@@ -268,6 +271,7 @@ export default function App() {
           isMac={isMac}
           sidebarCollapsed={state.sidebarCollapsed}
           loadedExtensions={loadedExtensions}
+          update={update}
           onToggleSidebar={toggleSidebar}
           onOpenExtensions={openExtensions}
         />
