@@ -1,7 +1,5 @@
-import * as React from 'react';
 import { Monitor, Moon, Pencil, Plus, Sun, Timer, Trash2, TriangleAlert } from 'lucide-react';
 import type { Account, AppState, Service, Theme } from '@/types';
-
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { ExtensionsPanel } from '@/components/ExtensionsPanel';
@@ -55,72 +54,75 @@ export function SettingsDialog({
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[86vh] gap-4 sm:max-w-3xl">
+      {/* Hauteur figée : sans elle, la fenêtre bondissait à chaque changement
+          d'onglet, le contenu n'ayant pas la même longueur. Seule la zone de
+          contenu défile. */}
+      <DialogContent className="flex h-[min(620px,86vh)] flex-col gap-4 sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Paramètres</DialogTitle>
           <DialogDescription>Comptes, extensions et comportement de l'application.</DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={onTabChange} className="min-h-0">
+        <Tabs value={tab} onValueChange={onTabChange} className="min-h-0 flex-1">
           <TabsList className="w-full">
-            <TabsTrigger value="comptes">Comptes</TabsTrigger>
+            <TabsTrigger value="general">Général</TabsTrigger>
             <TabsTrigger value="extensions">Extensions</TabsTrigger>
-            <TabsTrigger value="apparence">Apparence</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
             <TabsTrigger value="apropos">À propos</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="comptes" className="max-h-[54vh] overflow-y-auto pr-1">
-            <p className="mb-3 text-sm text-muted-foreground">
-              Un compte = une session isolée. Les services qui le partagent restent connectés ensemble —
-              un seul login SSO pour la messagerie, l'intranet et les outils d'un même client. Sa couleur
-              teinte l'interface quand on filtre dessus.
-            </p>
-            <ul className="flex flex-col gap-2">
-              {state.accounts.map((item) => {
-                const attached = state.services.filter((s) => s.accountId === item.id).length;
-                return (
-                  <li key={item.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
-                    <AccountAvatar account={item} className="size-9 rounded-lg" textClassName="text-sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {attached === 0 ? 'Aucun service' : `${attached} service${attached > 1 ? 's' : ''}`}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Modifier ${item.name}`}
-                      onClick={() => onEditAccount(item)}
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Supprimer ${item.name}`}
-                      disabled={state.accounts.length <= 1}
-                      onClick={() => onDeleteAccount(item)}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
-            <Button variant="outline" className="mt-3 w-full gap-2" onClick={onCreateAccount}>
-              <Plus /> Nouveau compte
-            </Button>
-          </TabsContent>
+          <TabsContent value="general" className="min-h-0 overflow-y-auto pr-1 data-[state=inactive]:hidden">
+            <section className="grid gap-3">
+              <div className="grid gap-1">
+                <h3 className="text-sm font-medium">Comptes</h3>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Un compte = une session isolée. Les services qui le partagent restent connectés
+                  ensemble — un seul login SSO pour la messagerie, l'intranet et les outils d'un même
+                  client. Sa couleur teinte l'interface quand on filtre dessus.
+                </p>
+              </div>
 
-          <TabsContent value="extensions" className="max-h-[54vh] overflow-y-auto pr-1">
-            <ExtensionsPanel state={state} account={account} />
-          </TabsContent>
+              <ul className="flex flex-col gap-2">
+                {state.accounts.map((item) => {
+                  const attached = state.services.filter((s) => s.accountId === item.id).length;
+                  return (
+                    <li key={item.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                      <AccountAvatar account={item} className="size-9 rounded-lg" textClassName="text-sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {attached === 0 ? 'Aucun service' : `${attached} service${attached > 1 ? 's' : ''}`}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Modifier ${item.name}`}
+                        onClick={() => onEditAccount(item)}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Supprimer ${item.name}`}
+                        disabled={state.accounts.length <= 1}
+                        onClick={() => onDeleteAccount(item)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <Button variant="outline" className="w-full gap-2" onClick={onCreateAccount}>
+                <Plus /> Nouveau compte
+              </Button>
+            </section>
 
-          <TabsContent value="apparence" className="max-h-[54vh] overflow-y-auto pr-1">
-            <div className="grid gap-2">
-              <p className="text-sm font-medium">Thème</p>
+            <Separator className="my-6" />
+
+            <section className="grid gap-2">
+              <h3 className="text-sm font-medium">Thème</h3>
               <div className="flex gap-2">
                 {THEMES.map(({ value, label, icon: Icon }) => (
                   <Button
@@ -135,20 +137,20 @@ export function SettingsDialog({
                   </Button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 « Système » suit le réglage de macOS ou de Windows. La couleur du compte filtré teinte
                 légèrement l'interface, dans les deux thèmes.
               </p>
-            </div>
-          </TabsContent>
+            </section>
 
-          <TabsContent value="performance" className="max-h-[54vh] overflow-y-auto pr-1">
-            <div className="grid gap-3">
+            <Separator className="my-6" />
+
+            <section className="grid gap-3">
               <div className="grid gap-1">
-                <p className="flex items-center gap-2 text-sm font-medium">
+                <h3 className="flex items-center gap-2 text-sm font-medium">
                   <Timer className="size-4" /> Mise en veille des services inactifs
-                </p>
-                <p className="text-xs text-muted-foreground">
+                </h3>
+                <p className="text-xs leading-relaxed text-muted-foreground">
                   Chaque service ouvert est un processus complet, autour de 110 Mo. Les libérer quand on
                   ne les consulte plus évite de faire ramer la machine ; ils se rechargent au clic, sans
                   déconnexion.
@@ -173,15 +175,19 @@ export function SettingsDialog({
                 <p className="flex items-start gap-2 rounded-md border border-border p-2 text-xs text-muted-foreground">
                   <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
                   <span>
-                    Avec {services.length} services et aucune mise en veille, l'app peut dépasser
-                    {' '}{services.length * 110} Mo.
+                    Avec {services.length} services et aucune mise en veille, l'app peut dépasser{' '}
+                    {services.length * 110} Mo.
                   </span>
                 </p>
               )}
-            </div>
+            </section>
           </TabsContent>
 
-          <TabsContent value="apropos" className="max-h-[54vh] overflow-y-auto pr-1">
+          <TabsContent value="extensions" className="min-h-0 overflow-y-auto pr-1 data-[state=inactive]:hidden">
+            <ExtensionsPanel state={state} account={account} />
+          </TabsContent>
+
+          <TabsContent value="apropos" className="min-h-0 overflow-y-auto pr-1 data-[state=inactive]:hidden">
             <AboutPanel />
           </TabsContent>
         </Tabs>
@@ -189,4 +195,3 @@ export function SettingsDialog({
     </Dialog>
   );
 }
-

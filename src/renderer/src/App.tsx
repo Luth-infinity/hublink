@@ -30,7 +30,7 @@ export default function App() {
   // Un seul point d'entrée pour tous les réglages, plutôt que trois entrées
   // séparées en pied de panneau.
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [settingsTab, setSettingsTab] = React.useState('comptes');
+  const [settingsTab, setSettingsTab] = React.useState('general');
   // Services libérés de la mémoire : on le signale plutôt que de laisser
   // l'utilisateur se demander pourquoi la page s'est rechargée.
   const [sleeping, setSleeping] = React.useState<string[]>([]);
@@ -189,11 +189,11 @@ export default function App() {
     [allIds]
   );
 
-  const openSettings = React.useCallback((tab = 'comptes') => {
+  const openSettings = React.useCallback((tab = 'general') => {
     setSettingsTab(tab);
     setSettingsOpen(true);
   }, []);
-  const openAccounts = React.useCallback(() => openSettings('comptes'), [openSettings]);
+  const openAccounts = React.useCallback(() => openSettings('general'), [openSettings]);
   const openExtensions = React.useCallback(() => openSettings('extensions'), [openSettings]);
   const setTheme = React.useCallback((theme: Theme) => api.setTheme(theme), []);
   const setSleepDelay = React.useCallback((minutes: number) => api.setSleepDelay(minutes), []);

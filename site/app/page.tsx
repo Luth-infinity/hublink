@@ -1,10 +1,11 @@
 import Image from 'next/image';
 import { Reveal } from './reveal';
+import { getReleases } from './releases';
 import { SUPPORT_URL } from './support';
 
 const REPO = 'https://github.com/Luth-infinity/hublink';
 const RELEASE = `${REPO}/releases/latest`;
-const VERSION = '0.3.2';
+const VERSION = '0.3.3';
 
 const DOWNLOADS = {
   mac: `${REPO}/releases/download/v${VERSION}/Hublink-${VERSION}-arm64.dmg`,
@@ -31,6 +32,9 @@ function Nav() {
         </a>
         <a href="#a-savoir" className="hidden rounded-full px-3 py-1.5 text-sm text-ink-soft transition-colors hover:text-ink md:block">
           Bon à savoir
+        </a>
+        <a href="#versions" className="hidden rounded-full px-3 py-1.5 text-sm text-ink-soft transition-colors hover:text-ink md:block">
+          Versions
         </a>
         <a
           href={REPO}
@@ -112,7 +116,7 @@ function Pourquoi() {
     <section id="pourquoi" className="px-4 py-24">
       <div className="mx-auto max-w-6xl">
         <h2 className="reveal headline text-[40px] sm:text-[54px]">Le problème, très concrètement.</h2>
-        <div className="reveal mt-8 max-w-[68ch] space-y-5 text-[17px] leading-relaxed text-ink-soft">
+        <div className="reveal mt-8 grid gap-x-12 gap-y-5 text-[17px] leading-relaxed text-ink-soft lg:grid-cols-2">
           <p>
             Vous travaillez pour trois clients. Chacun a son Microsoft 365, son Slack, son intranet.
             Dans un navigateur, ces comptes se marchent dessus : vous ouvrez Teams pour le client A,
@@ -123,7 +127,7 @@ function Pourquoi() {
             docks, trois endroits où chercher. Et sur Windows, Teams propose obstinément la clé
             d'accès de la session — qui n'est jamais le bon compte.
           </p>
-          <p className="font-medium text-ink">
+          <p className="font-medium text-ink lg:col-span-2">
             Hublink met tout dans une fenêtre, et garantit que les sessions ne se croisent jamais.
           </p>
         </div>
@@ -255,7 +259,7 @@ function ASavoir() {
     <section id="a-savoir" className="px-4 py-8">
       <div className="mx-auto max-w-6xl">
         <h2 className="reveal headline text-[40px] sm:text-[54px]">Bon à savoir.</h2>
-        <p className="reveal mt-6 max-w-[68ch] text-[17px] leading-relaxed text-ink-soft">
+        <p className="reveal mt-6 text-[17px] leading-relaxed text-ink-soft">
           Quatre points à connaître avant d'installer. Rien de bloquant, mais autant les dire ici
           plutôt que vous laisser les découvrir.
         </p>
@@ -263,7 +267,7 @@ function ASavoir() {
           {[
             [
               'Mots de passe',
-              "Votre gestionnaire fonctionne à côté : son application native remplit les champs, et sa version web s'ajoute comme n'importe quel service. Seule son extension de navigateur reste hors jeu."
+              "Les extensions de gestionnaires s'installent et s'ouvrent, mais ne vont pas au bout : il leur manque des API que le moteur n'expose pas. Le contournement qui marche : ajoutez le coffre web de votre gestionnaire comme service, et copiez-collez."
             ],
             [
               'Captures d’écran',
@@ -295,7 +299,7 @@ function Telecharger() {
       <div className="mx-auto max-w-6xl text-center">
         <Logo className="mx-auto size-14" />
         <h2 className="reveal headline mt-6 text-[40px] sm:text-[54px]">Prenez-le, il est libre.</h2>
-        <p className="reveal mx-auto mt-5 max-w-[48ch] text-[17px] leading-relaxed text-ink-soft">
+        <p className="reveal mx-auto mt-5 max-w-[60ch] text-[17px] leading-relaxed text-ink-soft">
           Gratuit, sous licence MIT, sans compte à créer. Version {VERSION}.
         </p>
         <div className="reveal mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -324,6 +328,65 @@ function Telecharger() {
   );
 }
 
+async function Changelog() {
+  const releases = await getReleases();
+  // Rien plutôt qu'une section vide si l'API GitHub n'a pas répondu.
+  if (releases.length === 0) return null;
+
+  return (
+    <section id="versions" className="px-4 py-8">
+      <div className="mx-auto max-w-6xl">
+        <h2 className="reveal headline text-[40px] sm:text-[54px]">Ce qui a changé.</h2>
+        <p className="reveal mt-6 text-[17px] leading-relaxed text-ink-soft">
+          Les {releases.length} dernières versions, telles que publiées sur GitHub.
+        </p>
+
+        <ol className="reveal mt-10 space-y-px overflow-hidden rounded-2xl bg-card ring-1 ring-line/60">
+          {releases.map((release, index) => (
+            <li
+              key={release.version}
+              className="grid gap-4 border-line/70 p-6 sm:grid-cols-[160px_1fr] sm:gap-8"
+              style={index > 0 ? { borderTopWidth: 1 } : undefined}
+            >
+              <div>
+                <p className="flex items-baseline gap-2 text-[17px] font-semibold tracking-tight">
+                  {release.version}
+                  {index === 0 && (
+                    <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] font-medium text-white">
+                      actuelle
+                    </span>
+                  )}
+                </p>
+                <p className="mt-1 text-[13px] text-ink-soft">{release.date}</p>
+              </div>
+              <div>
+                {release.points.length > 0 ? (
+                  <ul className="space-y-2 text-[15px] leading-relaxed text-ink-soft">
+                    {release.points.map((point) => (
+                      <li key={point} className="flex gap-2.5">
+                        <span className="mt-2 size-1 shrink-0 rounded-full bg-ink-soft/50" />
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[15px] text-ink-soft">Corrections et ajustements.</p>
+                )}
+                <a
+                  href={release.page}
+                  className="mt-3 inline-block text-[13px] text-ink-soft underline underline-offset-4 hover:text-ink"
+                >
+                  Détail et fichiers
+                </a>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
 function Soutenir() {
   // Rien plutôt qu'un lien mort : la section disparaît tant que le pseudo n'est
   // pas renseigné dans support.ts.
@@ -333,8 +396,10 @@ function Soutenir() {
     <section id="soutenir" className="px-4 pb-24">
       <div className="mx-auto max-w-6xl">
         <div className="reveal rounded-[24px] bg-card p-8 shadow-[0_1px_2px_rgba(11,12,14,.05),0_16px_40px_-20px_rgba(11,12,14,.18)] ring-1 ring-line/60 sm:p-12">
-          <h2 className="headline text-[32px] sm:text-[42px]">Hublink est gratuit. Il n'est pas gratuit à faire.</h2>
-          <p className="mt-5 max-w-[54ch] text-[16px] leading-relaxed text-ink-soft">
+          <h2 className="headline max-w-[20ch] text-[32px] sm:text-[42px]">
+            Hublink est gratuit. Il n'est pas gratuit à faire.
+          </h2>
+          <p className="mt-5 text-[16px] leading-relaxed text-ink-soft">
             Pas de compte, pas d'abonnement, pas de collecte : l'app est libre et le restera. Si elle
             vous fait gagner du temps chaque jour, un café aide à payer les heures du soir.
           </p>
@@ -403,6 +468,7 @@ export default function Page() {
           <Chiffres />
           <Sombre />
           <ASavoir />
+          <Changelog />
           <Telecharger />
           <Soutenir />
           <Footer />
