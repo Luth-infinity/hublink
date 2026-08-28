@@ -1,5 +1,6 @@
-import { Monitor, Moon, Pencil, Plus, Sun, Timer, Trash2, TriangleAlert } from 'lucide-react';
+import { Ban, Monitor, Moon, Pencil, Plus, Sun, Timer, Trash2, TriangleAlert } from 'lucide-react';
 import type { Account, AppState, Service, Theme } from '@/types';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -38,6 +39,19 @@ type Props = {
   onSetTheme: (theme: Theme) => void;
   onSetSleepDelay: (minutes: number) => void;
 };
+
+// Les mêmes teintes que celles proposées pour les comptes, plus le neutre.
+const ACCENTS: { nom: string; valeur: string | null }[] = [
+  { nom: 'Neutre', valeur: null },
+  { nom: 'Bleu', valeur: '#3b82f6' },
+  { nom: 'Violet', valeur: '#8b5cf6' },
+  { nom: 'Rose', valeur: '#ec4899' },
+  { nom: 'Orange', valeur: '#f97316' },
+  { nom: 'Ambre', valeur: '#f59e0b' },
+  { nom: 'Vert', valeur: '#10b981' },
+  { nom: 'Cyan', valeur: '#06b6d4' },
+  { nom: 'Ardoise', valeur: '#64748b' }
+];
 
 export function SettingsDialog({
   open,
@@ -174,6 +188,38 @@ export function SettingsDialog({
 
               <Separator />
 
+              <div className="grid gap-2">
+                <h3 className="text-sm font-medium">Teinte du mode navigateur</h3>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Le mode navigateur n'appartient à aucun compte : il n'a donc pas de couleur d'où
+                  se teinter. Choisissez la sienne, ou laissez-le neutre.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {ACCENTS.map(({ nom, valeur }) => {
+                    const actif = state.accentColor === valeur;
+                    return (
+                      <button
+                        key={nom}
+                        type="button"
+                        onClick={() => window.hublink.setAccent(valeur)}
+                        title={nom}
+                        aria-label={nom}
+                        aria-pressed={actif}
+                        className={cn(
+                          'size-6 rounded-full border transition-transform hover:scale-110',
+                          actif ? 'border-foreground ring-2 ring-foreground/25' : 'border-border'
+                        )}
+                        style={valeur ? { backgroundColor: valeur } : undefined}
+                      >
+                        {!valeur && <Ban className="mx-auto size-3.5 text-muted-foreground" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="flex items-start justify-between gap-4">
                 <div className="grid gap-1">
                   <h3 className="text-sm font-medium">Bloquer les publicités</h3>
@@ -204,7 +250,17 @@ export function SettingsDialog({
           </TabsContent>
 
           <TabsContent value="extensions" className="min-h-0 overflow-y-auto pr-1 data-[state=inactive]:hidden">
-            <ExtensionsPanel state={state} account={account} />
+            {/* Le navigateur n'est pas un compte, mais il a sa propre session :
+                on lui prête une fiche pour que les extensions s'y activent
+                comme ailleurs. */}
+            <ExtensionsPanel
+              state={state}
+              account={
+                state.browserMode
+                  ? { id: '__browser__', name: 'Mode navigateur', color: '#64748b' }
+                  : account
+              }
+            />
           </TabsContent>
 
           <TabsContent value="apropos" className="min-h-0 overflow-y-auto pr-1 data-[state=inactive]:hidden">

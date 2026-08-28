@@ -39,6 +39,10 @@ function seed() {
     // Bloqueur de pub du mode navigateur : actif par défaut, sans réglage à
     // faire. Il ne touche jamais les sessions des comptes.
     blockAds: true,
+    // Favoris du mode navigateur, et teinte choisie pour ce mode : sans compte
+    // actif, le shell n'a aucune couleur d'où se teinter.
+    favorites: [],
+    accentColor: null,
     extensions: [],
     window: { width: 1440, height: 900, x: null, y: null, maximized: false }
   };
@@ -88,6 +92,8 @@ function normalize(state) {
   if (!Array.isArray(state.tabs)) state.tabs = [];
   if (typeof state.browserMode !== 'boolean') state.browserMode = false;
   if (typeof state.blockAds !== 'boolean') state.blockAds = true;
+  if (!Array.isArray(state.favorites)) state.favorites = [];
+  if (typeof state.accentColor !== 'string') state.accentColor = null;
   if (!state.theme) state.theme = 'system';
   if (typeof state.sidebarCollapsed !== 'boolean') state.sidebarCollapsed = false;
   if (typeof state.sleepAfterMinutes !== 'number') state.sleepAfterMinutes = 20;
@@ -335,6 +341,38 @@ function removeTab(id) {
 
 const getTab = (id) => load().tabs.find((t) => t.id === id) || null;
 
+
+function addFavorite({ title, url, favicon }) {
+  const s = load();
+  // Un même site ne se met en favori qu'une fois : au deuxième clic sur
+  // l'étoile, c'est un retrait qu'on attend, pas un doublon.
+  const existant = s.favorites.find((f) => f.url === url);
+  if (existant) return existant;
+  const favori = { id: uid('f'), title: title || '', url, favicon: favicon || null };
+  s.favorites.push(favori);
+  save();
+  return favori;
+}
+
+function removeFavoriteByUrl(url) {
+  const s = load();
+  const avant = s.favorites.length;
+  s.favorites = s.favorites.filter((f) => f.url !== url);
+  if (s.favorites.length !== avant) save();
+}
+
+function removeFavorite(id) {
+  const s = load();
+  s.favorites = s.favorites.filter((f) => f.id !== id);
+  save();
+}
+
+function setAccentColor(color) {
+  const s = load();
+  s.accentColor = color || null;
+  save();
+}
+
 module.exports = {
   FILE,
   uid,
@@ -358,5 +396,9 @@ module.exports = {
   addTab,
   getTab,
   updateTabIfChanged,
-  removeTab
+  removeTab,
+  addFavorite,
+  removeFavorite,
+  removeFavoriteByUrl,
+  setAccentColor
 };

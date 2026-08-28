@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { Compass, Moon, Plus, Settings, X } from 'lucide-react';
-import type { Account, MenuItem, Service, Tab } from '@/types';
+import { Compass, Moon, Plus, Settings, Star, X } from 'lucide-react';
+import type { Account, Favorite, MenuItem, Service, Tab } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -38,6 +38,9 @@ type Props = {
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string) => void;
   onAddTab: () => void;
+  favorites: Favorite[];
+  onOpenFavorite: (id: string) => void;
+  onRemoveFavorite: (id: string) => void;
 };
 
 function Badge({ count, className }: { count: number; className?: string }) {
@@ -85,7 +88,10 @@ function SidebarImpl({
   onToggleBrowser,
   onSelectTab,
   onCloseTab,
-  onAddTab
+  onAddTab,
+  favorites,
+  onOpenFavorite,
+  onRemoveFavorite
 }: Props) {
   const accountById = React.useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   const [dragging, setDragging] = React.useState<string | null>(null);
@@ -254,7 +260,9 @@ function SidebarImpl({
     );
 
   if (browserMode) {
-    const TabIcon = ({ tab, className }: { tab: Tab; className?: string }) =>
+    // Onglets et favoris n'ont en commun que leur icône : c'est tout ce que
+    // le composant demande.
+    const TabIcon = ({ tab, className }: { tab: { favicon: string | null }; className?: string }) =>
       tab.favicon ? (
         <img src={tab.favicon} alt="" className={cn('shrink-0 rounded-sm', className)} />
       ) : (
@@ -278,6 +286,60 @@ function SidebarImpl({
             collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2'
           )}
         >
+          {favorites.length > 0 && (
+            <>
+              {!collapsed && (
+                <p className="px-2 pt-1 pb-1 text-[11px] font-medium tracking-wide text-shell-muted uppercase">
+                  Favoris
+                </p>
+              )}
+              {favorites.map((favori) =>
+                collapsed ? (
+                  <button
+                    key={favori.id}
+                    type="button"
+                    onClick={() => onOpenFavorite(favori.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      onRemoveFavorite(favori.id);
+                    }}
+                    title={favori.title || hostOf(favori.url)}
+                    className="grid size-9 shrink-0 place-items-center rounded-lg transition-colors hover:bg-shell-hover"
+                  >
+                    <TabIcon tab={favori} className="size-[18px]" />
+                  </button>
+                ) : (
+                  <div
+                    key={favori.id}
+                    className="group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-shell-hover"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onOpenFavorite(favori.id)}
+                      title={favori.url}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    >
+                      <TabIcon tab={favori} className="size-4" />
+                      <span className="min-w-0 flex-1 truncate text-[13px]">
+                        {favori.title || hostOf(favori.url)}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveFavorite(favori.id)}
+                      title="Retirer des favoris"
+                      aria-label={`Retirer ${favori.title || hostOf(favori.url)} des favoris`}
+                      className="shrink-0 rounded p-0.5 text-shell-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-shell-foreground focus-visible:opacity-100"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                )
+              )}
+              <Separator className={cn('my-1.5 bg-shell-border', collapsed && 'mx-auto w-7')} />
+            </>
+          )}
+
           {tabs.map((tab) => {
             const active = tab.id === activeTabId;
             const asleep = sleeping.includes(tab.id);

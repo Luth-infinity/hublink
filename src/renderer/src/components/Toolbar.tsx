@@ -10,6 +10,7 @@ import {
   PanelLeftClose,
   Puzzle,
   RotateCw,
+  Star,
   X
 } from 'lucide-react';
 import type { LoadedExtension, MenuItem, NavState, Service, Update } from '@/types';
@@ -27,6 +28,9 @@ type Props = {
   onOpenExtensions: () => void;
   /** En mode navigateur, la barre d'adresse devient saisissable. */
   browserMode: boolean;
+  /** L'URL affichée figure déjà dans les favoris. */
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 };
 
 /**
@@ -73,6 +77,64 @@ function AddressInput({ url }: { url: string }) {
   );
 }
 
+/**
+ * Pastille de mise à jour.
+ *
+ * Sous Windows on télécharge et on installe sur place : le fichier ne passe
+ * pas par le navigateur, donc ni SmartScreen ni UAC. Ailleurs — macOS exigeant
+ * une app signée pour l'installation silencieuse — on ouvre la page de la
+ * version, comme avant.
+ */
+function UpdateBadge({ update }: { update: Update }) {
+  const api = window.hublink;
+  const [auto, setAuto] = React.useState(false);
+  const [percent, setPercent] = React.useState<number | null>(null);
+  const [pret, setPret] = React.useState(false);
+
+  React.useEffect(() => {
+    api.updater.canInstall().then(setAuto);
+  }, [api]);
+  React.useEffect(() => api.updater.onProgress(({ percent: p }) => setPercent(p)), [api]);
+
+  const libelle = pret
+    ? 'Redémarrer pour installer'
+    : percent !== null
+      ? `${percent} %`
+      : update.version;
+
+  const cliquer = async () => {
+    if (!auto) return api.openExternal(update.url);
+    if (pret) return api.updater.install();
+    if (percent !== null) return;
+    setPercent(0);
+    try {
+      await api.updater.download();
+      setPret(true);
+    } catch {
+      // Le téléchargement interne a échoué : la page de la version reste
+      // toujours accessible, on y renvoie plutôt que de laisser sans issue.
+      setPercent(null);
+      api.openExternal(update.page);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={cliquer}
+      title={
+        pret
+          ? `Hublink ${update.version} est prêt à s'installer`
+          : `Hublink ${update.version} est disponible`
+      }
+      className="mr-1 flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-500/25 dark:text-emerald-300"
+    >
+      <ArrowDownToLine className={cn('size-3', percent !== null && !pret && 'animate-pulse')} />
+      {libelle}
+    </button>
+  );
+}
+
 export function Toolbar({
   service,
   nav,
@@ -82,7 +144,9 @@ export function Toolbar({
   update,
   onToggleSidebar,
   onOpenExtensions,
-  browserMode
+  browserMode,
+  isFavorite,
+  onToggleFavorite
 }: Props) {
   const api = window.hublink;
 
@@ -196,11 +260,29 @@ export function Toolbar({
             {nav?.url ?? service?.url ?? 'Aucun service sélectionné'}
           </span>
         )}
+        {browserMode && nav?.url && !nav.url.startsWith('hublink://') && (
+          <button
+            type="button"
+            onClick={onToggleFavorite}
+            className={cn(
+              'ml-auto shrink-0 transition-colors',
+              isFavorite ? 'text-amber-500' : 'text-shell-muted hover:text-shell-foreground'
+            )}
+            aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            aria-pressed={isFavorite}
+            title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          >
+            <Star className={cn('size-3.5', isFavorite && 'fill-current')} />
+          </button>
+        )}
         {nav?.url && (
           <button
             type="button"
             onClick={() => api.openExternal(nav.url)}
-            className="ml-auto shrink-0 text-shell-muted transition-colors hover:text-shell-foreground"
+            className={cn(
+              'shrink-0 text-shell-muted transition-colors hover:text-shell-foreground',
+              !browserMode && 'ml-auto'
+            )}
             aria-label="Ouvrir dans le navigateur"
             title="Ouvrir dans le navigateur"
           >
@@ -210,17 +292,7 @@ export function Toolbar({
       </div>
 
       <div className="no-drag flex items-center gap-0.5">
-        {update && (
-          <button
-            type="button"
-            onClick={() => api.openExternal(update.url)}
-            title={`Hublink ${update.version} est disponible`}
-            className="mr-1 flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-500/25 dark:text-emerald-300"
-          >
-            <ArrowDownToLine className="size-3" />
-            {update.version}
-          </button>
-        )}
+        {update && <UpdateBadge update={update} />}
         <Button
           variant="ghost"
           size="icon-sm"
