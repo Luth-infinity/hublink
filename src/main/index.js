@@ -736,6 +736,9 @@ if (!app.requestSingleInstanceLock()) {
     buildMenu();
     createWindow();
     await restoreActive();
+    // Après l'affichage : ces services occupent de la mémoire sans être vus,
+    // ils ne doivent pas retarder l'apparition de la fenêtre.
+    views.preloadKeepAwake();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

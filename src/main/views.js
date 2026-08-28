@@ -388,6 +388,25 @@ class ViewManager {
     }
   }
 
+  /**
+   * Charge les services exemptés de veille, sans les afficher.
+   *
+   * Les exempter du balayage ne suffit pas : au démarrage seul le service
+   * actif a une page, les autres n'ont donc rien à signaler tant qu'on ne les
+   * a pas ouverts une fois. On les monte en arrière-plan, ce qui est
+   * précisément ce qu'on a accepté de payer en les marquant.
+   */
+  async preloadKeepAwake() {
+    for (const service of store.load().services) {
+      if (!service.keepAwake || this.views.has(service.id)) continue;
+      try {
+        await this.ensureView(service.id);
+      } catch (err) {
+        console.error('[views] préchargement impossible', service.name, err);
+      }
+    }
+  }
+
   async showTab(tabId) {
     if (!this.window) return;
     const view = await this.ensureTabView(tabId);
