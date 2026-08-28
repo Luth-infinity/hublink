@@ -1,21 +1,5 @@
 import * as React from 'react';
-import {
-  ArrowLeft,
-  ArrowRight,
-  ExternalLink,
-  ArrowDownToLine,
-  Camera,
-  Home,
-  PanelLeft,
-  PanelLeftClose,
-  Download as DownloadIcon,
-  FileDown,
-  FolderOpen,
-  Puzzle,
-  RotateCw,
-  Star,
-  X
-} from 'lucide-react';
+import { ArrowDownToLine, ArrowLeft, ArrowRight, Blocks, Camera, Download as DownloadIcon, ExternalLink, FileDown, FolderOpen, Home, PanelLeft, PanelLeftClose, PictureInPicture2, Puzzle, RotateCw, Star, X } from 'lucide-react';
 import type { Download, LoadedExtension, MenuItem, NavState, Service, Update } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -38,6 +22,8 @@ type Props = {
   onClearDownloads: () => void;
   downloadsOpen: boolean;
   onToggleDownloads: (open: boolean) => void;
+  /** La page courante a déjà joué une vidéo. */
+  hasVideo: boolean;
 };
 
 /**
@@ -339,9 +325,32 @@ export function Toolbar({
   downloads,
   onClearDownloads,
   downloadsOpen,
-  onToggleDownloads
+  onToggleDownloads,
+  hasVideo
 }: Props) {
   const api = window.hublink;
+
+  // Le Chrome Web Store n'installe rien de lui-même dans Hublink : son bouton
+  // « Ajouter à Chrome » s'appuie sur une API que le moteur n'expose pas. On
+  // reconnaît la fiche d'une extension et on propose de l'installer nous-mêmes,
+  // avec la mécanique qui existe déjà dans les réglages.
+  const storeId = React.useMemo(() => {
+    const url = nav?.url ?? '';
+    if (!/^https:\/\/chromewebstore\.google\.com\/detail\//.test(url)) return null;
+    const m = url.match(/([a-p]{32})/);
+    return m ? m[1] : null;
+  }, [nav?.url]);
+
+  const [installing, setInstalling] = React.useState(false);
+  const installerExtension = async () => {
+    if (!storeId) return;
+    setInstalling(true);
+    try {
+      await api.extensions.installFromStore(storeId);
+    } finally {
+      setInstalling(false);
+    }
+  };
 
   // Menu natif : un menu HTML serait masqué par la vue web, qui est une vue
   // native peinte au-dessus du shell.
@@ -485,6 +494,31 @@ export function Toolbar({
       </div>
 
       <div className="no-drag flex items-center gap-0.5">
+        {hasVideo && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => api.media.togglePictureInPicture()}
+            className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+            aria-label="Incrustation vidéo"
+            title="Incrustation vidéo — détacher la vidéo dans une fenêtre flottante"
+          >
+            <PictureInPicture2 />
+          </Button>
+        )}
+        {storeId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={installing}
+            onClick={installerExtension}
+            className="mr-1 h-7 gap-1.5 px-2 text-[11px] text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+            title="Installer cette extension dans Hublink"
+          >
+            <Blocks className="size-3.5" />
+            {installing ? 'Installation…' : 'Installer'}
+          </Button>
+        )}
         <DownloadsButton
           downloads={downloads}
           onClear={onClearDownloads}

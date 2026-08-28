@@ -61,6 +61,11 @@ contextBridge.exposeInMainWorld('hublink', {
     onProgress: (handler) => on('update:progress', handler)
   },
 
+  media: {
+    togglePictureInPicture: () => invoke('media:pip'),
+    onPresent: (handler) => on('media:present', handler)
+  },
+
   nav: {
     back: () => invoke('nav:back'),
     forward: () => invoke('nav:forward'),

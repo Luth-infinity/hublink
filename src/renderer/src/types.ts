@@ -189,6 +189,11 @@ declare global {
         onProgress(handler: (p: { percent: number }) => void): () => void;
       };
 
+      media: {
+        togglePictureInPicture(): Promise<string>;
+        onPresent(handler: (m: { id: string; present: boolean }) => void): () => void;
+      };
+
       nav: {
         back(): Promise<void>;
         forward(): Promise<void>;

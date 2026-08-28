@@ -91,6 +91,7 @@ function createWindow() {
     if (type === 'service-meta') send('service:meta', payload);
     if (type === 'service-slept') send('service:slept', payload);
     if (type === 'tab-meta') send('tab:meta', payload);
+    if (type === 'media-present') send('media:present', payload);
     if (type === 'download-started') send('download:started', payload);
     if (type === 'download-progress') send('download:progress', payload);
     if (type === 'download-done') send('download:done', payload);
@@ -487,6 +488,15 @@ function registerIpc() {
     if (!store.load().browserMode) return;
     const url = toNavigableUrl(input);
     if (url) views.withCurrent((wc) => wc.loadURL(url));
+  });
+
+  ipcMain.handle('media:pip', async () => {
+    const r = await views.togglePictureInPicture();
+    if (r === 'aucune') toast('error', 'Aucune vidéo sur cette page');
+    else if (typeof r === 'string' && r.startsWith('erreur:')) {
+      toast('error', `Incrustation impossible : ${r.slice(7)}`);
+    }
+    return r;
   });
 
   ipcMain.handle('update:check', () => updates.check());

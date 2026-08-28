@@ -64,6 +64,8 @@ export default function App() {
   // historique.
   const [downloads, setDownloads] = React.useState<Download[]>([]);
   const [downloadsOpen, setDownloadsOpen] = React.useState(false);
+  // Vues ayant déjà joué une vidéo : l'incrustation ne s'affiche que là.
+  const [avecMedia, setAvecMedia] = React.useState<string[]>([]);
 
   const contentRef = React.useRef<HTMLDivElement>(null);
 
@@ -101,6 +103,16 @@ export default function App() {
   React.useEffect(() => api.nav.onState(setNav), []);
 
   React.useEffect(() => api.onUpdateAvailable(setUpdate), []);
+
+  React.useEffect(
+    () =>
+      api.media.onPresent(({ id, present }) =>
+        setAvecMedia((prev) =>
+          present ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((x) => x !== id)
+        )
+      ),
+    []
+  );
 
   // Un téléchargement se signale à son terme, pas à chaque bloc reçu : un
   // fichier de quelques centaines de kilo-octets arrive avant qu'on ait lu la
@@ -398,6 +410,9 @@ export default function App() {
           onClearDownloads={clearDownloads}
           downloadsOpen={downloadsOpen}
           onToggleDownloads={setDownloadsOpen}
+          hasVideo={avecMedia.includes(
+            (state.browserMode ? state.activeTabId : state.activeServiceId) ?? ''
+          )}
           onToggleFavorite={toggleFavorite}
           loadedExtensions={loadedExtensions}
           update={update}

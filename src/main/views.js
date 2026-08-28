@@ -93,6 +93,9 @@ class ViewManager {
     // cesse de lire le titre : les deux sources se contrediraient, et le titre
     // remettrait le compteur à zéro à chaque changement de page.
     this.pastilleParApi = new Set();
+    // Vues dont la page a déjà joué une vidéo : l'incrustation n'a de sens que
+    // pour celles-là, on n'encombre pas la barre pour les autres.
+    this.avecMedia = new Set();
     this.sleepTimer = null;
     this.onEvent = () => {};
   }
@@ -345,6 +348,8 @@ class ViewManager {
     wc.on('did-navigate', nav);
     wc.on('did-navigate-in-page', nav);
 
+    this.wireMedia(wc, tabId);
+
     wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
       if (isMainFrame && code !== -3) this.onEvent('load-error', { serviceId: tabId, code, desc, url });
     });
@@ -405,6 +410,72 @@ class ViewManager {
         console.error('[views] préchargement impossible', service.name, err);
       }
     }
+  }
+
+  /**
+   * Suit la présence d'une vidéo dans une vue.
+   *
+   * `media-started-playing` est un signal natif de Chromium : il évite
+   * d'injecter un observateur dans chaque page, et il couvre aussi bien les
+   * services que les onglets du navigateur, dont les vues n'ont pas de preload.
+   */
+  wireMedia(wc, id) {
+    wc.on('media-started-playing', () => {
+      if (this.avecMedia.has(id)) return;
+      this.avecMedia.add(id);
+      this.onEvent('media-present', { id, present: true });
+    });
+    // Une nouvelle page repart sans vidéo tant qu'elle n'en a pas joué.
+    wc.on('did-navigate', () => {
+      if (!this.avecMedia.delete(id)) return;
+      this.onEvent('media-present', { id, present: false });
+    });
+  }
+
+  /**
+   * Ouvre ou ferme l'incrustation vidéo de la vue courante.
+   *
+   * L'appel doit passer pour un geste utilisateur, sinon Chromium le refuse —
+   * d'où le second argument d'`executeJavaScript`. On parcourt aussi les
+   * cadres enfants : un lecteur embarqué vit dans une iframe, invisible depuis
+   * le cadre principal.
+   */
+  async togglePictureInPicture() {
+    if (!this.current) return 'aucune-vue';
+    const code = `(async () => {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        return 'ferme';
+      }
+      const videos = [...document.querySelectorAll('video')];
+      const jouee = videos.find((v) => !v.paused && !v.ended);
+      const grande = videos
+        .slice()
+        .sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0];
+      const v = jouee || grande;
+      if (!v) return 'aucune';
+      // Certains sites posent l'attribut pour masquer le bouton du lecteur.
+      // La demande vient ici de l'utilisateur, via la barre de l'app.
+      if (v.disablePictureInPicture) v.disablePictureInPicture = false;
+      try {
+        await v.requestPictureInPicture();
+        return 'ouvert';
+      } catch (e) {
+        return 'erreur:' + e.message;
+      }
+    })()`;
+
+    const wc = this.current.webContents;
+    const cadres = [wc.mainFrame, ...wc.mainFrame.framesInSubtree.filter((f) => f !== wc.mainFrame)];
+    for (const cadre of cadres) {
+      try {
+        const r = await cadre.executeJavaScript(code, true);
+        if (r && r !== 'aucune') return r;
+      } catch {
+        // Cadre d'origine tierce inaccessible : on passe au suivant.
+      }
+    }
+    return 'aucune';
   }
 
   async showTab(tabId) {
@@ -530,6 +601,8 @@ class ViewManager {
     wc.on('did-stop-loading', nav);
     wc.on('did-navigate', nav);
     wc.on('did-navigate-in-page', nav);
+
+    this.wireMedia(wc, serviceId);
 
     wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
       if (isMainFrame && code !== -3) emit('load-error', { code, desc, url });
