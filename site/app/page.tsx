@@ -104,8 +104,8 @@ function Shot() {
         <Image
           src="/app-clair.png"
           alt="La fenêtre de Hublink : à gauche le panneau des services regroupés par compte, à droite la webapp affichée."
-          width={1440}
-          height={900}
+          width={1783}
+          height={1083}
           priority
           className="w-full rounded-[13px]"
         />
@@ -247,8 +247,8 @@ function Sombre() {
           <Image
             src="/app-sombre.png"
             alt="Hublink en thème sombre, la teinte du compte actif habillant le panneau."
-            width={1440}
-            height={900}
+            width={1783}
+            height={1083}
             className="w-full rounded-[13px]"
           />
         </div>
