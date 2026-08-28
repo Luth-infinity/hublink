@@ -524,6 +524,18 @@ function registerIpc() {
     if (favori) await openTab(favori.url);
   });
 
+  ipcMain.handle('history:open', async (_e, url) => openTab(url));
+
+  ipcMain.handle('history:remove', (_e, id) => {
+    store.removeHistory(id);
+    pushState();
+  });
+
+  ipcMain.handle('history:clear', () => {
+    store.clearHistory();
+    pushState();
+  });
+
   ipcMain.handle('app:set-accent', (_e, color) => {
     store.setAccentColor(color);
     pushState();

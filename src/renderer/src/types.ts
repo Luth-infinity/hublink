@@ -70,6 +70,16 @@ export type Favorite = {
   favicon: string | null;
 };
 
+/** Une page visitée en mode navigateur. */
+export type HistoryEntry = {
+  id: string;
+  url: string;
+  title: string;
+  favicon: string | null;
+  /** Dernier passage, en millisecondes. */
+  at: number;
+};
+
 export type Download = {
   id: string;
   name: string;
@@ -99,6 +109,7 @@ export type AppState = {
   /** Bloqueur de pub du mode navigateur. Sans effet sur les comptes. */
   blockAds: boolean;
   favorites: Favorite[];
+  history: HistoryEntry[];
   /** Teinte du shell en mode navigateur, faute de couleur de compte. */
   accentColor: string | null;
   extensions: ExtensionRecord[];
@@ -169,6 +180,9 @@ declare global {
         toggleFavorite(): Promise<boolean>;
         removeFavorite(id: string): Promise<void>;
         openFavorite(id: string): Promise<void>;
+        openHistory(url: string): Promise<void>;
+        removeHistory(id: string): Promise<void>;
+        clearHistory(): Promise<void>;
         selectTab(id: string): Promise<void>;
         closeTab(id: string): Promise<void>;
         onTabMeta(handler: (meta: TabMeta) => void): () => void;

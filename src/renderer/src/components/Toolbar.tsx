@@ -1,7 +1,15 @@
 import * as React from 'react';
-import { ArrowDownToLine, ArrowLeft, ArrowRight, Blocks, Camera, Download as DownloadIcon, ExternalLink, FileDown, FolderOpen, Home, PanelLeft, PanelLeftClose, PictureInPicture2, Puzzle, RotateCw, Star, X } from 'lucide-react';
-import type { Download, LoadedExtension, MenuItem, NavState, Service, Update } from '@/types';
-import { cn } from '@/lib/utils';
+import { ArrowDownToLine, ArrowLeft, ArrowRight, Blocks, Camera, Download as DownloadIcon, ExternalLink, FileDown, FolderOpen, History, Home, PanelLeft, PanelLeftClose, PictureInPicture2, Puzzle, RotateCw, Search, Star, Trash2, X } from 'lucide-react';
+import type {
+  Download,
+  HistoryEntry,
+  LoadedExtension,
+  MenuItem,
+  NavState,
+  Service,
+  Update
+} from '@/types';
+import { cn, hostOf } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 type Props = {
@@ -24,6 +32,9 @@ type Props = {
   onToggleDownloads: (open: boolean) => void;
   /** La page courante a déjà joué une vidéo. */
   hasVideo: boolean;
+  history: HistoryEntry[];
+  historyOpen: boolean;
+  onToggleHistory: (open: boolean) => void;
 };
 
 /**
@@ -310,6 +321,178 @@ function DownloadsButton({
   );
 }
 
+/** « Aujourd'hui », « Hier », puis la date — comme on cherche de tête. */
+function jour(at: number) {
+  const d = new Date(at);
+  const aujourdhui = new Date();
+  const hier = new Date(aujourdhui);
+  hier.setDate(hier.getDate() - 1);
+  const memeJour = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (memeJour(d, aujourdhui)) return "Aujourd'hui";
+  if (memeJour(d, hier)) return 'Hier';
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+}
+
+const heure = (at: number) =>
+  new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+/**
+ * Historique du mode navigateur.
+ *
+ * Le champ de recherche est dans le panneau, pas derrière un raccourci : on
+ * retrouve une page en tapant deux mots, à la souris, sans rien connaître.
+ */
+function HistoryButton({
+  history,
+  open,
+  onOpenChange
+}: {
+  history: HistoryEntry[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const api = window.hublink;
+  const [filtre, setFiltre] = React.useState('');
+
+  React.useEffect(() => {
+    if (!open) setFiltre('');
+  }, [open]);
+
+  const resultats = React.useMemo(() => {
+    const q = filtre.trim().toLowerCase();
+    if (!q) return history;
+    return history.filter(
+      (h) => h.title.toLowerCase().includes(q) || h.url.toLowerCase().includes(q)
+    );
+  }, [history, filtre]);
+
+  // Regroupé par journée, dans l'ordre où la liste arrive (la plus récente
+  // d'abord) : recalculer un tri ici défferait celui du store.
+  const groupes = React.useMemo(() => {
+    const out: { jour: string; entrees: HistoryEntry[] }[] = [];
+    for (const e of resultats) {
+      const j = jour(e.at);
+      const dernier = out[out.length - 1];
+      if (dernier && dernier.jour === j) dernier.entrees.push(e);
+      else out.push({ jour: j, entrees: [e] });
+    }
+    return out;
+  }, [resultats]);
+
+  return (
+    <div className="relative">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onOpenChange(!open)}
+        aria-label="Historique"
+        aria-expanded={open}
+        title="Historique"
+        className={cn(
+          'mr-1',
+          open
+            ? 'bg-shell-active text-shell-foreground'
+            : 'text-shell-muted hover:bg-shell-active hover:text-shell-foreground'
+        )}
+      >
+        <History />
+      </Button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => onOpenChange(false)} aria-hidden />
+          <div
+            role="dialog"
+            aria-label="Historique"
+            className="animate-in fade-in slide-in-from-top-1 absolute top-full right-0 z-50 mt-1.5 flex max-h-[420px] w-[360px] flex-col overflow-hidden rounded-lg border border-shell-border bg-shell-raised shadow-lg duration-150"
+          >
+            <div className="flex items-center justify-between border-b border-shell-border px-3 py-2">
+              <span className="text-[12px] font-medium text-shell-foreground">Historique</span>
+              {history.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => api.browser.clearHistory()}
+                  className="flex items-center gap-1 text-[11px] text-shell-muted transition-colors hover:text-shell-foreground"
+                >
+                  <Trash2 className="size-3" /> Tout effacer
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 border-b border-shell-border px-3 py-2">
+              <Search className="size-3.5 shrink-0 text-shell-muted" aria-hidden />
+              <input
+                value={filtre}
+                onChange={(e) => setFiltre(e.target.value)}
+                placeholder="Rechercher une page vue"
+                aria-label="Rechercher dans l'historique"
+                autoFocus
+                className="min-w-0 flex-1 bg-transparent text-[12px] text-shell-foreground outline-none placeholder:text-shell-muted"
+              />
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto py-1">
+              {groupes.length === 0 && (
+                <p className="px-3 py-6 text-center text-[12px] text-shell-muted">
+                  {history.length === 0
+                    ? 'Rien pour le moment. Les pages visitées en mode navigateur apparaîtront ici.'
+                    : 'Aucune page ne correspond.'}
+                </p>
+              )}
+
+              {groupes.map((groupe) => (
+                <div key={groupe.jour}>
+                  <p className="px-3 pt-2 pb-1 text-[10px] font-medium tracking-wide text-shell-muted uppercase">
+                    {groupe.jour}
+                  </p>
+                  <ul>
+                    {groupe.entrees.map((e) => (
+                      <li key={e.id} className="group flex items-center gap-2 px-3 py-1.5 hover:bg-shell-hover">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            api.browser.openHistory(e.url);
+                            onOpenChange(false);
+                          }}
+                          title={e.url}
+                          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                        >
+                          {e.favicon ? (
+                            <img src={e.favicon} alt="" className="size-4 shrink-0 rounded-sm" />
+                          ) : (
+                            <span className="size-4 shrink-0 rounded-sm bg-shell-active" aria-hidden />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[12px] text-shell-foreground">
+                              {e.title || hostOf(e.url)}
+                            </span>
+                            <span className="block truncate text-[11px] text-shell-muted">
+                              {hostOf(e.url)} · {heure(e.at)}
+                            </span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => api.browser.removeHistory(e.id)}
+                          aria-label={`Oublier ${e.title || hostOf(e.url)}`}
+                          title="Oublier cette page"
+                          className="shrink-0 rounded p-0.5 text-shell-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-shell-foreground focus-visible:opacity-100"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function Toolbar({
   service,
   nav,
@@ -326,7 +509,10 @@ export function Toolbar({
   onClearDownloads,
   downloadsOpen,
   onToggleDownloads,
-  hasVideo
+  hasVideo,
+  history,
+  historyOpen,
+  onToggleHistory
 }: Props) {
   const api = window.hublink;
 
@@ -518,6 +704,9 @@ export function Toolbar({
             <Blocks className="size-3.5" />
             {installing ? 'Installation…' : 'Installer'}
           </Button>
+        )}
+        {browserMode && (
+          <HistoryButton history={history} open={historyOpen} onOpenChange={onToggleHistory} />
         )}
         <DownloadsButton
           downloads={downloads}

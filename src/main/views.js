@@ -301,9 +301,19 @@ class ViewManager {
     const wc = view.webContents;
     const emit = (type, payload) => this.onEvent(type, { tabId, ...payload });
 
+    // L'historique ne suit que le navigateur : consigner chaque changement de
+    // canal dans Slack le noierait sous du bruit.
+    const noter = () => {
+      const t = store.getTab(tabId);
+      if (t) store.addHistory({ url: wc.getURL(), title: t.title, favicon: t.favicon });
+    };
+
     wc.on('page-title-updated', (_e, title) => {
       if (store.updateTabIfChanged(tabId, { title })) emit('tab-meta', { title });
+      noter();
     });
+
+    wc.on('did-stop-loading', noter);
 
     wc.on('page-favicon-updated', async (_e, favicons) => {
       const url = (favicons || []).find(isUsableFavicon);

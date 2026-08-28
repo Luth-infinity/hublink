@@ -43,6 +43,7 @@ function seed() {
     // actif, le shell n'a aucune couleur d'où se teinter.
     favorites: [],
     accentColor: null,
+    history: [],
     extensions: [],
     window: { width: 1440, height: 900, x: null, y: null, maximized: false }
   };
@@ -93,6 +94,7 @@ function normalize(state) {
   if (typeof state.browserMode !== 'boolean') state.browserMode = false;
   if (typeof state.blockAds !== 'boolean') state.blockAds = true;
   if (!Array.isArray(state.favorites)) state.favorites = [];
+  if (!Array.isArray(state.history)) state.history = [];
   if (typeof state.accentColor !== 'string') state.accentColor = null;
   if (!state.theme) state.theme = 'system';
   if (typeof state.sidebarCollapsed !== 'boolean') state.sidebarCollapsed = false;
@@ -387,6 +389,50 @@ function setAccentColor(color) {
   save();
 }
 
+
+// --- historique ------------------------------------------------------------
+
+// Assez pour retrouver ce qu'on a vu la semaine dernière, pas assez pour que
+// le fichier de configuration enfle — chaque entrée porte un favicon.
+const MAX_HISTORIQUE = 300;
+
+/**
+ * Note une page visitée.
+ *
+ * Une même adresse ne s'empile pas : revenir dessus la remonte en tête plutôt
+ * que de créer un doublon, sinon l'historique d'une seule session de travail
+ * suffirait à noyer celui de la veille.
+ */
+function addHistory({ url, title, favicon }) {
+  if (!url || url.startsWith('hublink://') || url === 'about:blank') return null;
+  const s = load();
+  const existant = s.history.find((h) => h.url === url);
+  if (existant) {
+    existant.at = Date.now();
+    if (title) existant.title = title;
+    if (favicon) existant.favicon = favicon;
+    s.history.sort((a, b) => b.at - a.at);
+    save();
+    return existant;
+  }
+  const entree = { id: uid('h'), url, title: title || '', favicon: favicon || null, at: Date.now() };
+  s.history.unshift(entree);
+  if (s.history.length > MAX_HISTORIQUE) s.history.length = MAX_HISTORIQUE;
+  save();
+  return entree;
+}
+
+function removeHistory(id) {
+  const s = load();
+  s.history = s.history.filter((h) => h.id !== id);
+  save();
+}
+
+function clearHistory() {
+  load().history = [];
+  save();
+}
+
 module.exports = {
   FILE,
   uid,
@@ -414,5 +460,8 @@ module.exports = {
   addFavorite,
   removeFavorite,
   removeFavoriteByUrl,
-  setAccentColor
+  setAccentColor,
+  addHistory,
+  removeHistory,
+  clearHistory
 };

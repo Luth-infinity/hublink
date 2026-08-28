@@ -64,6 +64,7 @@ export default function App() {
   // historique.
   const [downloads, setDownloads] = React.useState<Download[]>([]);
   const [downloadsOpen, setDownloadsOpen] = React.useState(false);
+  const [historyOpen, setHistoryOpen] = React.useState(false);
   // Vues ayant déjà joué une vidéo : l'incrustation ne s'affiche que là.
   const [avecMedia, setAvecMedia] = React.useState<string[]>([]);
 
@@ -215,7 +216,7 @@ export default function App() {
   // Sans ce masquage, une modale s'ouvre derrière la page — on ne voit que
   // l'overlay sombre et plus aucun clic n'aboutit.
   const overlayOpen =
-    serviceDialog.open || accountDialog.open || settingsOpen || downloadsOpen;
+    serviceDialog.open || accountDialog.open || settingsOpen || downloadsOpen || historyOpen;
   React.useEffect(() => {
     api.setOverlay(overlayOpen);
   }, [overlayOpen]);
@@ -410,6 +411,9 @@ export default function App() {
           onClearDownloads={clearDownloads}
           downloadsOpen={downloadsOpen}
           onToggleDownloads={setDownloadsOpen}
+          history={state.history}
+          historyOpen={historyOpen}
+          onToggleHistory={setHistoryOpen}
           hasVideo={avecMedia.includes(
             (state.browserMode ? state.activeTabId : state.activeServiceId) ?? ''
           )}

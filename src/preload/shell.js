@@ -41,6 +41,9 @@ contextBridge.exposeInMainWorld('hublink', {
     toggleFavorite: () => invoke('favorites:toggle'),
     removeFavorite: (id) => invoke('favorites:remove', id),
     openFavorite: (id) => invoke('favorites:open', id),
+    openHistory: (url) => invoke('history:open', url),
+    removeHistory: (id) => invoke('history:remove', id),
+    clearHistory: () => invoke('history:clear'),
     selectTab: (id) => invoke('tab:select', id),
     closeTab: (id) => invoke('tab:close', id),
     onTabMeta: (handler) => on('tab:meta', handler)
