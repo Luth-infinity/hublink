@@ -353,6 +353,15 @@ class ViewManager {
     });
   }
 
+  // La teinte est appliquée au moment où la page est servie : changer la
+  // couleur ne bouge donc rien tant qu'on ne recharge pas.
+  reloadStartPages() {
+    for (const [id, view] of this.views) {
+      if (!store.getTab(id) || view.webContents.isDestroyed()) continue;
+      if (view.webContents.getURL().startsWith('hublink://')) view.webContents.reload();
+    }
+  }
+
   async showTab(tabId) {
     if (!this.window) return;
     const view = await this.ensureTabView(tabId);

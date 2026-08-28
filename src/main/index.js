@@ -514,6 +514,7 @@ function registerIpc() {
   ipcMain.handle('app:set-accent', (_e, color) => {
     store.setAccentColor(color);
     pushState();
+    views.reloadStartPages();
   });
 
   ipcMain.handle('download:reveal', (_e, chemin) => downloadsMod.reveal(chemin));
