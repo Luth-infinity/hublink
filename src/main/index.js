@@ -17,6 +17,7 @@ const extensions = require('./extensions');
 const { isExternalUrl } = require('./urls');
 const capture = require('./capture');
 const updates = require('./updates');
+const downloadsMod = require('./downloads');
 
 const isDev = process.argv.includes('--dev') || !app.isPackaged;
 const DEV_SERVER = process.env.HUBLINK_DEV_SERVER || 'http://localhost:5273';
@@ -90,6 +91,9 @@ function createWindow() {
     if (type === 'service-meta') send('service:meta', payload);
     if (type === 'service-slept') send('service:slept', payload);
     if (type === 'tab-meta') send('tab:meta', payload);
+    if (type === 'download-started') send('download:started', payload);
+    if (type === 'download-progress') send('download:progress', payload);
+    if (type === 'download-done') send('download:done', payload);
     // Un lien `target="_blank"` : la vue demande un onglet, le shell le crée.
     if (type === 'tab-requested') openTab(payload.url);
     // Une vue en arrière-plan continue de naviguer (rechargement, SPA) : sans ce
@@ -483,6 +487,43 @@ function registerIpc() {
   });
 
   ipcMain.handle('update:check', () => updates.check());
+
+  // --- favoris, apparence, telechargements, mise a jour --------------------
+
+  ipcMain.handle('favorites:toggle', () => {
+    const state = store.load();
+    const tab = store.getTab(state.activeTabId);
+    if (!tab || !tab.url || tab.url.startsWith('hublink://')) return false;
+    const existant = state.favorites.some((f) => f.url === tab.url);
+    if (existant) store.removeFavoriteByUrl(tab.url);
+    else store.addFavorite({ title: tab.title, url: tab.url, favicon: tab.favicon });
+    pushState();
+    return !existant;
+  });
+
+  ipcMain.handle('favorites:remove', (_e, id) => {
+    store.removeFavorite(id);
+    pushState();
+  });
+
+  ipcMain.handle('favorites:open', async (_e, id) => {
+    const favori = store.load().favorites.find((f) => f.id === id);
+    if (favori) await openTab(favori.url);
+  });
+
+  ipcMain.handle('app:set-accent', (_e, color) => {
+    store.setAccentColor(color);
+    pushState();
+  });
+
+  ipcMain.handle('download:reveal', (_e, chemin) => downloadsMod.reveal(chemin));
+  ipcMain.handle('download:open', (_e, chemin) => downloadsMod.open(chemin));
+
+  ipcMain.handle('update:can-install', () => updates.canInstall());
+  ipcMain.handle('update:download', () =>
+    updates.download((percent) => send('update:progress', { percent }))
+  );
+  ipcMain.handle('update:install', () => updates.install());
 
   ipcMain.handle('app:about', () => ({
     version: app.getVersion(),

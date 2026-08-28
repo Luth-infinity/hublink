@@ -7,6 +7,7 @@ const { uaFor } = require('./ua');
 const favicon = require('./favicon');
 const startpage = require('./startpage');
 const adblock = require('./adblock');
+const downloads = require('./downloads');
 
 // Domaines d'authentification qui exigent une vraie popup : on les ouvre dans
 // une fenêtre enfant partageant la session, sinon le SSO casse.
@@ -132,6 +133,9 @@ class ViewManager {
       startpage.serveOn(ses);
       adblock.applyTo(ses);
     }
+    // Les téléchargements sont suivis sur toutes les sessions : un intranet de
+    // client sert des pièces jointes comme n'importe quel site.
+    downloads.watch(ses, (type, payload) => this.onEvent(type, payload));
     const entry = { session: ses, ready: null };
     this.sessions.set(accountId, entry);
 
@@ -190,6 +194,12 @@ class ViewManager {
     if (!entry) return [];
     const results = await extensions.applyToSession(entry.session, accountId);
     for (const [serviceId, view] of this.views) {
+      // Les onglets du navigateur n'ont pas de service : ils dépendent tous de
+      // la session du navigateur, et doivent donc se recharger avec elle.
+      if (store.getTab(serviceId)) {
+        if (accountId === BROWSER_ACCOUNT) view.webContents.reload();
+        continue;
+      }
       const service = store.getService(serviceId);
       if (service && service.accountId === accountId) view.webContents.reload();
     }

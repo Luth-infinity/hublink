@@ -44,7 +44,11 @@ export default function App() {
   // <html> : `--shell` est calculée sur `:root`, donc une variable définie sur
   // un descendant ne la ferait pas recalculer.
   const filteredAccount = state?.accounts.find((a) => a.id === state.activeAccountId) ?? null;
-  const filteredColor = filteredAccount?.color ?? null;
+  // En mode navigateur il n'y a pas de compte d'où tirer une couleur : c'est
+  // la teinte choisie dans les réglages qui habille le shell.
+  const filteredColor = state?.browserMode
+    ? (state.accentColor ?? null)
+    : (filteredAccount?.color ?? null);
   React.useEffect(() => {
     const root = document.documentElement;
     const tints = filteredColor ? accountTints(filteredColor, isDark) : null;
@@ -68,6 +72,24 @@ export default function App() {
   React.useEffect(() => api.nav.onState(setNav), []);
 
   React.useEffect(() => api.onUpdateAvailable(setUpdate), []);
+
+  // Un téléchargement se signale à son terme, pas à chaque bloc reçu : un
+  // fichier de quelques centaines de kilo-octets arrive avant qu'on ait lu la
+  // moindre progression.
+  React.useEffect(
+    () =>
+      api.downloads.onDone(({ name, path, state }) => {
+        if (state !== 'completed') {
+          toast.error(`Téléchargement interrompu : ${name}`);
+          return;
+        }
+        toast.success(name, {
+          description: 'Téléchargé',
+          action: { label: 'Ouvrir le dossier', onClick: () => api.downloads.reveal(path) }
+        });
+      }),
+    []
+  );
 
   // Titre, URL et favicon d'un onglet changent en continu : même traitement
   // que les services, on n'applique que le delta.
@@ -224,6 +246,9 @@ export default function App() {
   const filterAccount = React.useCallback((id: string | null) => api.accounts.filter(id), []);
 
   const toggleBrowser = React.useCallback((on: boolean) => api.browser.toggle(on), []);
+  const toggleFavorite = React.useCallback(() => api.browser.toggleFavorite(), []);
+  const openFavorite = React.useCallback((id: string) => api.browser.openFavorite(id), []);
+  const removeFavorite = React.useCallback((id: string) => api.browser.removeFavorite(id), []);
   const selectTab = React.useCallback((id: string) => {
     // Réveiller un onglet endormi : on retire la marque avant même le
     // rechargement, sinon la lune resterait affichée sur l'onglet actif.
@@ -306,6 +331,8 @@ export default function App() {
           isMac={isMac}
           sidebarCollapsed={state.sidebarCollapsed}
           browserMode={state.browserMode}
+          isFavorite={state.favorites.some((f) => f.url === (nav?.url ?? ''))}
+          onToggleFavorite={toggleFavorite}
           loadedExtensions={loadedExtensions}
           update={update}
           onToggleSidebar={toggleSidebar}
@@ -338,6 +365,9 @@ export default function App() {
             onSelectTab={selectTab}
             onCloseTab={closeTab}
             onAddTab={addTab}
+            favorites={state.favorites}
+            onOpenFavorite={openFavorite}
+            onRemoveFavorite={removeFavorite}
           />
 
           <main className="flex min-w-0 flex-1 flex-col">

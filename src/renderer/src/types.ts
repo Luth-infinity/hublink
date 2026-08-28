@@ -59,6 +59,24 @@ export type Tab = {
   favicon: string | null;
 };
 
+/** Un favori du mode navigateur. */
+export type Favorite = {
+  id: string;
+  title: string;
+  url: string;
+  favicon: string | null;
+};
+
+export type Download = {
+  id: string;
+  name: string;
+  path: string;
+  total: number;
+  received: number;
+  /** 'progress' tant qu'il tourne, puis l'état final rendu par Electron. */
+  state: 'progress' | 'completed' | 'cancelled' | 'interrupted';
+};
+
 export type Theme = 'system' | 'light' | 'dark';
 
 export type AppState = {
@@ -77,6 +95,9 @@ export type AppState = {
   activeTabId: string | null;
   /** Bloqueur de pub du mode navigateur. Sans effet sur les comptes. */
   blockAds: boolean;
+  favorites: Favorite[];
+  /** Teinte du shell en mode navigateur, faute de couleur de compte. */
+  accentColor: string | null;
   extensions: ExtensionRecord[];
   window: { width: number; height: number; x: number | null; y: number | null; maximized: boolean };
 };
@@ -142,9 +163,27 @@ declare global {
         toggle(on?: boolean): Promise<boolean>;
         addTab(url?: string): Promise<Tab>;
         setBlockAds(on: boolean): Promise<void>;
+        toggleFavorite(): Promise<boolean>;
+        removeFavorite(id: string): Promise<void>;
+        openFavorite(id: string): Promise<void>;
         selectTab(id: string): Promise<void>;
         closeTab(id: string): Promise<void>;
         onTabMeta(handler: (meta: TabMeta) => void): () => void;
+      };
+
+      downloads: {
+        reveal(path: string): Promise<void>;
+        open(path: string): Promise<string>;
+        onStarted(handler: (d: { id: string; name: string; total: number; path: string }) => void): () => void;
+        onProgress(handler: (d: { id: string; received: number; total: number; paused: boolean }) => void): () => void;
+        onDone(handler: (d: { id: string; name: string; path: string; state: string; total: number }) => void): () => void;
+      };
+
+      updater: {
+        canInstall(): Promise<boolean>;
+        download(): Promise<void>;
+        install(): Promise<void>;
+        onProgress(handler: (p: { percent: number }) => void): () => void;
       };
 
       nav: {
@@ -178,6 +217,7 @@ declare global {
       checkUpdate(): Promise<Update | null>;
       onUpdateAvailable(handler: (update: Update) => void): () => void;
       setTheme(theme: Theme): Promise<void>;
+      setAccent(color: string | null): Promise<void>;
       /** 0 = jamais mettre en veille. */
       setSleepDelay(minutes: number): Promise<void>;
       setBadge(payload: { total: number; overlay: string | null }): void;

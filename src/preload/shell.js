@@ -38,9 +38,27 @@ contextBridge.exposeInMainWorld('hublink', {
     toggle: (on) => invoke('browser:toggle', on),
     addTab: (url) => invoke('tab:add', url),
     setBlockAds: (on) => invoke('browser:set-block-ads', on),
+    toggleFavorite: () => invoke('favorites:toggle'),
+    removeFavorite: (id) => invoke('favorites:remove', id),
+    openFavorite: (id) => invoke('favorites:open', id),
     selectTab: (id) => invoke('tab:select', id),
     closeTab: (id) => invoke('tab:close', id),
     onTabMeta: (handler) => on('tab:meta', handler)
+  },
+
+  downloads: {
+    reveal: (path) => invoke('download:reveal', path),
+    open: (path) => invoke('download:open', path),
+    onStarted: (handler) => on('download:started', handler),
+    onProgress: (handler) => on('download:progress', handler),
+    onDone: (handler) => on('download:done', handler)
+  },
+
+  updater: {
+    canInstall: () => invoke('update:can-install'),
+    download: () => invoke('update:download'),
+    install: () => invoke('update:install'),
+    onProgress: (handler) => on('update:progress', handler)
   },
 
   nav: {
@@ -73,6 +91,7 @@ contextBridge.exposeInMainWorld('hublink', {
   checkUpdate: () => invoke('update:check'),
   onUpdateAvailable: (handler) => on('update:available', handler),
   setTheme: (theme) => invoke('app:set-theme', theme),
+  setAccent: (color) => invoke('app:set-accent', color),
   setSleepDelay: (minutes) => invoke('app:set-sleep', minutes),
   setBadge: (payload) => ipcRenderer.send('app:badge', payload),
   capturePage: (options) => invoke('capture:page', options),
