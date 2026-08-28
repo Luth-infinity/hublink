@@ -108,7 +108,7 @@ export function AccountDialog({ open, account, onOpenChange, onSubmit }: Props) 
                 id="account-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Avanteam"
+                placeholder="Client A"
                 autoFocus
               />
               <p className="text-xs text-muted-foreground">
