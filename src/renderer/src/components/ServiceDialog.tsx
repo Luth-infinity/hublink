@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ImagePlus, Plus, Smile, X } from 'lucide-react';
+import { ImagePlus, Info, Plus, Smile, X } from 'lucide-react';
 import type { Account, Service, ServiceInput } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { EMOJI_GROUPS } from '@/lib/emoji';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { ServiceIcon } from '@/components/ServiceIcon';
@@ -124,8 +125,7 @@ export function ServiceDialog({
           <DialogHeader>
             <DialogTitle>{service ? 'Modifier le service' : 'Ajouter un service'}</DialogTitle>
             <DialogDescription>
-              Une webapp, une adresse. Le compte détermine la session utilisée : deux services d'un même
-              compte partagent leur connexion, deux comptes différents ne se voient jamais.
+              Deux services d'un même compte partagent leur connexion, deux comptes ne se voient jamais.
             </DialogDescription>
           </DialogHeader>
 
@@ -298,91 +298,88 @@ export function ServiceDialog({
             </div>
           </div>
 
-          <div className="grid gap-3 rounded-lg border border-border p-3">
-            <div className="grid gap-2">
-              <Label>Ouvrir les liens sortants</Label>
-              <div className="flex gap-1.5">
-                {(
-                  [
-                    ['browser', 'Dans le navigateur'],
-                    ['app', 'Dans Hublink']
-                  ] as const
-                ).map(([value, label]) => (
-                  <Button
-                    key={value}
-                    type="button"
-                    variant={openLinks === value ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-7 px-3 text-xs"
-                    aria-pressed={openLinks === value}
-                    onClick={() => setOpenLinks(value)}
-                  >
-                    {label}
-                  </Button>
-                ))}
+          {/* Une ligne par réglage, libellé à gauche et interrupteur à droite.
+              Le détail passe en infobulle : quatre paragraphes empilés se
+              lisaient moins bien qu'un intitulé qui se suffit à lui-même. */}
+          <TooltipProvider>
+          <div className="grid rounded-lg border border-border px-3">
+            {(
+              [
+                {
+                  id: 'open-in-app',
+                  libelle: 'Ouvrir les liens dans Hublink',
+                  aide: "Sinon les liens sortants partent vers votre navigateur habituel. Dans Hublink, ils s'ouvrent dans la session de ce compte.",
+                  valeur: openLinks === 'app',
+                  set: (v: boolean) => setOpenLinks(v ? 'app' : 'browser')
+                },
+                {
+                  id: 'notifications',
+                  libelle: 'Notifications système',
+                  aide: "Coupé, ce service n'affiche plus de bulle hors de l'app. Le compteur de non-lus, lui, reste actif.",
+                  valeur: notifications,
+                  set: setNotifications
+                },
+                {
+                  id: 'keep-awake',
+                  libelle: 'Ne jamais mettre en veille',
+                  suffixe: '≈ 110 Mo',
+                  aide: "Un service en veille n'a plus de page ouverte : il ne peut plus signaler ses messages. Coché, celui-ci reste chargé en permanence et continue de compter.",
+                  valeur: keepAwake,
+                  set: setKeepAwake
+                },
+                {
+                  id: 'block-passkeys',
+                  libelle: "Refuser les clés d'accès",
+                  aide: "Empêche Microsoft et consorts de proposer la clé d'accès de la session Windows ou macOS, qui n'est presque jamais le bon compte. Le site retombe sur le mot de passe.",
+                  valeur: blockPasskeys,
+                  set: setBlockPasskeys
+                },
+                {
+                  id: 'spoof-chrome',
+                  libelle: 'Se présenter comme Chrome',
+                  aide: 'Nécessaire pour Teams, Meet et les portails qui refusent les navigateurs inconnus. À laisser activé sauf problème.',
+                  valeur: spoofChrome,
+                  set: setSpoofChrome
+                }
+              ] as const
+            ).map((reglage, index) => (
+              <div
+                key={reglage.id}
+                className={cn(
+                  'flex items-center justify-between gap-4 py-2.5',
+                  index > 0 && 'border-t border-border'
+                )}
+              >
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <Label htmlFor={reglage.id} className="cursor-pointer font-normal">
+                    {reglage.libelle}
+                  </Label>
+                  {'suffixe' in reglage && (
+                    <span className="text-xs text-muted-foreground">{reglage.suffixe}</span>
+                  )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`À propos de « ${reglage.libelle} »`}
+                        className="shrink-0 rounded-full text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:text-foreground"
+                      >
+                        <Info className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{reglage.aide}</TooltipContent>
+                  </Tooltip>
+                </div>
+                <Switch
+                  id={reglage.id}
+                  checked={reglage.valeur}
+                  onCheckedChange={reglage.set}
+                  className="shrink-0"
+                />
               </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Switch
-                id="notifications"
-                checked={notifications}
-                onCheckedChange={setNotifications}
-                className="mt-0.5"
-              />
-              <div className="grid gap-1">
-                <Label htmlFor="notifications">Notifications système</Label>
-                <p className="text-xs text-muted-foreground">
-                  Coupé, ce service n'affiche plus de notification hors de l'app. Le compteur de
-                  non-lus dans le panneau, lui, reste actif.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Switch
-                id="keep-awake"
-                checked={keepAwake}
-                onCheckedChange={setKeepAwake}
-                className="mt-0.5"
-              />
-              <div className="grid gap-1">
-                <Label htmlFor="keep-awake">Garder actif pour les non-lus</Label>
-                <p className="text-xs text-muted-foreground">
-                  Un service mis en veille n'a plus de page ouverte : il ne peut donc plus signaler
-                  ses messages. Coché, celui-ci reste chargé en permanence et continue de compter —
-                  au prix d'environ 110 Mo. À réserver aux deux ou trois services qui le méritent.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Switch
-                id="block-passkeys"
-                checked={blockPasskeys}
-                onCheckedChange={setBlockPasskeys}
-                className="mt-0.5"
-              />
-              <div className="grid gap-1">
-                <Label htmlFor="block-passkeys">Refuser les clés d'accès</Label>
-                <p className="text-xs text-muted-foreground">
-                  Empêche Microsoft &amp; co. de proposer la clé d'accès de la session Windows ou macOS,
-                  qui n'est presque jamais le bon compte. Le site retombe sur le mot de passe.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <Switch id="spoof-chrome" checked={spoofChrome} onCheckedChange={setSpoofChrome} className="mt-0.5" />
-              <div className="grid gap-1">
-                <Label htmlFor="spoof-chrome">Se présenter comme Chrome</Label>
-                <p className="text-xs text-muted-foreground">
-                  Nécessaire pour Teams, Meet et les portails qui refusent les navigateurs inconnus. À
-                  laisser activé sauf problème.
-                </p>
-              </div>
-            </div>
+            ))}
           </div>
+          </TooltipProvider>
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
