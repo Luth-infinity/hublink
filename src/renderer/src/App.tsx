@@ -69,6 +69,23 @@ export default function App() {
 
   React.useEffect(() => api.onUpdateAvailable(setUpdate), []);
 
+  // Titre, URL et favicon d'un onglet changent en continu : même traitement
+  // que les services, on n'applique que le delta.
+  React.useEffect(
+    () =>
+      api.browser.onTabMeta(({ tabId, ...patch }) =>
+        setState((prev) => {
+          if (!prev) return prev;
+          const index = prev.tabs.findIndex((t) => t.id === tabId);
+          if (index < 0) return prev;
+          const tabs = [...prev.tabs];
+          tabs[index] = { ...tabs[index], ...patch };
+          return { ...prev, tabs };
+        })
+      ),
+    []
+  );
+
   React.useEffect(
     () => api.onToast(({ variant, message }) => (variant === 'error' ? toast.error(message) : toast.success(message))),
     []
@@ -206,6 +223,16 @@ export default function App() {
 
   const filterAccount = React.useCallback((id: string | null) => api.accounts.filter(id), []);
 
+  const toggleBrowser = React.useCallback((on: boolean) => api.browser.toggle(on), []);
+  const selectTab = React.useCallback((id: string) => {
+    // Réveiller un onglet endormi : on retire la marque avant même le
+    // rechargement, sinon la lune resterait affichée sur l'onglet actif.
+    setSleeping((prev) => prev.filter((key) => key !== id));
+    return api.browser.selectTab(id);
+  }, []);
+  const closeTab = React.useCallback((id: string) => api.browser.closeTab(id), []);
+  const addTab = React.useCallback(() => api.browser.addTab(), []);
+
   const services = React.useMemo(() => {
     const all = state?.services ?? [];
     const filter = state?.activeAccountId;
@@ -221,12 +248,20 @@ export default function App() {
     return totals;
   }, [state]);
 
+  // Ctrl+1..9 : les onglets en mode navigateur, les services sinon. Sans ce
+  // partage, le raccourci afficherait un service alors que le panneau montre
+  // des onglets — la fenêtre et la liste ne diraient plus la même chose.
   const selectByIndex = React.useCallback(
     (index: number) => {
+      if (state?.browserMode) {
+        const tab = state.tabs[index];
+        if (tab) selectTab(tab.id);
+        return;
+      }
       const target = services[index];
       if (target) selectService(target.id);
     },
-    [services, selectService]
+    [state?.browserMode, state?.tabs, services, selectService, selectTab]
   );
 
   React.useEffect(
@@ -270,6 +305,7 @@ export default function App() {
           nav={nav}
           isMac={isMac}
           sidebarCollapsed={state.sidebarCollapsed}
+          browserMode={state.browserMode}
           loadedExtensions={loadedExtensions}
           update={update}
           onToggleSidebar={toggleSidebar}
@@ -295,11 +331,20 @@ export default function App() {
             onToggleLinkPolicy={toggleLinkPolicy}
             onReorder={reorder}
             onOpenSettings={openAccounts}
+            browserMode={state.browserMode}
+            tabs={state.tabs}
+            activeTabId={state.activeTabId}
+            onToggleBrowser={toggleBrowser}
+            onSelectTab={selectTab}
+            onCloseTab={closeTab}
+            onAddTab={addTab}
           />
 
           <main className="flex min-w-0 flex-1 flex-col">
             <div ref={contentRef} className="relative min-h-0 flex-1 bg-shell">
-              {!service && (
+              {/* En mode navigateur, la vue de l'onglet occupe la zone : cet
+                  écran d'accueil n'aurait rien à y faire. */}
+              {!service && !state.browserMode && (
                 <div className="grid h-full place-items-center px-8 text-center">
                   <div className="flex max-w-sm flex-col items-center gap-3">
                     <h2 className="text-base font-semibold">Aucun service</h2>

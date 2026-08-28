@@ -9,6 +9,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { ExtensionsPanel } from '@/components/ExtensionsPanel';
@@ -169,6 +170,25 @@ export function SettingsDialog({
                     {minutes === 0 ? 'Jamais' : `${minutes} min`}
                   </Button>
                 ))}
+              </div>
+
+              <Separator />
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="grid gap-1">
+                  <h3 className="text-sm font-medium">Bloquer les publicités</h3>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    En mode navigateur uniquement. Les requêtes vers les régies publicitaires et les
+                    traceurs connus ne partent pas. Vos comptes et leurs services ne sont pas
+                    concernés.
+                  </p>
+                </div>
+                <Switch
+                  checked={state.blockAds}
+                  onCheckedChange={(on) => window.hublink.browser.setBlockAds(on)}
+                  aria-label="Bloquer les publicités en mode navigateur"
+                  className="mt-0.5 shrink-0"
+                />
               </div>
 
               {state.sleepAfterMinutes === 0 && services.length > 4 && (

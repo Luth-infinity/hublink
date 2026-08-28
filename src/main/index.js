@@ -1,4 +1,14 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeImage, nativeTheme } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  shell,
+  Menu,
+  nativeImage,
+  nativeTheme,
+  protocol
+} = require('electron');
 const fs = require('fs');
 const path = require('path');
 const store = require('./store');
@@ -10,6 +20,15 @@ const updates = require('./updates');
 
 const isDev = process.argv.includes('--dev') || !app.isPackaged;
 const DEV_SERVER = process.env.HUBLINK_DEV_SERVER || 'http://localhost:5273';
+
+// La page d'accueil du mode navigateur est servie par un schéma dédié plutôt
+// que par `file://` : la barre d'adresse affiche `hublink://start` au lieu d'un
+// chemin de disque, et la page n'obtient aucun privilège local.
+const START_URL = 'hublink://start';
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'hublink', privileges: { standard: true, secure: true } }
+]);
 
 let win = null;
 
@@ -31,6 +50,12 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#20242c' : '#f5f6f8',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    // Windows et Linux dessinent le menu dans la fenêtre, juste sous la barre
+    // de titre : autant de hauteur volée à la page, pour des entrées déjà
+    // accessibles ailleurs. On le masque sans le supprimer — les accélérateurs
+    // continuent de fonctionner, et Alt le fait réapparaître. Sur macOS le menu
+    // vit dans la barre système : rien à masquer, et l'option y est sans effet.
+    autoHideMenuBar: true,
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'shell.js'),
@@ -64,6 +89,9 @@ function createWindow() {
     // l'état complet (qui embarque les logos en base64 de tous les clients).
     if (type === 'service-meta') send('service:meta', payload);
     if (type === 'service-slept') send('service:slept', payload);
+    if (type === 'tab-meta') send('tab:meta', payload);
+    // Un lien `target="_blank"` : la vue demande un onglet, le shell le crée.
+    if (type === 'tab-requested') openTab(payload.url);
     // Une vue en arrière-plan continue de naviguer (rechargement, SPA) : sans ce
     // filtre, elle écrase la barre d'URL du service réellement affiché.
     if (type === 'nav-state' && payload.serviceId === views.currentId) send('nav:state', payload);
@@ -109,9 +137,46 @@ function persistWindow() {
 // Restaure le dernier service consulté.
 async function restoreActive() {
   const state = store.load();
+  // En mode navigateur, c'est l'onglet courant qui occupe la fenêtre : les
+  // services restent chargés en arrière-plan, on ne les détruit pas.
+  if (state.browserMode) {
+    // Démarrer en mode navigateur sans onglet donnerait une fenêtre vide :
+    // le toggle en crée un, le démarrage doit en faire autant.
+    if (state.tabs.length === 0) store.addTab();
+    const tabId = state.activeTabId || (state.tabs[0] && state.tabs[0].id);
+    if (tabId) await views.showTab(tabId);
+    else views.hide();
+    return;
+  }
   const serviceId = state.activeServiceId || (state.services[0] && state.services[0].id);
   if (serviceId) await views.show(serviceId);
   else views.hide();
+}
+
+
+// Ouvre un onglet et l'affiche. Utilisé par le bouton « Nouvel onglet » comme
+// par les liens `target="_blank"` des pages.
+async function openTab(url) {
+  const tab = store.addTab(url);
+  store.load().browserMode = true;
+  store.save();
+  pushState();
+  await views.showTab(tab.id);
+  return tab;
+}
+
+// Ce que l'utilisateur tape dans la barre : une URL si ça y ressemble, une
+// recherche sinon. Sans ce filtre, « meteo amiens » deviendrait une adresse.
+function toNavigableUrl(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw === START_URL || raw === 'hublink://start/') return START_URL;
+  // Un schéma exotique (file:, javascript:, data:) n'a rien à faire ici.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) return null;
+  const looksLikeHost = /^[^\s/]+\.[^\s/]{2,}(\/|$)/.test(raw) || raw.startsWith('localhost');
+  if (looksLikeHost) return `https://${raw}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(raw)}`;
 }
 
 // --- IPC -------------------------------------------------------------------
@@ -320,6 +385,48 @@ function registerIpc() {
     pushState();
   });
 
+  // --- navigateur neutre ---------------------------------------------------
+
+  ipcMain.handle('browser:toggle', async (_e, on) => {
+    const state = store.load();
+    const next = typeof on === 'boolean' ? on : !state.browserMode;
+    store.setBrowserMode(next);
+    pushState();
+    await restoreActive();
+    return next;
+  });
+
+  ipcMain.handle('tab:add', async (_e, url) => openTab(url));
+
+  ipcMain.handle('browser:set-block-ads', (_e, on) => {
+    store.load().blockAds = Boolean(on);
+    store.save();
+    pushState();
+  });
+
+  ipcMain.handle('tab:select', async (_e, id) => {
+    if (!store.getTab(id)) return;
+    store.load().activeTabId = id;
+    store.save();
+    pushState();
+    await views.showTab(id);
+  });
+
+  ipcMain.handle('tab:close', async (_e, id) => {
+    views.destroyTab(id);
+    const nextId = store.removeTab(id);
+    // Fermer le dernier onglet ne doit pas laisser une fenêtre vide : on en
+    // rouvre un neuf, comme n'importe quel navigateur.
+    if (!nextId) {
+      await openTab();
+      return;
+    }
+    store.load().activeTabId = nextId;
+    store.save();
+    pushState();
+    await views.showTab(nextId);
+  });
+
   ipcMain.handle('layout:toggle-sidebar', (_e, collapsed) => {
     const state = store.load();
     state.sidebarCollapsed = typeof collapsed === 'boolean' ? collapsed : !state.sidebarCollapsed;
@@ -361,8 +468,18 @@ function registerIpc() {
   ipcMain.handle('nav:stop', () => views.withCurrent((wc) => wc.stop()));
   ipcMain.handle('nav:devtools', () => views.withCurrent((wc) => wc.toggleDevTools()));
   ipcMain.handle('nav:home', () => {
-    const service = store.getService(store.load().activeServiceId);
+    const state = store.load();
+    if (state.browserMode) return views.withCurrent((wc) => wc.loadURL(store.BROWSER_HOME));
+    const service = store.getService(state.activeServiceId);
     if (service) views.withCurrent((wc) => wc.loadURL(service.url));
+  });
+
+  // Saisie de la barre d'adresse : réservée au mode navigateur, pour qu'un
+  // service reste bien ancré sur son domaine.
+  ipcMain.handle('nav:go', (_e, input) => {
+    if (!store.load().browserMode) return;
+    const url = toNavigableUrl(input);
+    if (url) views.withCurrent((wc) => wc.loadURL(url));
   });
 
   ipcMain.handle('update:check', () => updates.check());

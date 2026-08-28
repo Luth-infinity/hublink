@@ -32,6 +32,13 @@ function seed() {
     }),
     services: [],
     activeServiceId: null,
+    // Le navigateur neutre : aucun compte, sa propre session, ses onglets.
+    browserMode: false,
+    tabs: [],
+    activeTabId: null,
+    // Bloqueur de pub du mode navigateur : actif par défaut, sans réglage à
+    // faire. Il ne touche jamais les sessions des comptes.
+    blockAds: true,
     extensions: [],
     window: { width: 1440, height: 900, x: null, y: null, maximized: false }
   };
@@ -78,6 +85,9 @@ function normalize(state) {
   }
   if (!Array.isArray(state.services)) state.services = [];
   if (!Array.isArray(state.extensions)) state.extensions = [];
+  if (!Array.isArray(state.tabs)) state.tabs = [];
+  if (typeof state.browserMode !== 'boolean') state.browserMode = false;
+  if (typeof state.blockAds !== 'boolean') state.blockAds = true;
   if (!state.theme) state.theme = 'system';
   if (typeof state.sidebarCollapsed !== 'boolean') state.sidebarCollapsed = false;
   if (typeof state.sleepAfterMinutes !== 'number') state.sleepAfterMinutes = 20;
@@ -106,6 +116,13 @@ function normalize(state) {
   }
   if (!state.services.some((s) => s.id === state.activeServiceId)) {
     state.activeServiceId = state.services[0] ? state.services[0].id : null;
+  }
+  for (const tab of state.tabs) {
+    if (typeof tab.title !== 'string') tab.title = '';
+    if (tab.favicon && !isUsableFavicon(tab.favicon)) tab.favicon = null;
+  }
+  if (!state.tabs.some((t) => t.id === state.activeTabId)) {
+    state.activeTabId = state.tabs[0] ? state.tabs[0].id : null;
   }
   return state;
 }
@@ -264,6 +281,60 @@ function reorderServices(orderedIds) {
   save();
 }
 
+
+// --- navigateur ------------------------------------------------------------
+
+// Page d'accueil du mode navigateur : une page locale aux couleurs de Hublink,
+// servie par le schéma `hublink://`. Elle n'exécute aucun script et sa
+// recherche n'est qu'un formulaire.
+const BROWSER_HOME = 'hublink://start';
+
+function setBrowserMode(on) {
+  const s = load();
+  s.browserMode = Boolean(on);
+  // Entrer dans le navigateur sans onglet donnerait une page vide : on en
+  // ouvre un, comme le ferait n'importe quel navigateur au démarrage.
+  if (s.browserMode && s.tabs.length === 0) addTab();
+  save();
+  return s.browserMode;
+}
+
+function addTab(url) {
+  const s = load();
+  const tab = { id: uid('t'), url: url || BROWSER_HOME, title: '', favicon: null };
+  s.tabs.push(tab);
+  s.activeTabId = tab.id;
+  save();
+  return tab;
+}
+
+function updateTabIfChanged(id, patch) {
+  const tab = load().tabs.find((t) => t.id === id);
+  if (!tab) return false;
+  const changed = Object.keys(patch).some((key) => tab[key] !== patch[key]);
+  if (!changed) return false;
+  Object.assign(tab, patch);
+  save();
+  return true;
+}
+
+function removeTab(id) {
+  const s = load();
+  const index = s.tabs.findIndex((t) => t.id === id);
+  if (index === -1) return null;
+  s.tabs.splice(index, 1);
+  // On enchaîne sur le voisin de droite, à défaut celui de gauche : fermer un
+  // onglet ne doit pas renvoyer à l'autre bout de la liste.
+  if (s.activeTabId === id) {
+    const next = s.tabs[index] || s.tabs[index - 1] || null;
+    s.activeTabId = next ? next.id : null;
+  }
+  save();
+  return s.activeTabId;
+}
+
+const getTab = (id) => load().tabs.find((t) => t.id === id) || null;
+
 module.exports = {
   FILE,
   uid,
@@ -281,5 +352,11 @@ module.exports = {
   updateService,
   updateServiceIfChanged,
   removeService,
-  reorderServices
+  reorderServices,
+  BROWSER_HOME,
+  setBrowserMode,
+  addTab,
+  getTab,
+  updateTabIfChanged,
+  removeTab
 };

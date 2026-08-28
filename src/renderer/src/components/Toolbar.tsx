@@ -1,3 +1,4 @@
+import * as React from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,7 +25,53 @@ type Props = {
   update: Update | null;
   onToggleSidebar: () => void;
   onOpenExtensions: () => void;
+  /** En mode navigateur, la barre d'adresse devient saisissable. */
+  browserMode: boolean;
 };
+
+/**
+ * Barre d'adresse du mode navigateur. Elle suit la page tant qu'on n'y touche
+ * pas : sans cela, une navigation en arrière-plan écraserait ce qu'on est en
+ * train de taper.
+ */
+function AddressInput({ url }: { url: string }) {
+  const api = window.hublink;
+  // La page d'accueil est interne : afficher `hublink://start` n'apprendrait
+  // rien, on laisse le champ vide et son invite visible.
+  const shown = url.startsWith('hublink://') ? '' : url;
+  const [value, setValue] = React.useState(shown);
+  const [editing, setEditing] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!editing) setValue(shown);
+  }, [shown, editing]);
+
+  return (
+    <input
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onFocus={(e) => {
+        setEditing(true);
+        e.currentTarget.select();
+      }}
+      onBlur={() => setEditing(false)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          api.nav.go(value);
+          e.currentTarget.blur();
+        }
+        if (e.key === 'Escape') {
+          setValue(url);
+          e.currentTarget.blur();
+        }
+      }}
+      spellCheck={false}
+      placeholder="Rechercher ou saisir une adresse"
+      aria-label="Adresse"
+      className="min-w-0 flex-1 bg-transparent text-[11px] text-shell-foreground outline-none placeholder:text-shell-muted"
+    />
+  );
+}
 
 export function Toolbar({
   service,
@@ -34,7 +81,8 @@ export function Toolbar({
   loadedExtensions,
   update,
   onToggleSidebar,
-  onOpenExtensions
+  onOpenExtensions,
+  browserMode
 }: Props) {
   const api = window.hublink;
 
@@ -119,7 +167,7 @@ export function Toolbar({
         <Button
           variant="ghost"
           size="icon-sm"
-          disabled={!service}
+          disabled={!service && !browserMode}
           onClick={() => (nav?.loading ? api.nav.stop() : api.nav.reload())}
           className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
           aria-label={nav?.loading ? 'Arrêter' : 'Recharger'}
@@ -130,20 +178,24 @@ export function Toolbar({
         <Button
           variant="ghost"
           size="icon-sm"
-          disabled={!service}
+          disabled={!service && !browserMode}
           onClick={() => api.nav.home()}
           className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-          aria-label="Revenir à l'URL du service"
-          title="Revenir à l'URL du service"
+          aria-label={browserMode ? "Page d'accueil" : "Revenir à l'URL du service"}
+          title={browserMode ? "Page d'accueil" : "Revenir à l'URL du service"}
         >
           <Home />
         </Button>
       </div>
 
       <div className="no-drag mx-1 flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md bg-shell-input px-2.5">
-        <span className="truncate text-[11px] text-shell-muted" title={nav?.url ?? service?.url ?? ''}>
-          {nav?.url ?? service?.url ?? 'Aucun service sélectionné'}
-        </span>
+        {browserMode ? (
+          <AddressInput url={nav?.url ?? ''} />
+        ) : (
+          <span className="truncate text-[11px] text-shell-muted" title={nav?.url ?? service?.url ?? ''}>
+            {nav?.url ?? service?.url ?? 'Aucun service sélectionné'}
+          </span>
+        )}
         {nav?.url && (
           <button
             type="button"
@@ -172,7 +224,7 @@ export function Toolbar({
         <Button
           variant="ghost"
           size="icon-sm"
-          disabled={!service}
+          disabled={!service && !browserMode}
           onClick={openCaptureMenu}
           className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
           aria-label="Capturer la page"

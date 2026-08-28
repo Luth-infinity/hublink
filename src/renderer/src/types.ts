@@ -51,6 +51,14 @@ export type ExtensionRecord = {
   enabled: Record<string, boolean>;
 };
 
+/** Un onglet du mode navigateur : aucun compte, session neutre partagée. */
+export type Tab = {
+  id: string;
+  url: string;
+  title: string;
+  favicon: string | null;
+};
+
 export type Theme = 'system' | 'light' | 'dark';
 
 export type AppState = {
@@ -63,11 +71,19 @@ export type AppState = {
   accounts: Account[];
   services: Service[];
   activeServiceId: string | null;
+  /** Navigateur neutre actif : les onglets remplacent les services. */
+  browserMode: boolean;
+  tabs: Tab[];
+  activeTabId: string | null;
+  /** Bloqueur de pub du mode navigateur. Sans effet sur les comptes. */
+  blockAds: boolean;
   extensions: ExtensionRecord[];
   window: { width: number; height: number; x: number | null; y: number | null; maximized: boolean };
 };
 
 export type ServiceMeta = { serviceId: string; badge?: number; favicon?: string };
+
+export type TabMeta = { tabId: string; title?: string; url?: string; favicon?: string };
 
 export type NavState = {
   serviceId: string;
@@ -122,12 +138,22 @@ declare global {
         pickIcon(): Promise<string | null>;
       };
 
+      browser: {
+        toggle(on?: boolean): Promise<boolean>;
+        addTab(url?: string): Promise<Tab>;
+        setBlockAds(on: boolean): Promise<void>;
+        selectTab(id: string): Promise<void>;
+        closeTab(id: string): Promise<void>;
+        onTabMeta(handler: (meta: TabMeta) => void): () => void;
+      };
+
       nav: {
         back(): Promise<void>;
         forward(): Promise<void>;
         reload(hard?: boolean): Promise<void>;
         stop(): Promise<void>;
         home(): Promise<void>;
+        go(input: string): Promise<void>;
         devtools(): Promise<void>;
         onState(handler: (state: NavState) => void): () => void;
       };

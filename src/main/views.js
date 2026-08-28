@@ -5,6 +5,8 @@ const extensions = require('./extensions');
 const { isExternalUrl, isUsableFavicon } = require('./urls');
 const { uaFor } = require('./ua');
 const favicon = require('./favicon');
+const startpage = require('./startpage');
+const adblock = require('./adblock');
 
 // Domaines d'authentification qui exigent une vraie popup : on les ouvre dans
 // une fenêtre enfant partageant la session, sinon le SSO casse.
@@ -20,9 +22,15 @@ const AUTH_HOSTS = [
   'slack.com'
 ];
 
+// Le navigateur neutre n'appartient à aucun compte : sa session est à part,
+// et n'hérite donc d'aucun cookie client. C'est tout l'intérêt du mode.
+const BROWSER_ACCOUNT = '__browser__';
+const BROWSER_PARTITION = 'persist:browser';
+
 // La partition est portée par le compte : les comptes migrés depuis l'ancien
 // modèle gardent la leur, sinon leurs cookies deviendraient inaccessibles.
 const partitionFor = (accountId) => {
+  if (accountId === BROWSER_ACCOUNT) return BROWSER_PARTITION;
   const account = store.getAccount(accountId);
   return (account && account.partition) || `persist:account-${accountId}`;
 };
@@ -118,6 +126,12 @@ class ViewManager {
     if (cached) return cached.ready.then(() => cached.session);
 
     const ses = electronSession.fromPartition(partitionFor(accountId));
+    // La page d'accueil n'existe que pour le navigateur, et son schéma doit
+    // être posé sur cette session : le registre est propre à chaque partition.
+    if (accountId === BROWSER_ACCOUNT) {
+      startpage.serveOn(ses);
+      adblock.applyTo(ses);
+    }
     const entry = { session: ses, ready: null };
     this.sessions.set(accountId, entry);
 
@@ -226,6 +240,146 @@ class ViewManager {
     this.wire(view, serviceId);
     view.webContents.loadURL(service.url);
     return view;
+  }
+
+  // --- navigateur neutre ---------------------------------------------------
+
+  // Un onglet est une vue comme une autre : il vit dans la même Map, profite
+  // donc de la mise en veille et du recyclage déjà en place. Seule sa session
+  // change — et le fait qu'il n'écrit rien dans les services.
+  async ensureTabView(tabId) {
+    const existing = this.views.get(tabId);
+    if (existing) return existing;
+
+    const tab = store.getTab(tabId);
+    if (!tab) return null;
+
+    const ses = await this.ensureSession(BROWSER_ACCOUNT);
+    const view = new WebContentsView({
+      webPreferences: {
+        session: ses,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        spellcheck: true
+        // Pas de preload « invité » : on ne neutralise ni les clés d'accès ni
+        // les notifications ici. Le mode navigateur doit se comporter comme un
+        // navigateur, y compris pour WebAuthn.
+      }
+    });
+    view.setBackgroundColor('#ffffff');
+    this.views.set(tabId, view);
+    this.wireTab(view, tabId);
+    // Un onglet dont l'URL a été perdue (vue détruite en cours d'écriture)
+    // retombe sur l'accueil plutôt que sur une page blanche.
+    view.webContents.loadURL(tab.url || store.BROWSER_HOME);
+    return view;
+  }
+
+  wireTab(view, tabId) {
+    const wc = view.webContents;
+    const emit = (type, payload) => this.onEvent(type, { tabId, ...payload });
+
+    wc.on('page-title-updated', (_e, title) => {
+      if (store.updateTabIfChanged(tabId, { title })) emit('tab-meta', { title });
+    });
+
+    wc.on('page-favicon-updated', async (_e, favicons) => {
+      const url = (favicons || []).find(isUsableFavicon);
+      if (!url) return;
+      const dataUrl = await favicon.toDataUrl(wc.session, url);
+      if (!dataUrl) return;
+      if (store.updateTabIfChanged(tabId, { favicon: dataUrl })) emit('tab-meta', { favicon: dataUrl });
+    });
+
+    let navTimer = null;
+    let navPending = false;
+    const sendNav = () => {
+      navPending = false;
+      const url = wc.getURL();
+      // L'URL est persistée : rouvrir Hublink retrouve les onglets là où on
+      // les avait laissés, sans les recharger tous au démarrage. Une chaîne
+      // vide n'est pas une navigation : l'écrire effacerait l'adresse réelle.
+      if (url && store.updateTabIfChanged(tabId, { url })) emit('tab-meta', { url });
+      this.onEvent('nav-state', {
+        serviceId: tabId,
+        url,
+        canGoBack: wc.navigationHistory.canGoBack(),
+        canGoForward: wc.navigationHistory.canGoForward(),
+        loading: wc.isLoading()
+      });
+    };
+    const nav = () => {
+      if (navTimer) {
+        navPending = true;
+        return;
+      }
+      sendNav();
+      navTimer = setTimeout(() => {
+        navTimer = null;
+        if (navPending) nav();
+      }, 250);
+    };
+    wc.once('destroyed', () => clearTimeout(navTimer));
+
+    wc.on('did-start-loading', nav);
+    wc.on('did-stop-loading', nav);
+    wc.on('did-navigate', nav);
+    wc.on('did-navigate-in-page', nav);
+
+    wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
+      if (isMainFrame && code !== -3) this.onEvent('load-error', { serviceId: tabId, code, desc, url });
+    });
+
+    // `target="_blank"` ouvre un onglet, pas le navigateur système : c'est ce
+    // qu'attend quelqu'un qui navigue vraiment. Les popups d'authentification
+    // gardent leur fenêtre, sinon le SSO casse.
+    wc.setWindowOpenHandler(({ url }) => {
+      if (isAuthUrl(url)) {
+        return { action: 'allow', overrideBrowserWindowOptions: popupOptions({ width: 520, height: 720 }) };
+      }
+      this.onEvent('tab-requested', { url });
+      return { action: 'deny' };
+    });
+  }
+
+  async showTab(tabId) {
+    if (!this.window) return;
+    const view = await this.ensureTabView(tabId);
+
+    if (this.current && this.current !== view) {
+      this.current.setVisible(false);
+      this.window.contentView.removeChildView(this.current);
+    }
+    this.current = view || null;
+    this.currentId = view ? tabId : null;
+    if (!view) return;
+
+    this.lastActiveAt.set(tabId, Date.now());
+    this.window.contentView.addChildView(view);
+    view.setBounds(this.bounds);
+    view.setVisible(!this.overlay);
+    if (!this.overlay) view.webContents.focus();
+
+    const wc = view.webContents;
+    this.onEvent('nav-state', {
+      serviceId: tabId,
+      url: wc.getURL(),
+      canGoBack: wc.navigationHistory.canGoBack(),
+      canGoForward: wc.navigationHistory.canGoForward(),
+      loading: wc.isLoading()
+    });
+  }
+
+  // Ferme la vue d'un onglet sans toucher au store : l'appelant décide si
+  // l'onglet disparaît de la liste ou s'il est seulement mis en veille.
+  destroyTab(tabId) {
+    const view = this.views.get(tabId);
+    if (!view) return;
+    if (this.current === view) this.hide();
+    view.webContents.close();
+    this.views.delete(tabId);
+    this.lastActiveAt.delete(tabId);
   }
 
   // Rafraîchit la barre d'URL pour le service affiché. Indispensable au moment
@@ -395,6 +549,9 @@ class ViewManager {
 
   destroyAccount(accountId) {
     for (const [serviceId] of [...this.views]) {
+      // Les onglets du navigateur vivent dans la même Map : sans ce garde-fou,
+      // supprimer un compte les fermerait tous.
+      if (store.getTab(serviceId)) continue;
       const service = store.getService(serviceId);
       if (!service || service.accountId === accountId) this.destroyService(serviceId);
     }

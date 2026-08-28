@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { Moon, Plus, Settings } from 'lucide-react';
-import type { Account, MenuItem, Service } from '@/types';
+import { Compass, Moon, Plus, Settings, X } from 'lucide-react';
+import type { Account, MenuItem, Service, Tab } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { ServiceIcon } from '@/components/ServiceIcon';
 import { AccountSwitch } from '@/components/AccountSwitch';
@@ -29,6 +30,14 @@ type Props = {
   /** Déplace `draggedId` à la place de `targetId` dans l'ordre global. */
   onReorder: (draggedId: string, targetId: string) => void;
   onOpenSettings: () => void;
+  /** Navigateur neutre : les onglets remplacent les services. */
+  browserMode: boolean;
+  tabs: Tab[];
+  activeTabId: string | null;
+  onToggleBrowser: (on: boolean) => void;
+  onSelectTab: (id: string) => void;
+  onCloseTab: (id: string) => void;
+  onAddTab: () => void;
 };
 
 function Badge({ count, className }: { count: number; className?: string }) {
@@ -69,7 +78,14 @@ function SidebarImpl({
   onReloadService,
   onToggleLinkPolicy,
   onReorder,
-  onOpenSettings
+  onOpenSettings,
+  browserMode,
+  tabs,
+  activeTabId,
+  onToggleBrowser,
+  onSelectTab,
+  onCloseTab,
+  onAddTab
 }: Props) {
   const accountById = React.useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   const [dragging, setDragging] = React.useState<string | null>(null);
@@ -198,6 +214,157 @@ function SidebarImpl({
     );
   };
 
+  // --- navigateur neutre ----------------------------------------------------
+
+  /** Le commutateur de mode, toujours juste au-dessus des paramètres. */
+  const BrowserToggle = () =>
+    collapsed ? (
+      <button
+        type="button"
+        onClick={() => onToggleBrowser(!browserMode)}
+        title={browserMode ? 'Revenir aux comptes' : 'Passer en mode navigateur'}
+        aria-label="Mode navigateur"
+        aria-pressed={browserMode}
+        className="flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition-colors hover:bg-shell-hover"
+      >
+        <Compass
+          className={cn('size-[18px]', browserMode ? 'text-shell-foreground' : 'text-shell-muted')}
+          aria-hidden
+        />
+        {/* Le commutateur reste visible en rail : sans lui, l'icône seule ne
+            dirait pas qu'il s'agit d'un mode qu'on active. */}
+        <Switch checked={browserMode} className="pointer-events-none scale-75" tabIndex={-1} aria-hidden />
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={() => onToggleBrowser(!browserMode)}
+        aria-pressed={browserMode}
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-shell-hover"
+      >
+        <Compass
+          className={cn('size-4 shrink-0', browserMode ? 'text-shell-foreground' : 'text-shell-muted')}
+          aria-hidden
+        />
+        <span className={cn('flex-1 text-left', browserMode ? 'text-shell-foreground' : 'text-shell-muted')}>
+          Mode navigateur
+        </span>
+        <Switch checked={browserMode} className="pointer-events-none" tabIndex={-1} aria-hidden />
+      </button>
+    );
+
+  if (browserMode) {
+    const TabIcon = ({ tab, className }: { tab: Tab; className?: string }) =>
+      tab.favicon ? (
+        <img src={tab.favicon} alt="" className={cn('shrink-0 rounded-sm', className)} />
+      ) : (
+        <Compass className={cn('shrink-0 text-shell-muted', className)} aria-hidden />
+      );
+
+    /** Un onglet endormi se recharge au clic : on le signale plutôt que de
+        laisser croire à un rechargement inexpliqué. */
+    const label = (tab: Tab) => tab.title || hostOf(tab.url);
+
+    return (
+      <aside
+        className={cn(
+          'flex shrink-0 flex-col border-r border-shell-border bg-shell',
+          collapsed ? 'w-14' : 'w-[248px]'
+        )}
+      >
+        <div
+          className={cn(
+            'flex flex-1 flex-col overflow-y-auto',
+            collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2'
+          )}
+        >
+          {tabs.map((tab) => {
+            const active = tab.id === activeTabId;
+            const asleep = sleeping.includes(tab.id);
+            return collapsed ? (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onSelectTab(tab.id)}
+                onAuxClick={(e) => e.button === 1 && onCloseTab(tab.id)}
+                title={asleep ? `${label(tab)} — en veille` : label(tab)}
+                aria-current={active}
+                className={cn(
+                  'grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
+                  active ? 'bg-shell-active' : 'hover:bg-shell-hover'
+                )}
+              >
+                <TabIcon tab={tab} className={cn('size-[18px]', asleep && 'opacity-60')} />
+              </button>
+            ) : (
+              <div
+                key={tab.id}
+                className={cn(
+                  'group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors',
+                  active ? 'bg-shell-active' : 'hover:bg-shell-hover'
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => onSelectTab(tab.id)}
+                  onAuxClick={(e) => e.button === 1 && onCloseTab(tab.id)}
+                  title={label(tab)}
+                  aria-current={active}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                >
+                  <TabIcon tab={tab} className={cn('size-4', asleep && 'opacity-60')} />
+                  <span className="min-w-0 flex-1 truncate text-[13px]">{label(tab)}</span>
+                  {asleep && <Moon className="size-3 shrink-0 text-shell-muted" aria-hidden />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onCloseTab(tab.id)}
+                  title="Fermer l'onglet"
+                  aria-label={`Fermer ${label(tab)}`}
+                  className="shrink-0 rounded p-0.5 text-shell-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-shell-foreground focus-visible:opacity-100"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            );
+          })}
+
+          <Button
+            variant="ghost"
+            size={collapsed ? 'icon-sm' : 'sm'}
+            onClick={onAddTab}
+            title="Nouvel onglet"
+            aria-label="Nouvel onglet"
+            className={cn(
+              'mt-1 shrink-0 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground',
+              !collapsed && 'w-full justify-start gap-2'
+            )}
+          >
+            <Plus /> {!collapsed && 'Nouvel onglet'}
+          </Button>
+        </div>
+
+        <Separator className={cn('bg-shell-border', collapsed && 'mx-auto w-7')} />
+        <footer className={cn('flex flex-col', collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2')}>
+          <BrowserToggle />
+          <Button
+            variant="ghost"
+            size={collapsed ? 'icon-sm' : 'sm'}
+            onClick={onOpenSettings}
+            title="Paramètres"
+            aria-label="Paramètres"
+            className={cn(
+              'text-shell-muted hover:bg-shell-hover hover:text-shell-foreground',
+              !collapsed && 'w-full justify-start gap-2'
+            )}
+          >
+            <Settings /> {!collapsed && 'Paramètres'}
+          </Button>
+        </footer>
+      </aside>
+    );
+  }
+
   // --- rail : icônes seules -------------------------------------------------
 
   if (collapsed) {
@@ -293,7 +460,8 @@ function SidebarImpl({
         </div>
 
         <Separator className="bg-shell-border" />
-        <footer className="flex flex-col items-center py-2">
+        <footer className="flex flex-col items-center gap-1 py-2">
+          <BrowserToggle />
           <Button
             variant="ghost"
             size="icon-sm"
@@ -374,7 +542,8 @@ function SidebarImpl({
       </div>
 
       <Separator className="bg-shell-border" />
-      <footer className="p-2">
+      <footer className="flex flex-col gap-0.5 p-2">
+        <BrowserToggle />
         <Button
           variant="ghost"
           size="sm"

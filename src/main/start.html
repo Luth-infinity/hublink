@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Page locale et inerte : aucun script, aucune ressource distante. La
+         recherche n'est qu'un formulaire GET, donc rien à exécuter ici. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline'; form-action https:;"
+    />
+    <title>Nouvel onglet</title>
+    <style>
+      /* Reprend la palette du shell. `nativeTheme` étant piloté par le réglage
+         de Hublink, `prefers-color-scheme` suit le thème de l'app, y compris
+         quand il est forcé clair ou sombre. */
+      :root {
+        --bg: oklch(0.991 0.001 265);
+        --raised: oklch(1 0 0);
+        --border: oklch(0.935 0.003 265);
+        --fg: oklch(0.26 0.012 265);
+        --muted: oklch(0.53 0.014 265);
+        --ring: oklch(0 0 0 / 6%);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: oklch(0.155 0.004 265);
+          --raised: oklch(0.2 0.005 265);
+          --border: oklch(0.29 0.008 265);
+          --fg: oklch(0.95 0.004 265);
+          --muted: oklch(0.74 0.008 265);
+          --ring: oklch(0 0 0 / 25%);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--fg);
+        font: 400 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main { width: 100%; max-width: 560px; text-align: center; margin-top: -8vh; }
+      .mark {
+        width: 44px; height: 44px; margin: 0 auto 18px;
+        border-radius: 12px; background: var(--raised);
+        border: 1px solid var(--border);
+        display: grid; place-items: center;
+      }
+      .mark svg { width: 22px; height: 22px; stroke: var(--muted); }
+      h1 {
+        margin: 0 0 22px;
+        font-size: 22px; font-weight: 600; letter-spacing: -0.02em;
+      }
+      form { display: flex; }
+      input {
+        flex: 1; min-width: 0;
+        height: 44px; padding: 0 16px;
+        border: 1px solid var(--border); border-radius: 999px;
+        background: var(--raised); color: var(--fg);
+        font: inherit; outline: none;
+        box-shadow: inset 0 1px 2px var(--ring);
+      }
+      input::placeholder { color: var(--muted); }
+      input:focus { border-color: var(--muted); }
+      p {
+        margin: 16px 0 0;
+        font-size: 12.5px; color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark">
+        <!-- La boussole du commutateur de mode : même repère visuel. -->
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+        </svg>
+      </div>
+      <h1>Mode navigateur</h1>
+      <!-- `target="_blank"` : la recherche ouvre un onglet et laisse cette page
+           en place, prête pour la suivante. -->
+      <form action="https://www.google.com/search" method="get" target="_blank">
+        <input
+          type="text"
+          name="q"
+          placeholder="Rechercher sur le web"
+          autofocus
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="Rechercher sur le web"
+        />
+      </form>
+      <p>Session isolée de vos comptes. Rien n'est partagé avec vos services.</p>
+    </main>
+  </body>
+</html>

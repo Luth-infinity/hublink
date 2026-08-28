@@ -34,12 +34,22 @@ contextBridge.exposeInMainWorld('hublink', {
     pickIcon: () => invoke('service:pick-icon')
   },
 
+  browser: {
+    toggle: (on) => invoke('browser:toggle', on),
+    addTab: (url) => invoke('tab:add', url),
+    setBlockAds: (on) => invoke('browser:set-block-ads', on),
+    selectTab: (id) => invoke('tab:select', id),
+    closeTab: (id) => invoke('tab:close', id),
+    onTabMeta: (handler) => on('tab:meta', handler)
+  },
+
   nav: {
     back: () => invoke('nav:back'),
     forward: () => invoke('nav:forward'),
     reload: (hard) => invoke('nav:reload', hard),
     stop: () => invoke('nav:stop'),
     home: () => invoke('nav:home'),
+    go: (input) => invoke('nav:go', input),
     devtools: () => invoke('nav:devtools'),
     onState: (handler) => on('nav:state', handler)
   },
