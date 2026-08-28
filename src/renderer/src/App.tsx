@@ -1,7 +1,16 @@
 import * as React from 'react';
 import { Toaster, toast } from 'sonner';
 import { Plus } from 'lucide-react';
-import type { Account, AppState, LoadedExtension, NavState, Service, Theme, Update } from '@/types';
+import type {
+  Account,
+  AppState,
+  Download,
+  LoadedExtension,
+  NavState,
+  Service,
+  Theme,
+  Update
+} from '@/types';
 import { Button } from '@/components/ui/button';
 import { accountTints, useSyncedTheme } from '@/lib/theme';
 import { drawOverlayBadge } from '@/lib/badge';
@@ -13,6 +22,21 @@ import { SettingsDialog } from '@/components/SettingsDialog';
 
 const api = window.hublink;
 const isMac = api.platform === 'darwin';
+
+/**
+ * La liste ne retient que les cinq derniers téléchargements : elle sert à
+ * retrouver un fichier qu'on vient de prendre, pas à tenir un historique. Ce
+ * qui sort de la liste reste évidemment sur le disque — on ne supprime jamais
+ * un fichier de l'utilisateur. Un transfert en cours n'est jamais évincé,
+ * sinon sa progression disparaîtrait sous les yeux de qui l'attend.
+ */
+const MAX_DOWNLOADS = 5;
+
+function purge(liste: Download[]): Download[] {
+  const encours = liste.filter((d) => d.state === 'progress');
+  const finis = liste.filter((d) => d.state !== 'progress');
+  return [...encours, ...finis].slice(0, Math.max(MAX_DOWNLOADS, encours.length));
+}
 
 export default function App() {
   const [state, setState] = React.useState<AppState | null>(null);
@@ -35,6 +59,11 @@ export default function App() {
   // l'utilisateur se demander pourquoi la page s'est rechargée.
   const [sleeping, setSleeping] = React.useState<string[]>([]);
   const [update, setUpdate] = React.useState<Update | null>(null);
+  // Téléchargements de la session. On n'en garde qu'une poignée : la liste
+  // sert à retrouver un fichier qu'on vient de prendre, pas à tenir un
+  // historique.
+  const [downloads, setDownloads] = React.useState<Download[]>([]);
+  const [downloadsOpen, setDownloadsOpen] = React.useState(false);
 
   const contentRef = React.useRef<HTMLDivElement>(null);
 
@@ -78,7 +107,35 @@ export default function App() {
   // moindre progression.
   React.useEffect(
     () =>
-      api.downloads.onDone(({ name, path, state }) => {
+      api.downloads.onStarted(({ id, name, total, path }) =>
+        setDownloads((prev) => purge([
+          { id, name, path, total, received: 0, state: 'progress' as const },
+          ...prev
+        ]))
+      ),
+    []
+  );
+
+  React.useEffect(
+    () =>
+      api.downloads.onProgress(({ id, received, total }) =>
+        setDownloads((prev) =>
+          prev.map((d) => (d.id === id ? { ...d, received, total: total || d.total } : d))
+        )
+      ),
+    []
+  );
+
+  React.useEffect(
+    () =>
+      api.downloads.onDone(({ id, name, path, state, total }) => {
+        setDownloads((prev) =>
+          prev.map((d) =>
+            d.id === id
+              ? { ...d, state: state as Download['state'], received: total || d.received, total: total || d.total }
+              : d
+          )
+        );
         if (state !== 'completed') {
           toast.error(`Téléchargement interrompu : ${name}`);
           return;
@@ -90,6 +147,11 @@ export default function App() {
       }),
     []
   );
+
+  const clearDownloads = React.useCallback(() => {
+    setDownloads([]);
+    setDownloadsOpen(false);
+  }, []);
 
   // Titre, URL et favicon d'un onglet changent en continu : même traitement
   // que les services, on n'applique que le delta.
@@ -141,7 +203,7 @@ export default function App() {
   // Sans ce masquage, une modale s'ouvre derrière la page — on ne voit que
   // l'overlay sombre et plus aucun clic n'aboutit.
   const overlayOpen =
-    serviceDialog.open || accountDialog.open || settingsOpen;
+    serviceDialog.open || accountDialog.open || settingsOpen || downloadsOpen;
   React.useEffect(() => {
     api.setOverlay(overlayOpen);
   }, [overlayOpen]);
@@ -332,6 +394,10 @@ export default function App() {
           sidebarCollapsed={state.sidebarCollapsed}
           browserMode={state.browserMode}
           isFavorite={state.favorites.some((f) => f.url === (nav?.url ?? ''))}
+          downloads={downloads}
+          onClearDownloads={clearDownloads}
+          downloadsOpen={downloadsOpen}
+          onToggleDownloads={setDownloadsOpen}
           onToggleFavorite={toggleFavorite}
           loadedExtensions={loadedExtensions}
           update={update}

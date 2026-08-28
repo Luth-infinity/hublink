@@ -8,12 +8,15 @@ import {
   Home,
   PanelLeft,
   PanelLeftClose,
+  Download as DownloadIcon,
+  FileDown,
+  FolderOpen,
   Puzzle,
   RotateCw,
   Star,
   X
 } from 'lucide-react';
-import type { LoadedExtension, MenuItem, NavState, Service, Update } from '@/types';
+import type { Download, LoadedExtension, MenuItem, NavState, Service, Update } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -31,6 +34,10 @@ type Props = {
   /** L'URL affichée figure déjà dans les favoris. */
   isFavorite: boolean;
   onToggleFavorite: () => void;
+  downloads: Download[];
+  onClearDownloads: () => void;
+  downloadsOpen: boolean;
+  onToggleDownloads: (open: boolean) => void;
 };
 
 /**
@@ -135,6 +142,188 @@ function UpdateBadge({ update }: { update: Update }) {
   );
 }
 
+/** « 4,2 Mo », « 812 Ko » — la taille telle qu'on l'attend dans une liste. */
+function poids(octets: number) {
+  if (!octets) return '';
+  if (octets < 1024 * 1024) return `${Math.round(octets / 1024)} Ko`;
+  return `${(octets / (1024 * 1024)).toFixed(1).replace('.', ',')} Mo`;
+}
+
+/**
+ * Indicateur de téléchargement.
+ *
+ * La progression vit dans la barre d'outils, pas dans un panneau : la vue web
+ * est une vue native peinte au-dessus du HTML du shell, un menu déroulant
+ * dessiné ici serait donc masqué par la page. La liste passe par un menu
+ * natif, qui lui se dessine par-dessus.
+ */
+function DownloadsButton({
+  downloads,
+  onClear,
+  open,
+  onOpenChange
+}: {
+  downloads: Download[];
+  onClear: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const api = window.hublink;
+  const actifs = downloads.filter((d) => d.state === 'progress');
+  const recu = actifs.reduce((n, d) => n + d.received, 0);
+  const attendu = actifs.reduce((n, d) => n + d.total, 0);
+  // Certains serveurs n'annoncent pas la taille : sans total, la barre ne peut
+  // pas dire où on en est, elle indique seulement que ça travaille.
+  const pourcent = attendu > 0 ? Math.min(100, Math.round((recu / attendu) * 100)) : null;
+
+  // Le dernier arrivé reste nommé quelques secondes, puis l'indicateur se
+  // réduit à son icône : on montre que le téléchargement a démarré sans
+  // encombrer la barre ensuite.
+  const dernier = downloads[0];
+  const [nomme, setNomme] = React.useState(false);
+  React.useEffect(() => {
+    if (!dernier) return;
+    setNomme(true);
+    const t = setTimeout(() => setNomme(false), 4000);
+    return () => clearTimeout(t);
+  }, [dernier?.id]);
+
+  if (downloads.length === 0) return null;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        title={actifs.length > 0 ? `${actifs.length} téléchargement(s) en cours` : 'Téléchargements'}
+        aria-label="Téléchargements"
+        aria-expanded={open}
+        className={cn(
+          'relative mr-1 flex items-center gap-1.5 overflow-hidden rounded-md px-1.5 py-1 transition-colors',
+          open
+            ? 'bg-shell-active text-shell-foreground'
+            : 'text-shell-muted hover:bg-shell-active hover:text-shell-foreground'
+        )}
+      >
+        <DownloadIcon
+          className={cn('size-4 shrink-0', actifs.length > 0 && 'animate-bounce text-shell-foreground')}
+        />
+        {nomme && dernier && (
+          <span className="animate-in fade-in slide-in-from-right-2 max-w-[140px] truncate text-[11px] duration-300">
+            {dernier.name}
+            {pourcent !== null && actifs.length > 0 ? ` \u00b7 ${pourcent} %` : ''}
+          </span>
+        )}
+        {actifs.length > 0 && (
+          <span className="absolute inset-x-1 bottom-0 h-[2px] overflow-hidden rounded-full bg-shell-active">
+            <span
+              className={cn(
+                'block h-full rounded-full bg-emerald-500 transition-[width] duration-200',
+                pourcent === null && 'w-1/3 animate-pulse'
+              )}
+              style={pourcent !== null ? { width: `${pourcent}%` } : undefined}
+            />
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          {/* Ferme au clic à côté, comme n'importe quel menu. */}
+          <div className="fixed inset-0 z-40" onClick={() => onOpenChange(false)} aria-hidden />
+          <div
+            role="dialog"
+            aria-label="Téléchargements"
+            className="animate-in fade-in slide-in-from-top-1 absolute top-full right-0 z-50 mt-1.5 w-[320px] overflow-hidden rounded-lg border border-shell-border bg-shell-raised shadow-lg duration-150"
+          >
+            <div className="flex items-center justify-between border-b border-shell-border px-3 py-2">
+              <span className="text-[12px] font-medium text-shell-foreground">Téléchargements</span>
+              <button
+                type="button"
+                onClick={onClear}
+                className="text-[11px] text-shell-muted transition-colors hover:text-shell-foreground"
+              >
+                Effacer la liste
+              </button>
+            </div>
+
+            <ul className="max-h-[320px] overflow-y-auto py-1">
+              {downloads.map((d) => {
+                const pct = d.total > 0 ? Math.min(100, Math.round((d.received / d.total) * 100)) : null;
+                return (
+                  <li key={d.id}>
+                    <button
+                      type="button"
+                      disabled={d.state !== 'completed'}
+                      onClick={() => {
+                        api.downloads.open(d.path);
+                        onOpenChange(false);
+                      }}
+                      className="group flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors enabled:hover:bg-shell-hover disabled:cursor-default"
+                    >
+                      <FileDown
+                        className={cn(
+                          'size-4 shrink-0',
+                          d.state === 'completed' ? 'text-shell-muted' : 'text-shell-muted/60'
+                        )}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12px] text-shell-foreground">{d.name}</span>
+                        <span className="block truncate text-[11px] text-shell-muted">
+                          {d.state === 'progress'
+                            ? pct !== null
+                              ? `${pct} % \u2014 ${poids(d.received)} sur ${poids(d.total)}`
+                              : `${poids(d.received)} reçus`
+                            : d.state === 'completed'
+                              ? poids(d.total)
+                              : 'Interrompu'}
+                        </span>
+                        {d.state === 'progress' && (
+                          <span className="mt-1 block h-[2px] overflow-hidden rounded-full bg-shell-active">
+                            <span
+                              className={cn(
+                                'block h-full rounded-full bg-emerald-500 transition-[width] duration-200',
+                                pct === null && 'w-1/3 animate-pulse'
+                              )}
+                              style={pct !== null ? { width: `${pct}%` } : undefined}
+                            />
+                          </span>
+                        )}
+                      </span>
+                      {d.state === 'completed' && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          title="Ouvrir le dossier"
+                          aria-label={`Ouvrir le dossier contenant ${d.name}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            api.downloads.reveal(d.path);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key !== 'Enter' && e.key !== ' ') return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            api.downloads.reveal(d.path);
+                          }}
+                          className="shrink-0 rounded p-1 text-shell-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-shell-foreground focus-visible:opacity-100"
+                        >
+                          <FolderOpen className="size-3.5" />
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function Toolbar({
   service,
   nav,
@@ -146,7 +335,11 @@ export function Toolbar({
   onOpenExtensions,
   browserMode,
   isFavorite,
-  onToggleFavorite
+  onToggleFavorite,
+  downloads,
+  onClearDownloads,
+  downloadsOpen,
+  onToggleDownloads
 }: Props) {
   const api = window.hublink;
 
@@ -292,6 +485,12 @@ export function Toolbar({
       </div>
 
       <div className="no-drag flex items-center gap-0.5">
+        <DownloadsButton
+          downloads={downloads}
+          onClear={onClearDownloads}
+          open={downloadsOpen}
+          onOpenChange={onToggleDownloads}
+        />
         {update && <UpdateBadge update={update} />}
         <Button
           variant="ghost"
