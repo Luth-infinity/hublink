@@ -44,5 +44,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Luth-infinity/hublink.git"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

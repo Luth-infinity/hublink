@@ -6,8 +6,9 @@ directories:
   output: release
   buildResources: build
 
-# Le renderer est bundle par Vite et le main n'utilise que des modules Electron :
-# aucun node_modules n'a besoin d'etre embarque.
+# Le renderer est bundle par Vite. Le main n'utilise que des modules Electron,
+# a une exception pres : electron-updater, qui doit donc etre embarque avec ses
+# dependances de production.
 files:
   - src/main/**/*
   - src/preload/**/*
@@ -40,10 +41,19 @@ win:
       arch: [x64, arm64]
   icon: build/icon.png
 
+# Publie sur GitHub : electron-updater y lit `latest.yml` pour savoir si une
+# version plus recente existe.
+publish:
+  provider: github
+  owner: Luth-infinity
+  repo: hublink
+
 nsis:
-  oneClick: false
+  # Installation en un clic : une mise a jour ne doit pas rouvrir l'assistant
+  # d'installation a chaque fois. Le premier telechargement depuis le site
+  # passe par le meme installeur, mais l'utilisateur n'a rien a repondre.
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
   artifactName: ${productName}-Setup-${version}-${arch}.${ext}
 
 linux:

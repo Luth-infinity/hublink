@@ -88,4 +88,43 @@ function watch(onFound) {
   };
 }
 
-module.exports = { check, watch, isNewer };
+/**
+ * Installation automatique, Windows seulement.
+ *
+ * macOS l'exige signée et notariée (contrainte de Squirrel.Mac), ce qui
+ * suppose un compte développeur Apple payant : on y reste sur le signalement
+ * suivi d'un téléchargement manuel. Sous Windows rien n'est requis, et comme
+ * electron-updater télécharge lui-même, le fichier ne reçoit pas le
+ * « Mark of the Web » — donc pas d'alerte SmartScreen, et l'installation par
+ * utilisateur évite l'invite UAC.
+ */
+function canInstall() {
+  return process.platform === 'win32' && app.isPackaged;
+}
+
+/**
+ * Télécharge la mise à jour en arrière-plan puis rend la main à l'appelant,
+ * qui décide du moment de redémarrer. On n'installe jamais sans prévenir : la
+ * fenêtre se fermerait au milieu du travail de quelqu'un.
+ */
+function download(onProgress) {
+  if (!canInstall()) return Promise.reject(new Error('Installation automatique indisponible'));
+  // Chargé ici et non en tête de fichier : le module n'existe que pour
+  // Windows, et l'importer ailleurs coûterait un démarrage plus lent.
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.removeAllListeners('download-progress');
+  autoUpdater.on('download-progress', (p) => onProgress(Math.round(p.percent)));
+
+  return autoUpdater.checkForUpdates().then(() => autoUpdater.downloadUpdate());
+}
+
+/** Ferme l'app et lance l'installeur déjà téléchargé. */
+function install() {
+  if (!canInstall()) return;
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.quitAndInstall(false, true);
+}
+
+module.exports = { check, watch, isNewer, canInstall, download, install };
