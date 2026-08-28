@@ -5,11 +5,14 @@ import { SUPPORT_URL } from './support';
 
 const REPO = 'https://github.com/Luth-infinity/hublink';
 const RELEASE = `${REPO}/releases/latest`;
-const VERSION = '0.4.0';
+// Les deux plateformes n'avancent pas au même rythme : les binaires macOS se
+// construisent sur un Mac, ceux de Windows sur un PC. Annoncer un numéro unique
+// enverrait la moitié des visiteurs vers un fichier qui n'existe pas.
+const VERSION = { win: '0.4.0', mac: '0.3.7' };
 
 const DOWNLOADS = {
-  mac: `${REPO}/releases/download/v${VERSION}/Hublink-${VERSION}-arm64.dmg`,
-  win: `${REPO}/releases/download/v${VERSION}/Hublink-Setup-${VERSION}-x64.exe`
+  mac: `${REPO}/releases/download/v${VERSION.mac}/Hublink-${VERSION.mac}-arm64.dmg`,
+  win: `${REPO}/releases/download/v${VERSION.win}/Hublink-Setup-${VERSION.win}-x64.exe`
 };
 
 function Logo({ className = 'size-7' }: { className?: string }) {
@@ -66,7 +69,7 @@ function Hero() {
     <header id="top" className="mx-auto max-w-6xl px-4 pt-16 pb-10 text-center sm:pt-24">
       <p className="reveal mb-5 inline-flex items-center gap-2 rounded-full bg-card px-3 py-1 text-[13px] text-ink-soft ring-1 ring-line">
         <span className="size-1.5 rounded-full bg-emerald-500" />
-        Version {VERSION} — macOS et Windows
+        Version {VERSION.win} sur Windows — {VERSION.mac} sur macOS
       </p>
       <h1 className="reveal headline mx-auto max-w-[16ch] text-[13vw] sm:text-[76px] lg:text-[92px]">
         Un compte, une bulle.
@@ -300,20 +303,21 @@ function Telecharger() {
         <Logo className="mx-auto size-14" />
         <h2 className="reveal headline mt-6 text-[40px] sm:text-[54px]">Prenez-le, il est libre.</h2>
         <p className="reveal mx-auto mt-5 max-w-[60ch] text-[17px] leading-relaxed text-ink-soft">
-          Gratuit, sous licence MIT, sans compte à créer. Version {VERSION}.
+          Gratuit, sous licence MIT, sans compte à créer. Version {VERSION.win} sur Windows,{' '}
+          {VERSION.mac} sur macOS.
         </p>
         <div className="reveal mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
             href={DOWNLOADS.mac}
             className="w-full rounded-full bg-ink px-6 py-3.5 text-[15px] font-medium text-white transition-transform hover:scale-[1.02] sm:w-auto"
           >
-            macOS — Apple Silicon
+            macOS — Apple Silicon · {VERSION.mac}
           </a>
           <a
             href={DOWNLOADS.win}
             className="w-full rounded-full bg-card px-6 py-3.5 text-[15px] font-medium ring-1 ring-line transition-colors hover:bg-canvas sm:w-auto"
           >
-            Windows — 64 bits
+            Windows — 64 bits · {VERSION.win}
           </a>
         </div>
         <p className="reveal mt-5 text-[13px] text-ink-soft">
@@ -321,7 +325,7 @@ function Telecharger() {
           <a href={RELEASE} className="underline underline-offset-4 hover:text-ink">
             sur la page des versions
           </a>
-          .
+          . La {VERSION.win} arrive prochainement sur macOS.
         </p>
       </div>
     </section>
