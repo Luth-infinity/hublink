@@ -10,6 +10,8 @@ type Props = {
   /** Non-lus par compte, pour ne rien manquer d'un compte masqué. */
   unreadByAccount: Record<string, number>;
   collapsed: boolean;
+  /** Mode discrétion : les comptes autres que l'affiché sont floutés. */
+  discreet: boolean;
   onSelect: (id: string | null) => void;
   onManage: () => void;
 };
@@ -26,6 +28,7 @@ export function AccountSwitch({
   activeAccountId,
   unreadByAccount,
   collapsed,
+  discreet,
   onSelect,
   onManage
 }: Props) {
@@ -47,10 +50,14 @@ export function AccountSwitch({
     const items: MenuItem[] = [
       { id: '__all', label: activeAccountId === null ? '✓  Tous les comptes' : 'Tous les comptes' },
       { type: 'separator' },
-      ...accounts.map((account) => {
+      ...accounts.map((account, i) => {
         const unread = unreadByAccount[account.id] || 0;
         const mark = account.id === activeAccountId ? '✓  ' : '';
-        return { id: account.id, label: unread ? `${mark}${account.name}  (${unread})` : `${mark}${account.name}` };
+        // Un menu natif ne se floute pas : en discrétion, les autres comptes
+        // y perdent leur nom plutôt que de s'afficher en clair.
+        const nom =
+          discreet && account.id !== activeAccountId ? `Compte ${i + 1}` : account.name;
+        return { id: account.id, label: unread ? `${mark}${nom}  (${unread})` : `${mark}${nom}` };
       }),
       { type: 'separator' },
       { id: '__manage', label: 'Gérer les comptes…' }

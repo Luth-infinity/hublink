@@ -110,6 +110,8 @@ export type AppState = {
   blockAds: boolean;
   favorites: Favorite[];
   history: HistoryEntry[];
+  /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
+  discreet: boolean;
   /** Teinte du shell en mode navigateur, faute de couleur de compte. */
   accentColor: string | null;
   extensions: ExtensionRecord[];
@@ -243,6 +245,7 @@ declare global {
       onUpdateAvailable(handler: (update: Update) => void): () => void;
       setTheme(theme: Theme): Promise<void>;
       setAccent(color: string | null): Promise<void>;
+      setDiscreet(on?: boolean): Promise<boolean>;
       exportConfig(): Promise<string | null>;
       importConfig(): Promise<boolean>;
       /** 0 = jamais mettre en veille. */

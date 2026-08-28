@@ -101,6 +101,7 @@ contextBridge.exposeInMainWorld('hublink', {
   onUpdateAvailable: (handler) => on('update:available', handler),
   setTheme: (theme) => invoke('app:set-theme', theme),
   setAccent: (color) => invoke('app:set-accent', color),
+  setDiscreet: (on) => invoke('app:set-discreet', on),
   exportConfig: () => invoke('config:export'),
   importConfig: () => invoke('config:import'),
   setSleepDelay: (minutes) => invoke('app:set-sleep', minutes),

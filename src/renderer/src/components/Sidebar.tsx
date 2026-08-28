@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Compass, Moon, Plus, Settings, Star, X } from 'lucide-react';
+import { Compass, EyeOff, Moon, Plus, Settings, Star, X } from 'lucide-react';
 import type { Account, Favorite, MenuItem, Service, Tab } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,9 @@ type Props = {
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string) => void;
   onAddTab: () => void;
+  /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
+  discreet: boolean;
+  onToggleDiscreet: (on: boolean) => void;
   favorites: Favorite[];
   onOpenFavorite: (id: string) => void;
   onRemoveFavorite: (id: string) => void;
@@ -89,11 +92,28 @@ function SidebarImpl({
   onSelectTab,
   onCloseTab,
   onAddTab,
+  discreet,
+  onToggleDiscreet,
   favorites,
   onOpenFavorite,
   onRemoveFavorite
 }: Props) {
   const accountById = React.useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+
+  // Le compte qu'on est en train de montrer reste lisible ; tous les autres
+  // sont floutés. En mode navigateur il n'y en a aucun : tout est masqué.
+  const compteMontre = browserMode
+    ? null
+    : (activeAccountId ?? accountById.get(services.find((x) => x.id === activeServiceId)?.accountId ?? '')?.id ?? null);
+
+  const masque = React.useCallback(
+    (accountId: string) => discreet && accountId !== compteMontre,
+    [discreet, compteMontre]
+  );
+
+  // Le flou seul laisserait deviner la longueur d'un nom : on le double d'un
+  // léger étirement des lettres.
+  const FLOU = 'blur-[5px] tracking-tight select-none';
   const [dragging, setDragging] = React.useState<string | null>(null);
   const [dropTarget, setDropTarget] = React.useState<string | null>(null);
 
@@ -138,6 +158,7 @@ function SidebarImpl({
     );
 
   const titleOf = (service: Service, asleep: boolean) => {
+    if (masque(service.accountId)) return 'Compte masqué';
     const account = accountById.get(service.accountId);
     const parts = [service.name, account ? account.name : null, hostOf(service.url)];
     if (asleep) parts.push('en veille');
@@ -212,7 +233,9 @@ function SidebarImpl({
             aria-hidden
           />
           <ServiceIcon service={service} className="size-5" textClassName="text-[9px]" isDark={isDark} />
-          <span className="min-w-0 flex-1 truncate text-[13px]">{service.name}</span>
+          <span className={cn('min-w-0 flex-1 truncate text-[13px]', masque(service.accountId) && FLOU)}>
+            {service.name}
+          </span>
           {asleep && <Moon className="size-3 shrink-0 text-shell-muted" aria-hidden />}
           <Badge count={service.badge} />
         </button>
@@ -256,6 +279,42 @@ function SidebarImpl({
           Mode navigateur
         </span>
         <Switch checked={browserMode} className="pointer-events-none" tabIndex={-1} aria-hidden />
+      </button>
+    );
+
+  /** Bascule du mode discrétion, jumelle de celle du mode navigateur. */
+  const DiscreetToggle = () =>
+    collapsed ? (
+      <button
+        type="button"
+        onClick={() => onToggleDiscreet(!discreet)}
+        title={discreet ? 'Réafficher les autres comptes' : 'Masquer les autres comptes'}
+        aria-label="Mode discrétion"
+        aria-pressed={discreet}
+        className="flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition-colors hover:bg-shell-hover"
+      >
+        <EyeOff
+          className={cn('size-[18px]', discreet ? 'text-shell-foreground' : 'text-shell-muted')}
+          aria-hidden
+        />
+        <Switch checked={discreet} className="pointer-events-none scale-75" tabIndex={-1} aria-hidden />
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={() => onToggleDiscreet(!discreet)}
+        aria-pressed={discreet}
+        title="Masque le nom et le logo des autres comptes, le temps d'un partage d'écran"
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-shell-hover"
+      >
+        <EyeOff
+          className={cn('size-4 shrink-0', discreet ? 'text-shell-foreground' : 'text-shell-muted')}
+          aria-hidden
+        />
+        <span className={cn('flex-1 text-left', discreet ? 'text-shell-foreground' : 'text-shell-muted')}>
+          Mode discrétion
+        </span>
+        <Switch checked={discreet} className="pointer-events-none" tabIndex={-1} aria-hidden />
       </button>
     );
 
@@ -409,6 +468,8 @@ function SidebarImpl({
         <Separator className={cn('bg-shell-border', collapsed && 'mx-auto w-7')} />
         <footer className={cn('flex flex-col', collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2')}>
           <BrowserToggle />
+        <DiscreetToggle />
+          <DiscreetToggle />
           <Button
             variant="ghost"
             size={collapsed ? 'icon-sm' : 'sm'}
@@ -475,6 +536,7 @@ function SidebarImpl({
           unreadByAccount={unreadByAccount}
           collapsed
           onSelect={onFilterAccount}
+          discreet={discreet}
           onManage={onOpenSettings}
         />
         <Separator className="mx-auto w-7 bg-shell-border" />
@@ -490,13 +552,17 @@ function SidebarImpl({
                   <button
                     type="button"
                     onClick={() => onFilterAccount(account.id)}
-                    title={`${account.name} — n'afficher que ce compte`}
-                    aria-label={account.name}
+                    title={
+                      masque(account.id)
+                        ? 'Compte masqué'
+                        : `${account.name} — n'afficher que ce compte`
+                    }
+                    aria-label={masque(account.id) ? 'Compte masqué' : account.name}
                     className="relative grid size-6 shrink-0 place-items-center rounded-md transition-opacity hover:opacity-100"
                   >
                     <AccountAvatar
                       account={account}
-                      className="size-[18px] rounded opacity-70"
+                      className={cn('size-[18px] rounded opacity-70', masque(account.id) && FLOU)}
                       textClassName="text-[8px]"
                     />
                   </button>
@@ -524,6 +590,8 @@ function SidebarImpl({
         <Separator className="bg-shell-border" />
         <footer className="flex flex-col items-center gap-1 py-2">
           <BrowserToggle />
+        <DiscreetToggle />
+          <DiscreetToggle />
           <Button
             variant="ghost"
             size="icon-sm"
@@ -551,7 +619,8 @@ function SidebarImpl({
             unreadByAccount={unreadByAccount}
             collapsed={false}
             onSelect={onFilterAccount}
-            onManage={onOpenSettings}
+            discreet={discreet}
+          onManage={onOpenSettings}
           />
         </div>
       )}
@@ -563,11 +632,20 @@ function SidebarImpl({
                 <button
                   type="button"
                   onClick={() => onFilterAccount(account.id)}
-                  title={`N'afficher que ${account.name}`}
+                  title={masque(account.id) ? 'Afficher ce compte' : `N'afficher que ${account.name}`}
                   className="mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:bg-shell-hover"
                 >
-                  <AccountAvatar account={account} className="size-4 rounded" textClassName="text-[7px]" />
-                  <h2 className="truncate text-[11px] font-semibold tracking-wide text-shell-muted uppercase">
+                  <AccountAvatar
+                    account={account}
+                    className={cn('size-4 rounded', masque(account.id) && FLOU)}
+                    textClassName="text-[7px]"
+                  />
+                  <h2
+                    className={cn(
+                      'truncate text-[11px] font-semibold tracking-wide text-shell-muted uppercase',
+                      masque(account.id) && FLOU
+                    )}
+                  >
                     {account.name}
                   </h2>
                   <Badge count={unreadByAccount[account.id] || 0} className="ml-auto" />
@@ -606,6 +684,7 @@ function SidebarImpl({
       <Separator className="bg-shell-border" />
       <footer className="flex flex-col gap-0.5 p-2">
         <BrowserToggle />
+        <DiscreetToggle />
         <Button
           variant="ghost"
           size="sm"

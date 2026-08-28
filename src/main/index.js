@@ -610,6 +610,14 @@ function registerIpc() {
     pushState();
   });
 
+  ipcMain.handle('app:set-discreet', (_e, on) => {
+    const state = store.load();
+    state.discreet = typeof on === 'boolean' ? on : !state.discreet;
+    store.save();
+    pushState();
+    return state.discreet;
+  });
+
   ipcMain.handle('app:set-accent', (_e, color) => {
     store.setAccentColor(color);
     pushState();

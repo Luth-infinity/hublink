@@ -328,6 +328,7 @@ export default function App() {
   const filterAccount = React.useCallback((id: string | null) => api.accounts.filter(id), []);
 
   const toggleBrowser = React.useCallback((on: boolean) => api.browser.toggle(on), []);
+  const toggleDiscreet = React.useCallback((on: boolean) => api.setDiscreet(on), []);
   const toggleFavorite = React.useCallback(() => api.browser.toggleFavorite(), []);
   const openFavorite = React.useCallback((id: string) => api.browser.openFavorite(id), []);
   const removeFavorite = React.useCallback((id: string) => api.browser.removeFavorite(id), []);
@@ -457,6 +458,8 @@ export default function App() {
             onSelectTab={selectTab}
             onCloseTab={closeTab}
             onAddTab={addTab}
+            discreet={state.discreet}
+            onToggleDiscreet={toggleDiscreet}
             favorites={state.favorites}
             onOpenFavorite={openFavorite}
             onRemoveFavorite={removeFavorite}

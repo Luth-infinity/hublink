@@ -44,6 +44,8 @@ function seed() {
     favorites: [],
     accentColor: null,
     history: [],
+    // Masque les autres clients pendant un partage d'écran.
+    discreet: false,
     extensions: [],
     window: { width: 1440, height: 900, x: null, y: null, maximized: false }
   };
@@ -95,6 +97,7 @@ function normalize(state) {
   if (typeof state.blockAds !== 'boolean') state.blockAds = true;
   if (!Array.isArray(state.favorites)) state.favorites = [];
   if (!Array.isArray(state.history)) state.history = [];
+  if (typeof state.discreet !== 'boolean') state.discreet = false;
   if (typeof state.accentColor !== 'string') state.accentColor = null;
   if (!state.theme) state.theme = 'system';
   if (typeof state.sidebarCollapsed !== 'boolean') state.sidebarCollapsed = false;

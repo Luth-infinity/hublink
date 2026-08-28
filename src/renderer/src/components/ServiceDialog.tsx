@@ -71,8 +71,16 @@ export function ServiceDialog({
   const [pickingEmoji, setPickingEmoji] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Identifiants connus au moment où la fiche s'est ouverte, pour distinguer
+  // un compte réellement créé depuis d'un simple nouvel objet d'état.
+  const idsConnus = React.useRef<string[]>([]);
+
+  // Ne réinitialise qu'à l'ouverture ou au changement de service. `accounts`
+  // est un nouveau tableau à chaque état poussé par le processus principal :
+  // le garder en dépendance effaçait la saisie en cours.
   React.useEffect(() => {
     if (!open) return;
+    idsConnus.current = accounts.map((a) => a.id);
     setName(service?.name ?? '');
     setUrl(service?.url ?? '');
     setAccountId(service?.accountId ?? defaultAccountId ?? accounts[0]?.id ?? '');
@@ -85,14 +93,24 @@ export function ServiceDialog({
     setKeepAwake(service?.keepAwake ?? false);
     setPickingEmoji(false);
     setError(null);
-  }, [open, service, defaultAccountId, accounts]);
+  }, [open, service]);
 
-  // Un compte créé pendant la saisie doit être sélectionné d'office.
+  /**
+   * Un compte créé pendant la saisie doit être sélectionné d'office.
+   *
+   * On ne réagit qu'à une apparition réelle. Comparer l'identifiant courant à
+   * la liste, comme on le faisait, basculait sur le dernier compte à chaque
+   * première ouverture : cet effet lit la valeur d'avant l'initialisation,
+   * donc vide, donc « absente de la liste » — et il s'exécute après, donc il
+   * gagnait.
+   */
   React.useEffect(() => {
-    if (open && accounts.length && !accounts.some((a) => a.id === accountId)) {
-      setAccountId(accounts[accounts.length - 1].id);
-    }
-  }, [accounts, accountId, open]);
+    if (!open) return;
+    const ids = accounts.map((a) => a.id);
+    const nouveau = ids.find((id) => !idsConnus.current.includes(id));
+    idsConnus.current = ids;
+    if (nouveau) setAccountId(nouveau);
+  }, [accounts, open]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
