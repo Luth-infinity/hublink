@@ -25,6 +25,8 @@ export type Service = {
   blockPasskeys: boolean;
   /** Notifications système de ce service. */
   notifications: boolean;
+  /** Exempté de mise en veille, pour continuer à signaler ses non-lus. */
+  keepAwake: boolean;
 };
 
 export type ServiceInput = {
@@ -35,6 +37,7 @@ export type ServiceInput = {
   spoofChrome?: boolean;
   blockPasskeys?: boolean;
   notifications?: boolean;
+  keepAwake?: boolean;
   icon?: string | null;
   emoji?: string | null;
 };

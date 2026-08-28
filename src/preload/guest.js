@@ -73,6 +73,39 @@ if (flag('mute')) {
   }
 }
 
+/**
+ * Relaie l'API standard des pastilles (Badging API).
+ *
+ * `navigator.setAppBadge()` existe dans Electron et ne lève aucune erreur,
+ * mais n'est reliée à rien : une webapp qui l'appelle croit avoir signalé ses
+ * non-lus, et l'app n'en sait jamais rien. C'est le cas de Slack, de Teams et
+ * de la plupart des webapps installables, qui ont abandonné le compteur dans
+ * le titre. On récupère donc l'appel et on le fait suivre.
+ *
+ * La fonction d'envoi est passée en argument plutôt qu'exposée en variable
+ * globale : la page s'en sert sans qu'un objet Hublink traîne sur `window`.
+ */
+try {
+  contextBridge.executeInMainWorld({
+    func: (envoyer) => {
+      if (typeof envoyer !== 'function') return;
+      // Sans argument, la spécification demande une pastille sans nombre : on
+      // affiche 1, faute de pouvoir dessiner un simple point.
+      navigator.setAppBadge = (n) => {
+        envoyer(typeof n === 'number' && n >= 0 ? Math.floor(n) : 1);
+        return Promise.resolve();
+      };
+      navigator.clearAppBadge = () => {
+        envoyer(0);
+        return Promise.resolve();
+      };
+    },
+    args: [(n) => ipcRenderer.send('badge:set', n)]
+  });
+} catch (err) {
+  console.warn('[hublink] relais des pastilles impossible', err);
+}
+
 // Le preload est injecté dans toutes les frames, publicités tierces comprises.
 // Seule la frame principale a besoin d'écouter les raccourcis.
 if (window.top === window) {

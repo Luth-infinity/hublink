@@ -89,6 +89,10 @@ class ViewManager {
     // Dernier passage au premier plan, par service : sert à endormir ceux
     // qu'on ne consulte plus.
     this.lastActiveAt = new Map();
+    // Services qui pilotent leur pastille par l'API standard. Pour ceux-là on
+    // cesse de lire le titre : les deux sources se contrediraient, et le titre
+    // remettrait le compteur à zéro à chaque changement de page.
+    this.pastilleParApi = new Set();
     this.sleepTimer = null;
     this.onEvent = () => {};
   }
@@ -115,6 +119,10 @@ class ViewManager {
     for (const [serviceId, view] of [...this.views]) {
       if (view === this.current) continue;
       if ((this.lastActiveAt.get(serviceId) ?? 0) > cutoff) continue;
+      // Un service endormi n'a plus de page : il ne peut donc plus signaler
+      // ses non-lus. Ceux qu'on a marqués restent chargés pour cette raison.
+      const service = store.getService(serviceId);
+      if (service && service.keepAwake) continue;
       this.destroyService(serviceId);
       this.onEvent('service-slept', { serviceId });
     }
@@ -362,6 +370,24 @@ class ViewManager {
     }
   }
 
+  /**
+   * Pastille annoncée par la page elle-même, via `navigator.setAppBadge()`.
+   *
+   * On remonte au service depuis le `webContents` émetteur plutôt que de faire
+   * confiance à un identifiant transmis par la page : celle-ci ne doit pas
+   * pouvoir écrire le compteur d'un autre compte.
+   */
+  applyBadgeFromApi(webContents, count) {
+    const badge = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+    for (const [id, view] of this.views) {
+      if (view.webContents !== webContents) continue;
+      if (!store.getService(id)) return;
+      this.pastilleParApi.add(id);
+      if (store.updateServiceIfChanged(id, { badge })) this.onEvent('service-meta', { serviceId: id, badge });
+      return;
+    }
+  }
+
   async showTab(tabId) {
     if (!this.window) return;
     const view = await this.ensureTabView(tabId);
@@ -422,7 +448,9 @@ class ViewManager {
     const emit = (type, payload) => this.onEvent(type, { serviceId, ...payload });
 
     wc.on('page-title-updated', (_e, title) => {
-      // Beaucoup de webapps (Gmail, Slack, Teams) mettent le compteur dans le titre.
+      // Certaines webapps mettent encore le compteur dans le titre. Celles qui
+      // utilisent l'API des pastilles font autorité : on ne lit plus le leur.
+      if (this.pastilleParApi.has(serviceId)) return;
       const m = /\((\d+)\)/.exec(title);
       const badge = m ? parseInt(m[1], 10) : 0;
       if (store.updateServiceIfChanged(serviceId, { badge })) emit('service-meta', { badge });
@@ -560,6 +588,7 @@ class ViewManager {
   destroyService(serviceId) {
     const view = this.views.get(serviceId);
     if (!view) return;
+    this.pastilleParApi.delete(serviceId);
     if (this.current === view) this.hide();
     view.webContents.close();
     this.views.delete(serviceId);

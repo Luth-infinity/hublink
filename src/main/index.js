@@ -242,6 +242,9 @@ function registerIpc() {
   // principal n'a pas de canvas, et Windows exige une vraie image (là où macOS
   // et Linux se contentent d'un nombre).
   let lastTotal = 0;
+  // Emis par le preload invité quand une webapp appelle `navigator.setAppBadge`.
+  ipcMain.on('badge:set', (event, count) => views.applyBadgeFromApi(event.sender, count));
+
   ipcMain.on('app:badge', (_e, { total, overlay }) => {
     if (typeof app.setBadgeCount === 'function') app.setBadgeCount(total > 0 ? total : 0);
 

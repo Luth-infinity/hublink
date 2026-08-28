@@ -114,6 +114,7 @@ function normalize(state) {
     if (typeof service.spoofChrome !== 'boolean') service.spoofChrome = true;
     if (typeof service.blockPasskeys !== 'boolean') service.blockPasskeys = true;
     if (typeof service.notifications !== 'boolean') service.notifications = true;
+    if (typeof service.keepAwake !== 'boolean') service.keepAwake = false;
     if (service.icon === undefined) service.icon = null;
     if (service.emoji === undefined) service.emoji = null;
     if (typeof service.badge !== 'number') service.badge = 0;
@@ -225,7 +226,17 @@ function removeAccount(id) {
 
 // --- services --------------------------------------------------------------
 
-function addService({ name, url, accountId, openLinks, spoofChrome, blockPasskeys, notifications, emoji }) {
+function addService({
+  name,
+  url,
+  accountId,
+  openLinks,
+  spoofChrome,
+  blockPasskeys,
+  notifications,
+  keepAwake,
+  emoji
+}) {
   const s = load();
   const service = {
     id: uid('s'),
@@ -242,7 +253,10 @@ function addService({ name, url, accountId, openLinks, spoofChrome, blockPasskey
     icon: null,
     emoji: emoji || null,
     blockPasskeys: blockPasskeys !== false,
-    notifications: notifications !== false
+    notifications: notifications !== false,
+    // Exempté de mise en veille : coûte sa mémoire en permanence, et c'est le
+    // seul moyen de voir arriver ses non-lus sans ouvrir le service.
+    keepAwake: keepAwake === true
   };
   s.services.push(service);
   s.activeServiceId = service.id;

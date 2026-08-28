@@ -66,6 +66,7 @@ export function ServiceDialog({
   const [icon, setIcon] = React.useState<string | null>(null);
   const [emoji, setEmoji] = React.useState<string | null>(null);
   const [notifications, setNotifications] = React.useState(true);
+  const [keepAwake, setKeepAwake] = React.useState(false);
   const [pickingEmoji, setPickingEmoji] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -80,6 +81,7 @@ export function ServiceDialog({
     setIcon(service?.icon ?? null);
     setEmoji(service?.emoji ?? null);
     setNotifications(service?.notifications ?? true);
+    setKeepAwake(service?.keepAwake ?? false);
     setPickingEmoji(false);
     setError(null);
   }, [open, service, defaultAccountId, accounts]);
@@ -107,6 +109,7 @@ export function ServiceDialog({
       openLinks,
       spoofChrome,
       blockPasskeys,
+      keepAwake,
       notifications,
       icon,
       emoji
@@ -332,6 +335,23 @@ export function ServiceDialog({
                 <p className="text-xs text-muted-foreground">
                   Coupé, ce service n'affiche plus de notification hors de l'app. Le compteur de
                   non-lus dans le panneau, lui, reste actif.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Switch
+                id="keep-awake"
+                checked={keepAwake}
+                onCheckedChange={setKeepAwake}
+                className="mt-0.5"
+              />
+              <div className="grid gap-1">
+                <Label htmlFor="keep-awake">Garder actif pour les non-lus</Label>
+                <p className="text-xs text-muted-foreground">
+                  Un service mis en veille n'a plus de page ouverte : il ne peut donc plus signaler
+                  ses messages. Coché, celui-ci reste chargé en permanence et continue de compter —
+                  au prix d'environ 110 Mo. À réserver aux deux ou trois services qui le méritent.
                 </p>
               </div>
             </div>
