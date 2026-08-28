@@ -99,6 +99,11 @@ contextBridge.exposeInMainWorld('hublink', {
   about: () => invoke('app:about'),
   checkUpdate: () => invoke('update:check'),
   onUpdateAvailable: (handler) => on('update:available', handler),
+  overlay: {
+    setInteractive: (on) => ipcRenderer.send('overlay:interactive', on)
+  },
+  runToastAction: (action) => ipcRenderer.send('overlay:action', action),
+
   setTheme: (theme) => invoke('app:set-theme', theme),
   setAccent: (color) => invoke('app:set-accent', color),
   setDiscreet: (on) => invoke('app:set-discreet', on),

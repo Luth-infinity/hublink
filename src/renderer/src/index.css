@@ -151,3 +151,11 @@
     -webkit-app-region: no-drag;
   }
 }
+
+/* La fenêtre du calque est transparente : rien ne doit peindre son fond, sinon
+   elle masquerait la page au lieu de la laisser voir. */
+html.calque,
+html.calque body,
+html.calque #root {
+  background: transparent !important;
+}

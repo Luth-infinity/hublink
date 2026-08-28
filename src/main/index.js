@@ -33,12 +33,93 @@ protocol.registerSchemesAsPrivileged([
 
 let win = null;
 
+// --- calque des messages ----------------------------------------------------
+
+// Une WebContentsView est une vue native : elle se peint au-dessus du HTML du
+// shell quoi qu'on fasse. Les messages de l'application, dessinés en bas de la
+// fenêtre principale, se retrouvaient donc cachés derrière la page. On les
+// sort dans une fenêtre enfant transparente, qui reste au-dessus de son parent.
+let calque = null;
+let calqueTimer = null;
+
+// Actions proposées dans un message. La fonction ne peut pas traverser l'IPC :
+// le calque renvoie une description, le processus principal l'exécute.
+function runToastAction(action) {
+  if (!action || typeof action !== 'object') return;
+  if (action.kind === 'reveal' && action.path) downloadsMod.reveal(action.path);
+}
+
+function syncCalque() {
+  if (!calque || calque.isDestroyed() || !win || win.isDestroyed()) return;
+  calque.setBounds(win.getContentBounds());
+}
+
+function ensureCalque() {
+  if (calque && !calque.isDestroyed()) return calque;
+  if (!win || win.isDestroyed()) return null;
+
+  calque = new BrowserWindow({
+    parent: win,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    // Sans cela, afficher un message volerait le focus à la page.
+    focusable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'preload', 'shell.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+
+  // Transparente aux clics : la page dessous doit rester utilisable. Les
+  // mouvements sont tout de même transmis, ce qui permet au calque de savoir
+  // quand le pointeur entre sur un message et de redevenir réceptif.
+  calque.setIgnoreMouseEvents(true, { forward: true });
+  calque.setBounds(win.getContentBounds());
+
+  const rendererDist = path.join(__dirname, '..', 'renderer', 'dist', 'index.html');
+  if (isDev && !fs.existsSync(rendererDist)) calque.loadURL(`${DEV_SERVER}?overlay=1`);
+  else calque.loadFile(rendererDist, { search: 'overlay=1' });
+
+  calque.once('ready-to-show', () => {
+    if (calque && !calque.isDestroyed()) calque.showInactive();
+  });
+  calque.on('closed', () => {
+    calque = null;
+  });
+  return calque;
+}
+
+/** Referme le calque quand plus aucun message n'est attendu. */
+function planifierFermetureCalque() {
+  clearTimeout(calqueTimer);
+  calqueTimer = setTimeout(() => {
+    if (calque && !calque.isDestroyed()) calque.close();
+  }, 15000);
+  if (calqueTimer.unref) calqueTimer.unref();
+}
+
 function send(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
 }
 
 const pushState = () => send('state:changed', store.load());
-const toast = (variant, message) => send('app:toast', { variant, message });
+function toast(variant, message, action) {
+  const c = ensureCalque();
+  if (!c) return;
+  const envoyer = () => c.webContents.send('app:toast', { variant, message, action });
+  if (c.webContents.isLoading()) c.webContents.once('did-finish-load', envoyer);
+  else envoyer();
+  planifierFermetureCalque();
+}
 
 function createWindow() {
   const state = store.load();
@@ -82,6 +163,13 @@ function createWindow() {
     return { action: 'deny' };
   });
 
+  for (const ev of ['move', 'resize', 'maximize', 'unmaximize', 'restore']) win.on(ev, syncCalque);
+  win.on('minimize', () => calque && !calque.isDestroyed() && calque.hide());
+  win.on('restore', () => calque && !calque.isDestroyed() && calque.showInactive());
+  win.on('closed', () => {
+    if (calque && !calque.isDestroyed()) calque.destroy();
+  });
+
   if (state.window.maximized) win.maximize();
   views.attach(win);
   views.startSleepWatcher();
@@ -94,7 +182,14 @@ function createWindow() {
     if (type === 'media-present') send('media:present', payload);
     if (type === 'download-started') send('download:started', payload);
     if (type === 'download-progress') send('download:progress', payload);
-    if (type === 'download-done') send('download:done', payload);
+    if (type === 'download-done') {
+      send('download:done', payload);
+      if (payload.state === 'completed') {
+        toast('success', `${payload.name} téléchargé`, { kind: 'reveal', label: 'Ouvrir le dossier', path: payload.path });
+      } else {
+        toast('error', `Téléchargement interrompu : ${payload.name}`);
+      }
+    }
     // Un lien `target="_blank"` : la vue demande un onglet, le shell le crée.
     if (type === 'tab-requested') openTab(payload.url);
     // Une vue en arrière-plan continue de naviguer (rechargement, SPA) : sans ce
@@ -245,6 +340,12 @@ function registerIpc() {
   let lastTotal = 0;
   // Emis par le preload invité quand une webapp appelle `navigator.setAppBadge`.
   ipcMain.on('badge:set', (event, count) => views.applyBadgeFromApi(event.sender, count));
+
+  ipcMain.on('overlay:interactive', (_e, on) => {
+    if (calque && !calque.isDestroyed()) calque.setIgnoreMouseEvents(!on, { forward: true });
+  });
+
+  ipcMain.on('overlay:action', (_e, action) => runToastAction(action));
 
   ipcMain.on('app:badge', (_e, { total, overlay }) => {
     if (typeof app.setBadgeCount === 'function') app.setBadgeCount(total > 0 ? total : 0);

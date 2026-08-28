@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { Toaster, toast } from 'sonner';
 import { Plus } from 'lucide-react';
 import type {
   Account,
@@ -142,25 +141,19 @@ export default function App() {
     []
   );
 
+  // Le message de fin est émis par le processus principal, vers le calque :
+  // ici on ne tient plus que la liste.
   React.useEffect(
     () =>
-      api.downloads.onDone(({ id, name, path, state, total }) => {
+      api.downloads.onDone(({ id, state, total }) =>
         setDownloads((prev) =>
           prev.map((d) =>
             d.id === id
               ? { ...d, state: state as Download['state'], received: total || d.received, total: total || d.total }
               : d
           )
-        );
-        if (state !== 'completed') {
-          toast.error(`Téléchargement interrompu : ${name}`);
-          return;
-        }
-        toast.success(name, {
-          description: 'Téléchargé',
-          action: { label: 'Ouvrir le dossier', onClick: () => api.downloads.reveal(path) }
-        });
-      }),
+        )
+      ),
     []
   );
 
@@ -186,10 +179,7 @@ export default function App() {
     []
   );
 
-  React.useEffect(
-    () => api.onToast(({ variant, message }) => (variant === 'error' ? toast.error(message) : toast.success(message))),
-    []
-  );
+
 
   // Applique le delta badge / favicon sans repasser par un état complet.
   React.useEffect(
@@ -540,7 +530,6 @@ export default function App() {
         onSetSleepDelay={setSleepDelay}
       />
 
-      <Toaster theme="system" position="bottom-right" richColors />
     </>
   );
 }

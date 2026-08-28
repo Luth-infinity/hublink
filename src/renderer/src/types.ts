@@ -143,7 +143,14 @@ export type Shortcut = { type: string; index?: number };
 /** Version publiée plus récente que celle installée. */
 export type Update = { version: string; url: string; page: string; notes: string };
 
-export type Toast = { variant: 'success' | 'error'; message: string };
+/** Une action ne peut pas traverser l'IPC : on décrit, le principal exécute. */
+export type ToastAction = { kind: 'reveal'; label: string; path: string };
+
+export type Toast = {
+  variant: 'success' | 'error';
+  message: string;
+  action?: ToastAction;
+};
 
 export type MenuItem =
   | { type: 'separator' }
@@ -243,6 +250,8 @@ declare global {
       about(): Promise<{ version: string; electron: string; chrome: string; userData: string }>;
       checkUpdate(): Promise<Update | null>;
       onUpdateAvailable(handler: (update: Update) => void): () => void;
+      overlay: { setInteractive(on: boolean): void };
+      runToastAction(action: ToastAction): void;
       setTheme(theme: Theme): Promise<void>;
       setAccent(color: string | null): Promise<void>;
       setDiscreet(on?: boolean): Promise<boolean>;
