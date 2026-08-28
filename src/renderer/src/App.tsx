@@ -22,21 +22,6 @@ import { SettingsDialog } from '@/components/SettingsDialog';
 const api = window.hublink;
 const isMac = api.platform === 'darwin';
 
-/**
- * La liste ne retient que les cinq derniers téléchargements : elle sert à
- * retrouver un fichier qu'on vient de prendre, pas à tenir un historique. Ce
- * qui sort de la liste reste évidemment sur le disque — on ne supprime jamais
- * un fichier de l'utilisateur. Un transfert en cours n'est jamais évincé,
- * sinon sa progression disparaîtrait sous les yeux de qui l'attend.
- */
-const MAX_DOWNLOADS = 5;
-
-function purge(liste: Download[]): Download[] {
-  const encours = liste.filter((d) => d.state === 'progress');
-  const finis = liste.filter((d) => d.state !== 'progress');
-  return [...encours, ...finis].slice(0, Math.max(MAX_DOWNLOADS, encours.length));
-}
-
 export default function App() {
   const [state, setState] = React.useState<AppState | null>(null);
   const [nav, setNav] = React.useState<NavState | null>(null);
@@ -62,8 +47,9 @@ export default function App() {
   // sert à retrouver un fichier qu'on vient de prendre, pas à tenir un
   // historique.
   const [downloads, setDownloads] = React.useState<Download[]>([]);
-  const [downloadsOpen, setDownloadsOpen] = React.useState(false);
-  const [historyOpen, setHistoryOpen] = React.useState(false);
+  // Panneau ouvert dans le calque : c'est le processus principal qui en décide,
+  // les deux fenêtres doivent en dire la même chose.
+  const [openPanel, setOpenPanel] = React.useState<'downloads' | 'history' | null>(null);
   // Nom du dernier service supprimé, le temps de pouvoir revenir dessus.
   const [undoDelete, setUndoDelete] = React.useState<string | null>(null);
   const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,50 +103,13 @@ export default function App() {
     []
   );
 
-  // Un téléchargement se signale à son terme, pas à chaque bloc reçu : un
-  // fichier de quelques centaines de kilo-octets arrive avant qu'on ait lu la
-  // moindre progression.
-  React.useEffect(
-    () =>
-      api.downloads.onStarted(({ id, name, total, path }) =>
-        setDownloads((prev) => purge([
-          { id, name, path, total, received: 0, state: 'progress' as const },
-          ...prev
-        ]))
-      ),
-    []
-  );
+  // La liste vient du processus principal : la barre d'outils et le panneau
+  // vivent désormais dans deux fenêtres, ils ne peuvent plus partager un état
+  // local.
+  React.useEffect(() => api.downloadsList.onList(setDownloads), []);
 
-  React.useEffect(
-    () =>
-      api.downloads.onProgress(({ id, received, total }) =>
-        setDownloads((prev) =>
-          prev.map((d) => (d.id === id ? { ...d, received, total: total || d.total } : d))
-        )
-      ),
-    []
-  );
+  React.useEffect(() => api.panels.onState((p) => setOpenPanel(p ? p.kind : null)), []);
 
-  // Le message de fin est émis par le processus principal, vers le calque :
-  // ici on ne tient plus que la liste.
-  React.useEffect(
-    () =>
-      api.downloads.onDone(({ id, state, total }) =>
-        setDownloads((prev) =>
-          prev.map((d) =>
-            d.id === id
-              ? { ...d, state: state as Download['state'], received: total || d.received, total: total || d.total }
-              : d
-          )
-        )
-      ),
-    []
-  );
-
-  const clearDownloads = React.useCallback(() => {
-    setDownloads([]);
-    setDownloadsOpen(false);
-  }, []);
 
   // Titre, URL et favicon d'un onglet changent en continu : même traitement
   // que les services, on n'applique que le delta.
@@ -209,7 +158,7 @@ export default function App() {
   // Sans ce masquage, une modale s'ouvre derrière la page — on ne voit que
   // l'overlay sombre et plus aucun clic n'aboutit.
   const overlayOpen =
-    serviceDialog.open || accountDialog.open || settingsOpen || downloadsOpen || historyOpen;
+    serviceDialog.open || accountDialog.open || settingsOpen;
   React.useEffect(() => {
     api.setOverlay(overlayOpen);
   }, [overlayOpen]);
@@ -418,12 +367,7 @@ export default function App() {
           browserMode={state.browserMode}
           isFavorite={state.favorites.some((f) => f.url === (nav?.url ?? ''))}
           downloads={downloads}
-          onClearDownloads={clearDownloads}
-          downloadsOpen={downloadsOpen}
-          onToggleDownloads={setDownloadsOpen}
-          history={state.history}
-          historyOpen={historyOpen}
-          onToggleHistory={setHistoryOpen}
+          openPanel={openPanel}
           undoDelete={undoDelete}
           onUndoDelete={undoRemove}
           hasVideo={avecMedia.includes(

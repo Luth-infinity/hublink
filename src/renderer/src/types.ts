@@ -251,6 +251,29 @@ declare global {
       checkUpdate(): Promise<Update | null>;
       onUpdateAvailable(handler: (update: Update) => void): () => void;
       overlay: { setInteractive(on: boolean): void };
+
+      /** Panneaux déroulants, dessinés par le calque. */
+      panels: {
+        toggle(
+          kind: 'downloads' | 'history',
+          anchor: { x: number; y: number; width: number; height: number }
+        ): void;
+        close(): void;
+        onState(
+          handler: (
+            p: {
+              kind: 'downloads' | 'history';
+              anchor: { x: number; y: number; width: number; height: number };
+            } | null
+          ) => void
+        ): () => void;
+      };
+
+      /** Liste des téléchargements, tenue par le processus principal. */
+      downloadsList: {
+        clear(): void;
+        onList(handler: (list: Download[]) => void): () => void;
+      };
       runToastAction(action: ToastAction): void;
       setTheme(theme: Theme): Promise<void>;
       setAccent(color: string | null): Promise<void>;

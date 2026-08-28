@@ -102,6 +102,17 @@ contextBridge.exposeInMainWorld('hublink', {
   overlay: {
     setInteractive: (on) => ipcRenderer.send('overlay:interactive', on)
   },
+
+  panels: {
+    toggle: (kind, anchor) => ipcRenderer.send('panel:toggle', { kind, anchor }),
+    close: () => ipcRenderer.send('panel:close'),
+    onState: (handler) => on('panel:state', handler)
+  },
+
+  downloadsList: {
+    clear: () => ipcRenderer.send('downloads:clear'),
+    onList: (handler) => on('downloads:list', handler)
+  },
   runToastAction: (action) => ipcRenderer.send('overlay:action', action),
 
   setTheme: (theme) => invoke('app:set-theme', theme),

@@ -42,6 +42,47 @@ let win = null;
 let calque = null;
 let calqueTimer = null;
 
+// --- panneaux et téléchargements --------------------------------------------
+
+// Tenus ici plutôt que dans un renderer : la barre d'outils et le panneau
+// vivent désormais dans deux fenêtres, ils ne peuvent plus se partager un état
+// local. Le principal est de toute façon la source de ces informations.
+const MAX_TELECHARGEMENTS = 5;
+let telechargements = [];
+
+/**
+ * Ne garde que les cinq derniers, sans jamais évincer un transfert en cours :
+ * sa progression disparaîtrait sous les yeux de qui l'attend.
+ */
+function purgerTelechargements() {
+  const encours = telechargements.filter((d) => d.state === 'progress');
+  const finis = telechargements.filter((d) => d.state !== 'progress');
+  telechargements = [...encours, ...finis].slice(0, Math.max(MAX_TELECHARGEMENTS, encours.length));
+}
+
+function pousserTelechargements() {
+  send('downloads:list', telechargements);
+}
+
+// Panneau ouvert, et l'ancre sous laquelle le dessiner. L'ancre vient de la
+// barre d'outils, dont les coordonnées sont celles du calque : les deux
+// fenêtres partagent la même origine.
+let panneau = null;
+
+function pousserPanneau() {
+  send('panel:state', panneau);
+  majReceptiviteCalque();
+}
+
+/**
+ * Le calque laisse passer les clics par défaut. Un panneau ouvert doit au
+ * contraire les recevoir — y compris le clic à côté, qui le referme.
+ */
+function majReceptiviteCalque() {
+  if (!calque || calque.isDestroyed()) return;
+  calque.setIgnoreMouseEvents(!panneau, { forward: true });
+}
+
 // Actions proposées dans un message. La fonction ne peut pas traverser l'IPC :
 // le calque renvoie une description, le processus principal l'exécute.
 function runToastAction(action) {
@@ -89,6 +130,11 @@ function ensureCalque() {
   if (isDev && !fs.existsSync(rendererDist)) calque.loadURL(`${DEV_SERVER}?overlay=1`);
   else calque.loadFile(rendererDist, { search: 'overlay=1' });
 
+  calque.webContents.on('did-finish-load', () => {
+    calque.webContents.send('downloads:list', telechargements);
+    calque.webContents.send('panel:state', panneau);
+    majReceptiviteCalque();
+  });
   calque.once('ready-to-show', () => {
     if (calque && !calque.isDestroyed()) calque.showInactive();
   });
@@ -102,13 +148,19 @@ function ensureCalque() {
 function planifierFermetureCalque() {
   clearTimeout(calqueTimer);
   calqueTimer = setTimeout(() => {
+    // Un panneau ouvert vit dans cette fenêtre : la refermer le ferait
+    // disparaître sous le doigt de l'utilisateur.
+    if (panneau) return planifierFermetureCalque();
     if (calque && !calque.isDestroyed()) calque.close();
   }, 15000);
   if (calqueTimer.unref) calqueTimer.unref();
 }
 
+// Les deux fenêtres doivent voir le même état : le calque porte désormais des
+// panneaux, pas seulement des messages.
 function send(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+  if (calque && !calque.isDestroyed()) calque.webContents.send(channel, payload);
 }
 
 const pushState = () => send('state:changed', store.load());
@@ -180,10 +232,28 @@ function createWindow() {
     if (type === 'service-slept') send('service:slept', payload);
     if (type === 'tab-meta') send('tab:meta', payload);
     if (type === 'media-present') send('media:present', payload);
-    if (type === 'download-started') send('download:started', payload);
-    if (type === 'download-progress') send('download:progress', payload);
+    if (type === 'download-started') {
+      telechargements = [
+        { id: payload.id, name: payload.name, path: payload.path, total: payload.total, received: 0, state: 'progress' },
+        ...telechargements
+      ];
+      purgerTelechargements();
+      pousserTelechargements();
+    }
+    if (type === 'download-progress') {
+      telechargements = telechargements.map((d) =>
+        d.id === payload.id ? { ...d, received: payload.received, total: payload.total || d.total } : d
+      );
+      pousserTelechargements();
+    }
     if (type === 'download-done') {
-      send('download:done', payload);
+      telechargements = telechargements.map((d) =>
+        d.id === payload.id
+          ? { ...d, state: payload.state, received: payload.total || d.received, total: payload.total || d.total }
+          : d
+      );
+      purgerTelechargements();
+      pousserTelechargements();
       if (payload.state === 'completed') {
         toast('success', `${payload.name} téléchargé`, { kind: 'reveal', label: 'Ouvrir le dossier', path: payload.path });
       } else {
@@ -341,7 +411,31 @@ function registerIpc() {
   // Emis par le preload invité quand une webapp appelle `navigator.setAppBadge`.
   ipcMain.on('badge:set', (event, count) => views.applyBadgeFromApi(event.sender, count));
 
+  ipcMain.on('panel:toggle', (_e, { kind, anchor }) => {
+    if (panneau && panneau.kind === kind) panneau = null;
+    else {
+      ensureCalque();
+      panneau = { kind, anchor };
+      planifierFermetureCalque();
+    }
+    pousserPanneau();
+  });
+
+  ipcMain.on('panel:close', () => {
+    if (!panneau) return;
+    panneau = null;
+    pousserPanneau();
+  });
+
+  ipcMain.on('downloads:clear', () => {
+    telechargements = [];
+    panneau = null;
+    pousserPanneau();
+    pousserTelechargements();
+  });
+
   ipcMain.on('overlay:interactive', (_e, on) => {
+    if (panneau) return;
     if (calque && !calque.isDestroyed()) calque.setIgnoreMouseEvents(!on, { forward: true });
   });
 
