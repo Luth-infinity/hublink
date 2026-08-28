@@ -35,6 +35,9 @@ type Props = {
   history: HistoryEntry[];
   historyOpen: boolean;
   onToggleHistory: (open: boolean) => void;
+  /** Service supprimé à l'instant, tant qu'on peut encore revenir dessus. */
+  undoDelete: string | null;
+  onUndoDelete: () => void;
 };
 
 /**
@@ -512,7 +515,9 @@ export function Toolbar({
   hasVideo,
   history,
   historyOpen,
-  onToggleHistory
+  onToggleHistory,
+  undoDelete,
+  onUndoDelete
 }: Props) {
   const api = window.hublink;
 
@@ -521,20 +526,40 @@ export function Toolbar({
   // reconnaît la fiche d'une extension et on propose de l'installer nous-mêmes,
   // avec la mécanique qui existe déjà dans les réglages.
   const storeId = React.useMemo(() => {
-    const url = nav?.url ?? '';
-    if (!/^https:\/\/chromewebstore\.google\.com\/detail\//.test(url)) return null;
+    const brut = nav?.url ?? '';
+    if (!brut) return null;
+    // Google intercale une page de consentement dont l'adresse porte la vraie
+    // destination en paramètre : chercher seulement en tête d'URL laissait
+    // passer le Store sans jamais reconnaître la fiche.
+    let url = brut;
+    try {
+      url = decodeURIComponent(brut);
+    } catch {
+      // Adresse mal encodée : on se contente de la forme brute.
+    }
+    const surLeStore =
+      url.includes('chromewebstore.google.com/detail/') ||
+      url.includes('chrome.google.com/webstore/detail/');
+    if (!surLeStore) return null;
     const m = url.match(/([a-p]{32})/);
     return m ? m[1] : null;
   }, [nav?.url]);
 
-  const [installing, setInstalling] = React.useState(false);
+  // Le retour se fait sur le bouton : une notification s'afficherait derrière
+  // la vue web, qui est native et se peint au-dessus du shell.
+  const [installState, setInstallState] = React.useState<'repos' | 'en-cours' | 'fait' | 'echec'>(
+    'repos'
+  );
+  React.useEffect(() => setInstallState('repos'), [storeId]);
+
   const installerExtension = async () => {
-    if (!storeId) return;
-    setInstalling(true);
+    if (!storeId || installState === 'en-cours') return;
+    setInstallState('en-cours');
     try {
-      await api.extensions.installFromStore(storeId);
-    } finally {
-      setInstalling(false);
+      const r = await api.extensions.installFromStore(storeId);
+      setInstallState(r ? 'fait' : 'echec');
+    } catch {
+      setInstallState('echec');
     }
   };
 
@@ -680,6 +705,20 @@ export function Toolbar({
       </div>
 
       <div className="no-drag flex items-center gap-0.5">
+        {undoDelete && (
+          <div className="animate-in fade-in slide-in-from-right-2 mr-1 flex items-center gap-2 rounded-full bg-shell-active px-2.5 py-1 text-[11px] duration-200">
+            <span className="max-w-[160px] truncate text-shell-foreground">
+              {undoDelete} supprimé
+            </span>
+            <button
+              type="button"
+              onClick={onUndoDelete}
+              className="shrink-0 font-medium text-shell-foreground underline underline-offset-2 hover:opacity-80"
+            >
+              Annuler
+            </button>
+          </div>
+        )}
         {hasVideo && (
           <Button
             variant="ghost"
@@ -696,13 +735,26 @@ export function Toolbar({
           <Button
             variant="ghost"
             size="sm"
-            disabled={installing}
+            disabled={installState === 'en-cours' || installState === 'fait'}
             onClick={installerExtension}
-            className="mr-1 h-7 gap-1.5 px-2 text-[11px] text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
+            className={cn(
+              'mr-1 h-7 gap-1.5 px-2 text-[11px] hover:bg-shell-active hover:text-shell-foreground',
+              installState === 'fait'
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : installState === 'echec'
+                  ? 'text-red-500'
+                  : 'text-shell-muted'
+            )}
             title="Installer cette extension dans Hublink"
           >
             <Blocks className="size-3.5" />
-            {installing ? 'Installation…' : 'Installer'}
+            {installState === 'en-cours'
+              ? 'Installation…'
+              : installState === 'fait'
+                ? 'Installée'
+                : installState === 'echec'
+                  ? 'Échec'
+                  : 'Installer'}
           </Button>
         )}
         {browserMode && (

@@ -65,6 +65,9 @@ export default function App() {
   const [downloads, setDownloads] = React.useState<Download[]>([]);
   const [downloadsOpen, setDownloadsOpen] = React.useState(false);
   const [historyOpen, setHistoryOpen] = React.useState(false);
+  // Nom du dernier service supprimé, le temps de pouvoir revenir dessus.
+  const [undoDelete, setUndoDelete] = React.useState<string | null>(null);
+  const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // Vues ayant déjà joué une vidéo : l'incrustation ne s'affiche que là.
   const [avecMedia, setAvecMedia] = React.useState<string[]>([]);
 
@@ -279,11 +282,20 @@ export default function App() {
   const editService = React.useCallback((s: Service) => setServiceDialog({ open: true, service: s }), []);
   // Supprimer un service est immédiat et sans confirmation : le rattrapage se
   // fait après coup plutôt qu'en imposant une question à chaque fois.
+  // Le rattrapage vit dans la barre d'outils, pas dans une notification : la
+  // vue web est native et se peint au-dessus du shell, une notification en bas
+  // de fenêtre serait invisible.
   const removeService = React.useCallback(async (s: Service) => {
     await api.services.remove(s.id);
-    toast(`${s.name} supprimé`, {
-      action: { label: 'Annuler', onClick: () => api.services.restore() }
-    });
+    setUndoDelete(s.name);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setUndoDelete(null), 12000);
+  }, []);
+
+  const undoRemove = React.useCallback(async () => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndoDelete(null);
+    await api.services.restore();
   }, []);
   const toggleLinkPolicy = React.useCallback(
     (s: Service) => api.services.update(s.id, { openLinks: s.openLinks === 'app' ? 'browser' : 'app' }),
@@ -422,6 +434,8 @@ export default function App() {
           history={state.history}
           historyOpen={historyOpen}
           onToggleHistory={setHistoryOpen}
+          undoDelete={undoDelete}
+          onUndoDelete={undoRemove}
           hasVideo={avecMedia.includes(
             (state.browserMode ? state.activeTabId : state.activeServiceId) ?? ''
           )}

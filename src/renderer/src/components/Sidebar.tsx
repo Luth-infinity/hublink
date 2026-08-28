@@ -468,7 +468,6 @@ function SidebarImpl({
         <Separator className={cn('bg-shell-border', collapsed && 'mx-auto w-7')} />
         <footer className={cn('flex flex-col', collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2')}>
           <BrowserToggle />
-        <DiscreetToggle />
           <DiscreetToggle />
           <Button
             variant="ghost"
@@ -590,7 +589,6 @@ function SidebarImpl({
         <Separator className="bg-shell-border" />
         <footer className="flex flex-col items-center gap-1 py-2">
           <BrowserToggle />
-        <DiscreetToggle />
           <DiscreetToggle />
           <Button
             variant="ghost"
