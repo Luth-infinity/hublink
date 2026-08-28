@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('hublink', {
     add: (data) => invoke('service:add', data),
     update: (id, patch) => invoke('service:update', { id, patch }),
     remove: (id) => invoke('service:remove', id),
+    restore: () => invoke('service:restore'),
     select: (id) => invoke('service:select', id),
     reorder: (orderedIds) => invoke('service:reorder', orderedIds),
     pickIcon: () => invoke('service:pick-icon')
@@ -100,6 +101,8 @@ contextBridge.exposeInMainWorld('hublink', {
   onUpdateAvailable: (handler) => on('update:available', handler),
   setTheme: (theme) => invoke('app:set-theme', theme),
   setAccent: (color) => invoke('app:set-accent', color),
+  exportConfig: () => invoke('config:export'),
+  importConfig: () => invoke('config:import'),
   setSleepDelay: (minutes) => invoke('app:set-sleep', minutes),
   setBadge: (payload) => ipcRenderer.send('app:badge', payload),
   capturePage: (options) => invoke('capture:page', options),

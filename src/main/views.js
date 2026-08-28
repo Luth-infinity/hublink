@@ -697,6 +697,18 @@ class ViewManager {
     this.lastActiveAt.delete(serviceId);
   }
 
+  /** Ferme toutes les vues : après un import, plus rien ne correspond. */
+  destroyAll() {
+    this.hide();
+    for (const [id, view] of [...this.views]) {
+      view.webContents.close();
+      this.views.delete(id);
+      this.lastActiveAt.delete(id);
+    }
+    this.pastilleParApi.clear();
+    this.avecMedia.clear();
+  }
+
   destroyAccount(accountId) {
     for (const [serviceId] of [...this.views]) {
       // Les onglets du navigateur vivent dans la même Map : sans ce garde-fou,

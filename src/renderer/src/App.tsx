@@ -277,7 +277,14 @@ export default function App() {
     return api.services.select(id);
   }, []);
   const editService = React.useCallback((s: Service) => setServiceDialog({ open: true, service: s }), []);
-  const removeService = React.useCallback((s: Service) => api.services.remove(s.id), []);
+  // Supprimer un service est immédiat et sans confirmation : le rattrapage se
+  // fait après coup plutôt qu'en imposant une question à chaque fois.
+  const removeService = React.useCallback(async (s: Service) => {
+    await api.services.remove(s.id);
+    toast(`${s.name} supprimé`, {
+      action: { label: 'Annuler', onClick: () => api.services.restore() }
+    });
+  }, []);
   const toggleLinkPolicy = React.useCallback(
     (s: Service) => api.services.update(s.id, { openLinks: s.openLinks === 'app' ? 'browser' : 'app' }),
     []

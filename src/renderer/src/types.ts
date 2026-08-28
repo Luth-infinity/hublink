@@ -161,6 +161,7 @@ declare global {
         add(data: { name: string; color: string; avatar?: string | null }): Promise<Account>;
         update(id: string, patch: Partial<Account>): Promise<void>;
         remove(id: string): Promise<void>;
+        restore(): Promise<Service | null>;
         pickAvatar(): Promise<string | null>;
       };
 
@@ -168,6 +169,7 @@ declare global {
         add(data: ServiceInput): Promise<Service>;
         update(id: string, patch: Partial<Service>): Promise<void>;
         remove(id: string): Promise<void>;
+        restore(): Promise<Service | null>;
         select(id: string): Promise<void>;
         reorder(orderedIds: string[]): Promise<void>;
         pickIcon(): Promise<string | null>;
@@ -224,6 +226,7 @@ declare global {
         installFromFile(): Promise<ExtensionRecord | null>;
         installFromStore(idOrUrl: string): Promise<ExtensionRecord | null>;
         remove(id: string): Promise<void>;
+        restore(): Promise<Service | null>;
         toggle(id: string, accountId: string, enabled: boolean): Promise<void>;
         loaded(accountId: string): Promise<LoadedExtension[]>;
         openPopup(chromeExtensionId: string): Promise<void>;
@@ -240,6 +243,8 @@ declare global {
       onUpdateAvailable(handler: (update: Update) => void): () => void;
       setTheme(theme: Theme): Promise<void>;
       setAccent(color: string | null): Promise<void>;
+      exportConfig(): Promise<string | null>;
+      importConfig(): Promise<boolean>;
       /** 0 = jamais mettre en veille. */
       setSleepDelay(minutes: number): Promise<void>;
       setBadge(payload: { total: number; overlay: string | null }): void;

@@ -289,6 +289,8 @@ function updateServiceIfChanged(id, patch) {
 
 function removeService(id) {
   const s = load();
+  const index = s.services.findIndex((service) => service.id === id);
+  if (index !== -1) rememberRemoved(s.services[index], index);
   s.services = s.services.filter((service) => service.id !== id);
   if (s.activeServiceId === id) s.activeServiceId = s.services[0] ? s.services[0].id : null;
   save();
@@ -433,6 +435,146 @@ function clearHistory() {
   save();
 }
 
+
+// --- sauvegarde de la configuration ----------------------------------------
+
+// Ce qu'on emporte d'une machine à l'autre : les comptes, les services et les
+// préférences. Ni cookies ni sessions — ils restent sur le poste, on se
+// reconnecte simplement. Ni extensions : leurs fichiers vivent sur le disque
+// local, une référence exportée ne pointerait sur rien.
+const FORMAT_EXPORT = 1;
+
+function exportConfig() {
+  const s = load();
+  return {
+    format: FORMAT_EXPORT,
+    app: 'hublink',
+    exportedAt: new Date().toISOString(),
+    theme: s.theme,
+    sleepAfterMinutes: s.sleepAfterMinutes,
+    accentColor: s.accentColor,
+    blockAds: s.blockAds,
+    accounts: s.accounts.map((a) => ({
+      id: a.id,
+      name: a.name,
+      color: a.color,
+      avatar: a.avatar,
+      partition: a.partition
+    })),
+    services: s.services.map((x) => ({
+      id: x.id,
+      name: x.name,
+      url: x.url,
+      accountId: x.accountId,
+      icon: x.icon,
+      emoji: x.emoji,
+      openLinks: x.openLinks,
+      spoofChrome: x.spoofChrome,
+      blockPasskeys: x.blockPasskeys,
+      notifications: x.notifications,
+      keepAwake: x.keepAwake
+    })),
+    favorites: s.favorites
+  };
+}
+
+/** Refuse un fichier qui n'est pas une sauvegarde Hublink exploitable. */
+function validateConfig(data) {
+  if (!data || typeof data !== 'object') return 'Fichier illisible';
+  if (data.app !== 'hublink') return "Ce fichier n'est pas une sauvegarde Hublink";
+  if (Number(data.format) > FORMAT_EXPORT) {
+    return 'Sauvegarde créée par une version plus récente de Hublink';
+  }
+  if (!Array.isArray(data.accounts) || data.accounts.length === 0) return 'Aucun compte à importer';
+  if (!Array.isArray(data.services)) return 'Liste de services illisible';
+  return null;
+}
+
+/**
+ * Remplace comptes, services et préférences par ceux d'une sauvegarde.
+ *
+ * L'ancienne configuration est copiée à côté avant d'être écrasée : importer
+ * le mauvais fichier ne doit pas coûter des heures de reconstruction.
+ */
+function importConfig(data) {
+  const erreur = validateConfig(data);
+  if (erreur) return { ok: false, erreur };
+
+  try {
+    // L'écriture est différée d'une seconde : sans ce vidage, la copie de
+    // secours reprendrait un état périmé, voire n'existerait pas du tout.
+    saveNow();
+    fs.copyFileSync(FILE, `${FILE}.avant-import`);
+  } catch (err) {
+    console.error('[store] sauvegarde préalable impossible', err);
+  }
+
+  const s = load();
+  s.accounts = data.accounts.map((a) => ({
+    id: a.id || uid('a'),
+    name: String(a.name || 'Compte'),
+    color: a.color || '#64748b',
+    avatar: a.avatar || null,
+    partition: a.partition || `persist:account-${a.id || uid('a')}`
+  }));
+  const connus = new Set(s.accounts.map((a) => a.id));
+  s.services = data.services
+    .filter((x) => x && x.url)
+    .map((x) => ({
+      id: x.id || uid('s'),
+      name: String(x.name || ''),
+      url: String(x.url),
+      accountId: connus.has(x.accountId) ? x.accountId : s.accounts[0].id,
+      favicon: null,
+      badge: 0,
+      icon: x.icon || null,
+      emoji: x.emoji || null,
+      openLinks: x.openLinks === 'app' ? 'app' : 'browser',
+      spoofChrome: x.spoofChrome !== false,
+      blockPasskeys: x.blockPasskeys !== false,
+      notifications: x.notifications !== false,
+      keepAwake: x.keepAwake === true
+    }));
+  s.favorites = Array.isArray(data.favorites) ? data.favorites : [];
+  if (typeof data.theme === 'string') s.theme = data.theme;
+  if (typeof data.sleepAfterMinutes === 'number') s.sleepAfterMinutes = data.sleepAfterMinutes;
+  if (typeof data.accentColor === 'string' || data.accentColor === null) {
+    s.accentColor = data.accentColor;
+  }
+  if (typeof data.blockAds === 'boolean') s.blockAds = data.blockAds;
+
+  s.activeAccountId = null;
+  s.activeServiceId = s.services[0] ? s.services[0].id : null;
+  saveNow();
+  return { ok: true, comptes: s.accounts.length, services: s.services.length };
+}
+
+// --- annulation d'une suppression ------------------------------------------
+
+// Un seul niveau : on rattrape le clic malheureux qu'on vient de faire, pas
+// une session de ménage.
+let dernierSupprime = null;
+
+function rememberRemoved(service, index) {
+  dernierSupprime = { service, index };
+}
+
+function restoreRemoved() {
+  if (!dernierSupprime) return null;
+  const { service, index } = dernierSupprime;
+  dernierSupprime = null;
+  const s = load();
+  if (s.services.some((x) => x.id === service.id)) return null;
+  if (!s.accounts.some((a) => a.id === service.accountId)) {
+    // Le compte a disparu entre-temps : on rattache plutôt que de perdre.
+    service.accountId = s.accounts[0].id;
+  }
+  s.services.splice(Math.min(index, s.services.length), 0, service);
+  s.activeServiceId = service.id;
+  save();
+  return service;
+}
+
 module.exports = {
   FILE,
   uid,
@@ -463,5 +605,9 @@ module.exports = {
   setAccentColor,
   addHistory,
   removeHistory,
-  clearHistory
+  clearHistory,
+  exportConfig,
+  importConfig,
+  rememberRemoved,
+  restoreRemoved
 };

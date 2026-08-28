@@ -1,4 +1,4 @@
-import { Ban, Monitor, Moon, Pencil, Plus, Sun, Timer, Trash2, TriangleAlert } from 'lucide-react';
+import { Ban, Download, Monitor, Moon, Pencil, Plus, Sun, Timer, Trash2, TriangleAlert, Upload } from 'lucide-react';
 import type { Account, AppState, Service, Theme } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -184,6 +184,35 @@ export function SettingsDialog({
                     {minutes === 0 ? 'Jamais' : `${minutes} min`}
                   </Button>
                 ))}
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-2">
+                <h3 className="text-sm font-medium">Sauvegarde</h3>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Vos comptes, services et préférences dans un fichier, à reprendre sur une autre
+                  machine ou après une réinstallation. Les connexions ne partent pas : elles restent
+                  sur ce poste, les services importés demanderont de se reconnecter.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 px-3 text-xs"
+                    onClick={() => window.hublink.exportConfig()}
+                  >
+                    <Download className="size-3.5" /> Exporter
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 px-3 text-xs"
+                    onClick={() => window.hublink.importConfig()}
+                  >
+                    <Upload className="size-3.5" /> Importer
+                  </Button>
+                </div>
               </div>
 
               <Separator />

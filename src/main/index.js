@@ -524,6 +524,80 @@ function registerIpc() {
     if (favori) await openTab(favori.url);
   });
 
+  ipcMain.handle('config:export', async () => {
+    const defaut = `hublink-configuration-${new Date().toISOString().slice(0, 10)}.json`;
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: 'Exporter la configuration',
+      defaultPath: defaut,
+      filters: [{ name: 'Sauvegarde Hublink', extensions: ['json'] }]
+    });
+    if (canceled || !filePath) return null;
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(store.exportConfig(), null, 2));
+      toast('success', 'Configuration exportée');
+      return filePath;
+    } catch (err) {
+      toast('error', `Export impossible : ${err.message}`);
+      return null;
+    }
+  });
+
+  ipcMain.handle('config:import', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: 'Importer une configuration',
+      properties: ['openFile'],
+      filters: [{ name: 'Sauvegarde Hublink', extensions: ['json'] }]
+    });
+    if (canceled || !filePaths || !filePaths[0]) return false;
+
+    let data = null;
+    try {
+      data = JSON.parse(fs.readFileSync(filePaths[0], 'utf8'));
+    } catch {
+      toast('error', 'Fichier illisible');
+      return false;
+    }
+
+    const state = store.load();
+    // Remplacer sans prévenir effacerait le travail de quelqu'un : on annonce
+    // ce qui part et ce qui arrive avant de toucher à quoi que ce soit.
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'warning',
+      buttons: ['Annuler', 'Remplacer'],
+      defaultId: 0,
+      cancelId: 0,
+      message: 'Remplacer la configuration actuelle ?',
+      detail:
+        `Vos ${state.accounts.length} compte(s) et ${state.services.length} service(s) seront ` +
+        `remplacés par ceux du fichier (${(data.accounts || []).length} compte(s), ` +
+        `${(data.services || []).length} service(s)).\n\n` +
+        'Vos connexions restent sur cette machine : les services importés demanderont de se ' +
+        "reconnecter. Une copie de la configuration actuelle est conservée à côté du fichier " +
+        'de configuration.'
+    });
+    if (response !== 1) return false;
+
+    const r = store.importConfig(data);
+    if (!r.ok) {
+      toast('error', r.erreur);
+      return false;
+    }
+    views.destroyAll();
+    pushState();
+    await restoreActive();
+    views.preloadKeepAwake();
+    toast('success', `${r.comptes} compte(s) et ${r.services} service(s) importés`);
+    return true;
+  });
+
+  ipcMain.handle('service:restore', async () => {
+    const service = store.restoreRemoved();
+    if (!service) return null;
+    pushState();
+    await views.show(service.id);
+    return service;
+  });
+
   ipcMain.handle('history:open', async (_e, url) => openTab(url));
 
   ipcMain.handle('history:remove', (_e, id) => {
