@@ -114,6 +114,7 @@ contextBridge.exposeInMainWorld('hublink', {
     onList: (handler) => on('downloads:list', handler)
   },
   runToastAction: (action) => ipcRenderer.send('overlay:action', action),
+  openAccountsSettings: () => ipcRenderer.send('settings:accounts'),
 
   setTheme: (theme) => invoke('app:set-theme', theme),
   setAccent: (color) => invoke('app:set-accent', color),

@@ -421,6 +421,10 @@ function registerIpc() {
     pousserPanneau();
   });
 
+  // Le calque ne peut pas ouvrir une modale de la fenêtre principale : il lui
+  // demande de le faire.
+  ipcMain.on('settings:accounts', () => send('app:shortcut', { type: 'accounts' }));
+
   ipcMain.on('panel:close', () => {
     if (!panneau) return;
     panneau = null;

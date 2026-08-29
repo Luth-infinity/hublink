@@ -20,7 +20,7 @@ type Props = {
   onToggleFavorite: () => void;
   downloads: Download[];
   /** Panneau actuellement ouvert dans le calque, s'il y en a un. */
-  openPanel: 'downloads' | 'history' | null;
+  openPanel: 'downloads' | 'history' | 'accounts' | null;
   /** La page courante a déjà joué une vidéo. */
   hasVideo: boolean;
   /** Service supprimé à l'instant, tant qu'on peut encore revenir dessus. */

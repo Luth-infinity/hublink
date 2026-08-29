@@ -49,7 +49,9 @@ export default function App() {
   const [downloads, setDownloads] = React.useState<Download[]>([]);
   // Panneau ouvert dans le calque : c'est le processus principal qui en décide,
   // les deux fenêtres doivent en dire la même chose.
-  const [openPanel, setOpenPanel] = React.useState<'downloads' | 'history' | null>(null);
+  const [openPanel, setOpenPanel] = React.useState<'downloads' | 'history' | 'accounts' | null>(
+    null
+  );
   // Nom du dernier service supprimé, le temps de pouvoir revenir dessus.
   const [undoDelete, setUndoDelete] = React.useState<string | null>(null);
   const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -329,12 +331,22 @@ export default function App() {
         if (shortcut.type === 'new-service') openNewService();
         else if (shortcut.type === 'new-account') openNewAccount();
         else if (shortcut.type === 'extensions') openExtensions();
+        else if (shortcut.type === 'accounts') openAccounts();
         else if (shortcut.type === 'toggle-sidebar') toggleSidebar();
         else if (shortcut.type === 'capture-full') captureFull();
         else if (shortcut.type === 'capture-visible') captureVisible();
         else if (shortcut.type === 'select-service') selectByIndex(shortcut.index ?? -1);
       }),
-    [openNewService, openNewAccount, toggleSidebar, selectByIndex, openExtensions, captureFull, captureVisible]
+    [
+      openNewService,
+      openNewAccount,
+      toggleSidebar,
+      selectByIndex,
+      openExtensions,
+      openAccounts,
+      captureFull,
+      captureVisible
+    ]
   );
 
   // Les mêmes raccourcis quand le focus est sur le shell et non sur la webapp.

@@ -255,14 +255,14 @@ declare global {
       /** Panneaux déroulants, dessinés par le calque. */
       panels: {
         toggle(
-          kind: 'downloads' | 'history',
+          kind: 'downloads' | 'history' | 'accounts',
           anchor: { x: number; y: number; width: number; height: number }
         ): void;
         close(): void;
         onState(
           handler: (
             p: {
-              kind: 'downloads' | 'history';
+              kind: 'downloads' | 'history' | 'accounts';
               anchor: { x: number; y: number; width: number; height: number };
             } | null
           ) => void
@@ -275,6 +275,7 @@ declare global {
         onList(handler: (list: Download[]) => void): () => void;
       };
       runToastAction(action: ToastAction): void;
+      openAccountsSettings(): void;
       setTheme(theme: Theme): Promise<void>;
       setAccent(color: string | null): Promise<void>;
       setDiscreet(on?: boolean): Promise<boolean>;

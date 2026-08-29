@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
-import type { Account, MenuItem } from '@/types';
+import type { Account } from '@/types';
 import { Button } from '@/components/ui/button';
 import { AccountAvatar } from '@/components/AccountAvatar';
 
@@ -46,32 +46,23 @@ export function AccountSwitch({
     0
   );
 
-  const openMenu = async () => {
-    const items: MenuItem[] = [
-      { id: '__all', label: activeAccountId === null ? '✓  Tous les comptes' : 'Tous les comptes' },
-      { type: 'separator' },
-      ...accounts.map((account, i) => {
-        const unread = unreadByAccount[account.id] || 0;
-        const mark = account.id === activeAccountId ? '✓  ' : '';
-        // Un menu natif ne se floute pas : en discrétion, les autres comptes
-        // y perdent leur nom plutôt que de s'afficher en clair.
-        const nom =
-          discreet && account.id !== activeAccountId ? `Compte ${i + 1}` : account.name;
-        return { id: account.id, label: unread ? `${mark}${nom}  (${unread})` : `${mark}${nom}` };
-      }),
-      { type: 'separator' },
-      { id: '__manage', label: 'Gérer les comptes…' }
-    ];
-    const picked = await window.hublink.popupMenu(items);
-    if (picked === '__manage') onManage();
-    else if (picked === '__all') onSelect(null);
-    else if (picked) onSelect(picked);
+  // Le sélecteur passait par un menu natif, faute de pouvoir dessiner au-dessus
+  // de la page. Le calque lève cette contrainte : on ouvre désormais un panneau
+  // aux couleurs de l'application, identique sur les deux systèmes.
+  const bouton = React.useRef<HTMLButtonElement>(null);
+  const openMenu = () => {
+    const r = bouton.current?.getBoundingClientRect();
+    window.hublink.panels.toggle(
+      'accounts',
+      r ? { x: r.x, y: r.y, width: r.width, height: r.height } : { x: 0, y: 0, width: 0, height: 0 }
+    );
   };
 
   if (collapsed) {
     return (
       <div className="flex justify-center pt-1 pb-2">
         <Button
+          ref={bouton}
           variant="ghost"
           size="icon-sm"
           onClick={openMenu}
@@ -106,6 +97,7 @@ export function AccountSwitch({
       </Button>
 
       <button
+        ref={bouton}
         type="button"
         onClick={openMenu}
         aria-haspopup="menu"

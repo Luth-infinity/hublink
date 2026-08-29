@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { FileDown, FolderOpen, Search, Trash2, X } from 'lucide-react';
-import type { Download, HistoryEntry } from '@/types';
+import { Check, FileDown, FolderOpen, Search, Settings, Trash2, Users, X } from 'lucide-react';
+import type { Account, Download, HistoryEntry } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
+import { AccountAvatar } from '@/components/AccountAvatar';
 
 /**
  * Les panneaux déroulants de la barre d'outils.
@@ -226,5 +227,126 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * Sélecteur de compte.
+ *
+ * Il passait par un menu natif, faute de pouvoir dessiner au-dessus de la
+ * page. Le calque lève cette contrainte : le menu suit désormais l'habillage
+ * de l'application, et se comporte pareil sur les deux systèmes.
+ */
+export function AccountsPanel({
+  accounts,
+  activeAccountId,
+  unreadByAccount,
+  discreet
+}: {
+  accounts: Account[];
+  activeAccountId: string | null;
+  unreadByAccount: Record<string, number>;
+  discreet: boolean;
+}) {
+  const total = accounts.reduce((n, a) => n + (unreadByAccount[a.id] || 0), 0);
+
+  const Ligne = ({
+    actif,
+    children,
+    onClick
+  }: {
+    actif: boolean;
+    children: React.ReactNode;
+    onClick: () => void;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] transition-colors hover:bg-shell-hover',
+        actif && 'bg-shell-active'
+      )}
+    >
+      {children}
+      {actif && <Check className="size-3.5 shrink-0 text-shell-foreground" aria-hidden />}
+    </button>
+  );
+
+  return (
+    <div role="dialog" aria-label="Comptes" className={cn(CADRE, 'max-h-[420px] w-[260px]')}>
+      <ul className="min-h-0 flex-1 overflow-y-auto py-1">
+        <li>
+          <Ligne
+            actif={activeAccountId === null}
+            onClick={() => {
+              api.accounts.filter(null);
+              api.panels.close();
+            }}
+          >
+            <Users className="size-4 shrink-0 text-shell-muted" aria-hidden />
+            <span className="min-w-0 flex-1 truncate text-shell-foreground">Tous les comptes</span>
+            {total > 0 && <Pastille n={total} />}
+          </Ligne>
+        </li>
+
+        <li aria-hidden className="my-1 border-t border-shell-border" />
+
+        {accounts.map((compte) => {
+          // En mode discrétion, les comptes autres que celui affiché sont
+          // floutés ici aussi : les révéler dans le sélecteur viderait la
+          // fonction de son sens.
+          const masque = discreet && compte.id !== activeAccountId;
+          const nonLus = unreadByAccount[compte.id] || 0;
+          return (
+            <li key={compte.id}>
+              <Ligne
+                actif={compte.id === activeAccountId}
+                onClick={() => {
+                  api.accounts.filter(compte.id);
+                  api.panels.close();
+                }}
+              >
+                <AccountAvatar
+                  account={compte}
+                  className={cn('size-4 rounded', masque && 'blur-[4px]')}
+                  textClassName="text-[7px]"
+                />
+                <span
+                  className={cn(
+                    'min-w-0 flex-1 truncate text-shell-foreground',
+                    masque && 'blur-[5px] tracking-tight select-none'
+                  )}
+                >
+                  {compte.name}
+                </span>
+                {nonLus > 0 && <Pastille n={nonLus} />}
+              </Ligne>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="border-t border-shell-border">
+        <button
+          type="button"
+          onClick={() => {
+            api.openAccountsSettings();
+            api.panels.close();
+          }}
+          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] text-shell-muted transition-colors hover:bg-shell-hover hover:text-shell-foreground"
+        >
+          <Settings className="size-4 shrink-0" aria-hidden />
+          Gérer les comptes…
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Pastille({ n }: { n: number }) {
+  return (
+    <span className="shrink-0 rounded-full bg-red-500 px-1.5 text-[9px] leading-[15px] font-bold text-white">
+      {n > 99 ? '99+' : n}
+    </span>
   );
 }

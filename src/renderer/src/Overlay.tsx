@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { Toaster, toast } from 'sonner';
-import type { AppState, Download, HistoryEntry } from '@/types';
+import type { AppState, Download } from '@/types';
 import { useSyncedTheme } from '@/lib/theme';
-import { DownloadsPanel, HistoryPanel } from '@/components/panels';
+import { AccountsPanel, DownloadsPanel, HistoryPanel } from '@/components/panels';
 
 const api = window.hublink;
 
 type Ancre = { x: number; y: number; width: number; height: number };
-type Panneau = { kind: 'downloads' | 'history'; anchor: Ancre } | null;
+type Panneau = { kind: 'downloads' | 'history' | 'accounts'; anchor: Ancre } | null;
 
 /**
  * Calque de l'application : messages et panneaux déroulants.
@@ -28,12 +28,21 @@ export default function Overlay() {
 
   const [panneau, setPanneau] = React.useState<Panneau>(null);
   const [downloads, setDownloads] = React.useState<Download[]>([]);
-  const [history, setHistory] = React.useState<HistoryEntry[]>([]);
+  // L'état complet : les panneaux en lisent des parts différentes.
+  const [etat, setEtat] = React.useState<AppState | null>(null);
 
   React.useEffect(() => {
-    api.getState().then((s: AppState) => setHistory(s.history));
-    return api.onStateChanged((s: AppState) => setHistory(s.history));
+    api.getState().then(setEtat);
+    return api.onStateChanged(setEtat);
   }, []);
+
+  const nonLusParCompte = React.useMemo(() => {
+    const totaux: Record<string, number> = {};
+    for (const service of etat?.services ?? []) {
+      totaux[service.accountId] = (totaux[service.accountId] || 0) + (service.badge || 0);
+    }
+    return totaux;
+  }, [etat]);
 
   React.useEffect(() => api.downloadsList.onList(setDownloads), []);
   React.useEffect(() => api.panels.onState(setPanneau), []);
@@ -84,15 +93,26 @@ export default function Overlay() {
           <div className="pointer-events-auto fixed inset-0" onClick={() => api.panels.close()} />
           <div
             className="animate-in fade-in slide-in-from-top-1 pointer-events-auto fixed duration-150"
-            style={{
-              top: panneau.anchor.y + panneau.anchor.height + 6,
-              right: Math.max(6, window.innerWidth - (panneau.anchor.x + panneau.anchor.width))
-            }}
+            style={
+              // Les boutons de la barre sont à droite, celui des comptes en
+              // haut du panneau latéral : on aligne du côté le plus proche.
+              panneau.kind === 'accounts'
+                ? { top: panneau.anchor.y + panneau.anchor.height + 6, left: Math.max(6, panneau.anchor.x) }
+                : {
+                    top: panneau.anchor.y + panneau.anchor.height + 6,
+                    right: Math.max(6, window.innerWidth - (panneau.anchor.x + panneau.anchor.width))
+                  }
+            }
           >
-            {panneau.kind === 'downloads' ? (
-              <DownloadsPanel downloads={downloads} />
-            ) : (
-              <HistoryPanel history={history} />
+            {panneau.kind === 'downloads' && <DownloadsPanel downloads={downloads} />}
+            {panneau.kind === 'history' && <HistoryPanel history={etat?.history ?? []} />}
+            {panneau.kind === 'accounts' && etat && (
+              <AccountsPanel
+                accounts={etat.accounts}
+                activeAccountId={etat.activeAccountId}
+                unreadByAccount={nonLusParCompte}
+                discreet={etat.discreet}
+              />
             )}
           </div>
         </>

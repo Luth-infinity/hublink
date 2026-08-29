@@ -100,11 +100,13 @@ function SidebarImpl({
 }: Props) {
   const accountById = React.useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
 
-  // Le compte qu'on est en train de montrer reste lisible ; tous les autres
-  // sont floutés. En mode navigateur il n'y en a aucun : tout est masqué.
-  const compteMontre = browserMode
-    ? null
-    : (activeAccountId ?? accountById.get(services.find((x) => x.id === activeServiceId)?.accountId ?? '')?.id ?? null);
+  // Le compte qu'on est en train de montrer reste lisible, tous les autres sont
+  // floutés. Le mode navigateur n'affiche aucun compte : l'interrupteur n'y est
+  // donc pas proposé.
+  const compteMontre =
+    activeAccountId ??
+    accountById.get(services.find((x) => x.id === activeServiceId)?.accountId ?? '')?.id ??
+    null;
 
   const masque = React.useCallback(
     (accountId: string) => discreet && accountId !== compteMontre,
@@ -468,7 +470,6 @@ function SidebarImpl({
         <Separator className={cn('bg-shell-border', collapsed && 'mx-auto w-7')} />
         <footer className={cn('flex flex-col', collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2')}>
           <BrowserToggle />
-          <DiscreetToggle />
           <Button
             variant="ghost"
             size={collapsed ? 'icon-sm' : 'sm'}
