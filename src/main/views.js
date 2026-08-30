@@ -190,9 +190,27 @@ class ViewManager {
       callback(response === 1);
     });
 
-    // Le pendant synchrone : sans lui, Electron applique ses propres défauts.
-    ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
-      AUTO_PERMISSIONS.has(permission) || granted.has(`${requestingOrigin}:${permission}`)
+    /**
+     * Le pendant synchrone : sans lui, Electron applique ses propres défauts.
+     *
+     * Il répond aussi à `navigator.permissions.query()`, et c'est là que le
+     * bât blessait. Refuser tant que rien n'est accordé faisait répondre
+     * « denied » à une question posée avant toute demande : les webapps qui
+     * interrogent d'abord — WhatsApp pour ses messages vocaux — en concluaient
+     * que le micro était bloqué, grisaient leur bouton, et n'appelaient jamais
+     * `getUserMedia`. La boîte de confirmation ne pouvait donc jamais paraître.
+     *
+     * On répond désormais que la caméra, le micro et le partage d'écran sont
+     * possibles. Le vrai verrou reste la demande, qui pose la question. Le prix
+     * à payer : la page voit le nom des périphériques avant d'avoir demandé.
+     * Le presse-papiers, lui, reste refusé jusqu'à accord explicite.
+     */
+    const ASKABLE = new Set(['media', 'display-capture']);
+    ses.setPermissionCheckHandler(
+      (_wc, permission, requestingOrigin) =>
+        AUTO_PERMISSIONS.has(permission) ||
+        ASKABLE.has(permission) ||
+        granted.has(`${requestingOrigin}:${permission}`)
     );
 
     ses.setSpellCheckerLanguages(['fr', 'en-US']);
