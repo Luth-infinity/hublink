@@ -3,6 +3,7 @@ import { Reveal } from './reveal';
 import { getReleases } from './releases';
 import { SUPPORT_URL } from './support';
 import type { Contenu, Locale } from './content';
+import { LangLink } from './lang-link';
 
 /**
  * La page, une seule fois, alimentée par le dictionnaire de la langue.
@@ -55,13 +56,13 @@ function Nav({ t, locale }: Props) {
         <a href={REPO} className={LIEN_NAV}>
           GitHub
         </a>
-        <a
+        <LangLink
           href={autreLangue(locale)}
           hrefLang={locale === 'en' ? 'fr' : 'en'}
           className="rounded-full px-2.5 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:text-ink"
         >
           {t.nav.autreLangue}
-        </a>
+        </LangLink>
         <a
           href="#telecharger"
           className="ml-1 rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition-transform hover:scale-[1.02]"
@@ -123,7 +124,7 @@ function Shot({ t }: { t: Contenu }) {
 
 function Pourquoi({ t }: { t: Contenu }) {
   return (
-    <section className="px-4 py-24">
+    <section id="pourquoi" className="px-4 py-24">
       <div className="mx-auto max-w-6xl">
         <h2 className="reveal headline text-[40px] sm:text-[54px]">{t.pourquoi.titre}</h2>
         <div className="reveal mt-8 grid gap-x-12 gap-y-5 text-[17px] leading-relaxed text-ink-soft lg:grid-cols-2">
@@ -159,7 +160,7 @@ function Fonctions({ t }: { t: Contenu }) {
 
 function Chiffres({ t }: { t: Contenu }) {
   return (
-    <section className="px-4 py-24">
+    <section id="chiffres" className="px-4 py-24">
       <div className="mx-auto max-w-6xl">
         <div className="reveal rounded-[24px] bg-ink px-6 py-14 text-center text-white sm:px-12">
           <h2 className="headline mx-auto max-w-[18ch] text-[34px] sm:text-[46px]">
@@ -186,7 +187,7 @@ function Chiffres({ t }: { t: Contenu }) {
 
 function Discretion({ t }: { t: Contenu }) {
   return (
-    <section className="px-4 py-24">
+    <section id="discretion" className="px-4 py-24">
       <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2">
         <div className={`order-2 lg:order-1 ${CADRE_IMAGE}`}>
           <Image
@@ -213,7 +214,7 @@ function Discretion({ t }: { t: Contenu }) {
 
 function Sombre({ t }: { t: Contenu }) {
   return (
-    <section className="px-4 pb-24">
+    <section id="sombre" className="px-4 pb-24">
       <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2">
         <div className="reveal">
           <h2 className="headline text-[40px] sm:text-[52px]">{t.sombre.titre}</h2>
@@ -236,7 +237,7 @@ function Sombre({ t }: { t: Contenu }) {
 
 function ASavoir({ t }: { t: Contenu }) {
   return (
-    <section className="px-4 py-8">
+    <section id="a-savoir" className="px-4 py-8">
       <div className="mx-auto max-w-6xl">
         <h2 className="reveal headline text-[40px] sm:text-[54px]">{t.aSavoir.titre}</h2>
         <p className="reveal mt-6 text-[17px] leading-relaxed text-ink-soft">{t.aSavoir.intro}</p>
@@ -357,7 +358,7 @@ function Soutenir({ t }: { t: Contenu }) {
   if (!SUPPORT_URL) return null;
 
   return (
-    <section className="px-4 pb-24">
+    <section id="soutenir" className="px-4 pb-24">
       <div className="mx-auto max-w-6xl">
         <div className="reveal rounded-[24px] bg-card p-8 shadow-[0_1px_2px_rgba(11,12,14,.05),0_16px_40px_-20px_rgba(11,12,14,.18)] ring-1 ring-line/60 sm:p-12">
           <h2 className="headline max-w-[20ch] text-[32px] sm:text-[42px]">{t.soutenir.titre}</h2>
