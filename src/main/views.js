@@ -1,4 +1,4 @@
-const { WebContentsView, dialog, shell, session: electronSession } = require('electron');
+const { WebContentsView, dialog, session: electronSession } = require('electron');
 const path = require('path');
 const store = require('./store');
 const extensions = require('./extensions');
@@ -557,9 +557,10 @@ class ViewManager {
       if (isAuthUrl(url)) {
         return { action: 'allow', overrideBrowserWindowOptions: popupOptions({ width: 520, height: 720 }) };
       }
-      // Un lien reçu dans une conversation part vers le navigateur système :
-      // il n'a rien à faire dans la session de la messagerie.
-      if (isExternalUrl(url)) shell.openExternal(url);
+      // Un lien reçu dans une conversation s'ouvre dans le navigateur intégré :
+      // il n'a rien à faire dans la session de la messagerie, mais il n'y a
+      // plus de raison de quitter l'application pour autant.
+      if (isExternalUrl(url)) this.onEvent('tab-requested', { url });
       return { action: 'deny' };
     });
 
@@ -741,7 +742,11 @@ class ViewManager {
       if (isAuthUrl(url)) {
         return { action: 'allow', overrideBrowserWindowOptions: popupOptions({ width: 520, height: 720 }) };
       }
-      if (isExternalUrl(url)) shell.openExternal(url);
+      // Autrefois vers le navigateur système. L'application a désormais le
+      // sien : on y ouvre un onglet plutôt que de faire sortir l'utilisateur.
+      // La session reste neutre — un lien inconnu n'a pas à emprunter
+      // l'identité d'un client.
+      if (isExternalUrl(url)) this.onEvent('tab-requested', { url });
       return { action: 'deny' };
     });
   }

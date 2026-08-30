@@ -326,7 +326,7 @@ export function ServiceDialog({
                 {
                   id: 'open-in-app',
                   libelle: 'Ouvrir les liens dans Hublink',
-                  aide: "Sinon les liens sortants partent vers votre navigateur habituel. Dans Hublink, ils s'ouvrent dans la session de ce compte.",
+                  aide: "Coché, un lien sortant s'ouvre dans la session de ce compte — utile pour l'intranet d'un client, où il faut être identifié. Sinon il part dans un onglet du navigateur intégré, en session neutre.",
                   valeur: openLinks === 'app',
                   set: (v: boolean) => setOpenLinks(v ? 'app' : 'browser')
                 },

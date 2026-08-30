@@ -331,6 +331,9 @@ async function restoreActive() {
 // par les liens `target="_blank"` des pages.
 async function openTab(url) {
   const tab = store.addTab(url);
+  // L'onglet occupe la zone principale : WhatsApp doit lui céder la place,
+  // sans quoi les deux se croiraient affichés.
+  store.load().whatsappOpen = false;
   store.load().browserMode = true;
   store.save();
   pushState();
