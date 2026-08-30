@@ -23,7 +23,7 @@ function summarize(body: string): string[] {
  * jour tout seul à chaque publication, sans double saisie qui finirait par
  * diverger. Revalidé toutes les heures.
  */
-export async function getReleases(): Promise<Release[]> {
+export async function getReleases(locale: 'en' | 'fr' = 'fr'): Promise<Release[]> {
   try {
     const res = await fetch(API, {
       headers: { Accept: 'application/vnd.github+json' },
@@ -44,7 +44,7 @@ export async function getReleases(): Promise<Release[]> {
       .slice(0, 5)
       .map((r) => ({
         version: r.tag_name.replace(/^v/, ''),
-        date: new Date(r.published_at).toLocaleDateString('fr-FR', {
+        date: new Date(r.published_at).toLocaleDateString(locale === 'en' ? 'en-GB' : 'fr-FR', {
           day: 'numeric',
           month: 'long',
           year: 'numeric'
