@@ -32,6 +32,22 @@ type Props = {
  * d'une langue à l'autre.
  */
 export function LangLink({ href, hrefLang, className, children }: Props) {
+  // Le saut d'ancre natif ne suffit pas à l'arrivée : `scroll-behavior: smooth`
+  // en fait une animation que le chargement interrompt, et les images qui se
+  // posent déplacent la cible entre-temps. On repose donc la page au bon
+  // endroit, puis on y revient une fois la mise en page stabilisée.
+  React.useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) return;
+    const aller = () => {
+      const cible = document.getElementById(id);
+      if (cible) cible.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'start' });
+    };
+    aller();
+    const rappels = [200, 700, 1500].map((delai) => window.setTimeout(aller, delai));
+    return () => rappels.forEach(clearTimeout);
+  }, []);
+
   const suivre = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // On ignore le clic milieu et les ouvertures dans un nouvel onglet.
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
