@@ -292,7 +292,7 @@ function createWindow() {
       }
     }
     // Un lien `target="_blank"` : la vue demande un onglet, le shell le crée.
-    if (type === 'tab-requested') openTab(payload.url);
+    if (type === 'tab-requested') ouvrirSiPasDeRepli(payload);
     // Une vue en arrière-plan continue de naviguer (rechargement, SPA) : sans ce
     // filtre, elle écrase la barre d'URL du service réellement affiché.
     if (type === 'nav-state' && payload.serviceId === views.currentId) send('nav:state', payload);
@@ -354,6 +354,32 @@ async function restoreActive() {
   else views.hide();
 }
 
+
+/** Deux adresses désignent-elles la même page ? La barre finale ne compte pas. */
+function memeAdresse(a, b) {
+  if (!a || !b) return false;
+  const net = (u) => u.replace(/\/+$/, '');
+  return net(a) === net(b);
+}
+
+/**
+ * Ouvre un onglet, sauf si le site s'est déjà déplacé tout seul.
+ *
+ * Refuser l'ouverture fait renvoyer `null` à `window.open()`. Beaucoup de
+ * sites y voient un bloqueur de fenêtres et se replient sur une navigation
+ * dans la page courante — on obtenait alors la même page à deux endroits.
+ * On laisse donc passer un instant : si la vue d'origine est arrivée à
+ * destination d'elle-même, il n'y a plus d'onglet à ouvrir.
+ */
+const DELAI_REPLI = 600;
+
+function ouvrirSiPasDeRepli({ url, sourceId }) {
+  if (!sourceId) return openTab(url);
+  setTimeout(() => {
+    if (memeAdresse(views.urlOf(sourceId), url)) return;
+    openTab(url);
+  }, DELAI_REPLI);
+}
 
 // Ouvre un onglet et l'affiche. Utilisé par le bouton « Nouvel onglet » comme
 // par les liens `target="_blank"` des pages.

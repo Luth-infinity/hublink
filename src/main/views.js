@@ -398,7 +398,7 @@ class ViewManager {
       // fenêtre vide avant d'y charger l'adresse (`window.open()` puis
       // `.location =`) : sans ce filtre, chacun de ces appels laissait un
       // onglet vide derrière lui.
-      if (isExternalUrl(url)) this.onEvent('tab-requested', { url });
+      if (isExternalUrl(url)) this.onEvent('tab-requested', { url, sourceId: tabId });
       return { action: 'deny' };
     });
   }
@@ -660,7 +660,7 @@ class ViewManager {
       // sien : on y ouvre un onglet plutôt que de faire sortir l'utilisateur.
       // La session reste neutre — un lien inconnu n'a pas à emprunter
       // l'identité d'un client.
-      if (isExternalUrl(url)) this.onEvent('tab-requested', { url });
+      if (isExternalUrl(url)) this.onEvent('tab-requested', { url, sourceId: serviceId });
       return { action: 'deny' };
     });
   }
@@ -755,6 +755,13 @@ class ViewManager {
       if (!service || service.accountId === accountId) this.destroyService(serviceId);
     }
     this.sessions.delete(accountId);
+  }
+
+  /** Adresse actuelle d'une vue, pour savoir si elle a navigué d'elle-même. */
+  urlOf(id) {
+    const view = this.views.get(id);
+    if (!view || view.webContents.isDestroyed()) return null;
+    return view.webContents.getURL();
   }
 
   withCurrent(fn) {
