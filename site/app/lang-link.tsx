@@ -32,20 +32,42 @@ type Props = {
  * d'une langue à l'autre.
  */
 export function LangLink({ href, hrefLang, className, children }: Props) {
-  // Le saut d'ancre natif ne suffit pas à l'arrivée : `scroll-behavior: smooth`
-  // en fait une animation que le chargement interrompt, et les images qui se
-  // posent déplacent la cible entre-temps. On repose donc la page au bon
-  // endroit, puis on y revient une fois la mise en page stabilisée.
+  // Le saut d'ancre natif se perd à l'arrivée : `scroll-behavior: smooth` en
+  // fait une animation que le chargement interrompt, et la mise en page bouge
+  // encore pendant que les images et les polices se posent. Plutôt que de
+  // rejouer le même saut à l'aveugle, on mesure l'écart restant et on le
+  // corrige jusqu'à ce qu'il se referme.
   React.useEffect(() => {
     const id = window.location.hash.slice(1);
     if (!id) return;
-    const aller = () => {
-      const cible = document.getElementById(id);
-      if (cible) cible.scrollIntoView({ behavior: 'instant' as ScrollBehavior, block: 'start' });
+
+    let arrete = false;
+    // Si la personne prend la main, on cesse de la contrarier.
+    const rendreLaMain = () => {
+      arrete = true;
     };
-    aller();
-    const rappels = [200, 700, 1500].map((delai) => window.setTimeout(aller, delai));
-    return () => rappels.forEach(clearTimeout);
+    window.addEventListener('wheel', rendreLaMain, { passive: true, once: true });
+    window.addEventListener('touchstart', rendreLaMain, { passive: true, once: true });
+    window.addEventListener('keydown', rendreLaMain, { once: true });
+
+    const debut = Date.now();
+    const tic = window.setInterval(() => {
+      const cible = document.getElementById(id);
+      const ecart = cible ? cible.getBoundingClientRect().top : 0;
+      const arrive = !cible || Math.abs(ecart) < 4;
+      if (arrete || arrive || Date.now() - debut > 3000) {
+        window.clearInterval(tic);
+        return;
+      }
+      window.scrollBy({ top: ecart, behavior: 'instant' as ScrollBehavior });
+    }, 100);
+
+    return () => {
+      window.clearInterval(tic);
+      window.removeEventListener('wheel', rendreLaMain);
+      window.removeEventListener('touchstart', rendreLaMain);
+      window.removeEventListener('keydown', rendreLaMain);
+    };
   }, []);
 
   const suivre = (e: React.MouseEvent<HTMLAnchorElement>) => {
