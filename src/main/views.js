@@ -394,7 +394,11 @@ class ViewManager {
       if (isAuthUrl(url)) {
         return { action: 'allow', overrideBrowserWindowOptions: popupOptions({ width: 520, height: 720 }) };
       }
-      this.onEvent('tab-requested', { url });
+      // Seule une vraie page mérite un onglet. Beaucoup de sites ouvrent une
+      // fenêtre vide avant d'y charger l'adresse (`window.open()` puis
+      // `.location =`) : sans ce filtre, chacun de ces appels laissait un
+      // onglet vide derrière lui.
+      if (isExternalUrl(url)) this.onEvent('tab-requested', { url });
       return { action: 'deny' };
     });
   }

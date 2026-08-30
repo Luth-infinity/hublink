@@ -357,8 +357,28 @@ async function restoreActive() {
 
 // Ouvre un onglet et l'affiche. Utilisé par le bouton « Nouvel onglet » comme
 // par les liens `target="_blank"` des pages.
+// Une même adresse demandée deux fois de suite vient presque toujours d'un
+// seul geste : un lien qui porte `target="_blank"` et dont le site rappelle
+// `window.open()` par-dessus. On rouvre alors l'onglet déjà créé.
+let derniereOuverture = { url: null, at: 0, id: null };
+const DELAI_DOUBLON = 1500;
+
 async function openTab(url) {
+  const maintenant = Date.now();
+  if (url && url === derniereOuverture.url && maintenant - derniereOuverture.at < DELAI_DOUBLON) {
+    const existant = store.getTab(derniereOuverture.id);
+    if (existant) {
+      derniereOuverture.at = maintenant;
+      store.load().activeTabId = existant.id;
+      store.save();
+      pushState();
+      await views.showTab(existant.id);
+      return existant;
+    }
+  }
+
   const tab = store.addTab(url);
+  derniereOuverture = { url: url || null, at: maintenant, id: tab.id };
   store.load().browserMode = true;
   store.save();
   pushState();
