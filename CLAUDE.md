@@ -12,7 +12,7 @@ Les commentaires expliquent *pourquoi*, pas *quoi*.
 
 | | Version |
 |---|---|
-| Windows | **0.4.4** |
+| Windows | **0.4.5** |
 | macOS | **0.3.7** — cinq versions de retard |
 
 macOS accuse ce retard parce que les binaires Apple ne se construisent que sur un Mac
@@ -62,6 +62,11 @@ GitHub — ne jamais l'écrire à la main. Le corps d'une release doit respecter
 `summarize()` : lignes de plus de 25 caractères, pas de `#`, `**`, `>` ni backtick en
 début de ligne, **4 puces retenues** (donc mettre les plus importantes en premier). Les
 lignes d'installation commençant par `**macOS**` / `**Windows**` sont filtrées exprès.
+
+**Les notes de version s'écrivent dans les deux langues**, le site étant bilingue : le
+français d'abord, puis un titre `## English` et sa traduction, puis les lignes
+d'installation. `section()` découpe sur ce titre. Sans section anglaise, la page anglaise
+retombe sur le français — mieux vaut ça qu'un changelog vide, mais ça se voit.
 
 **Les versions sont par plateforme.** `const VERSION = { win, mac }` dans
 `site/app/page.tsx`, à bumper à la main en plus de `package.json`. Les deux plateformes
