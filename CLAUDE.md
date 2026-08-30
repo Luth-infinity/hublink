@@ -12,8 +12,8 @@ Les commentaires expliquent *pourquoi*, pas *quoi*.
 
 | | Version |
 |---|---|
-| Windows | **0.4.6** |
-| macOS | **0.3.7** — six versions de retard |
+| Windows | **0.4.7** |
+| macOS | **0.3.7** — sept versions de retard |
 
 macOS accuse ce retard parce que les binaires Apple ne se construisent que sur un Mac
 (voir plus bas). **Si vous lisez ceci depuis un Mac, c'est probablement la tâche à
@@ -121,6 +121,13 @@ Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en 
 - `protocol.handle` ne vaut que pour la session par défaut : chaque partition a son
   propre registre. La page d'accueil du navigateur est servie sur la session
   `persist:browser` (`src/main/startpage.js`).
+- **Les permissions ont deux gestionnaires, et le synchrone décide de tout.**
+  `setPermissionCheckHandler` répond aussi à `navigator.permissions.query()`, que les
+  webapps interrogent avant d'afficher leurs boutons. Y refuser une permission qu'on
+  compte demander crée un cercle fermé : la page se croit bloquée, n'appelle jamais
+  `getUserMedia`, et `setPermissionRequestHandler` — la boîte de dialogue — ne se
+  déclenche jamais. Le contrôle doit annoncer ce qui est *possible*, la demande reste
+  le verrou.
 - **L'agent utilisateur ne doit contenir ni le nom de l'application ni Electron.**
   `app.userAgentFallback` glisse `Hublink/x.y.z` avant `Chrome/` et parfois `Electron/…`
   après : WhatsApp répond « fonctionne avec Google Chrome 100 ou version ultérieure », et
