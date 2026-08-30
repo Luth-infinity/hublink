@@ -112,6 +112,9 @@ export type AppState = {
   history: HistoryEntry[];
   /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
   discreet: boolean;
+  /** WhatsApp affiché dans la zone principale, hors de tout compte. */
+  whatsappOpen: boolean;
+  whatsappBadge: number;
   /** Teinte du shell en mode navigateur, faute de couleur de compte. */
   accentColor: string | null;
   extensions: ExtensionRecord[];
@@ -183,6 +186,8 @@ declare global {
         reorder(orderedIds: string[]): Promise<void>;
         pickIcon(): Promise<string | null>;
       };
+
+      whatsapp: { toggle(on?: boolean): Promise<boolean> };
 
       browser: {
         toggle(on?: boolean): Promise<boolean>;

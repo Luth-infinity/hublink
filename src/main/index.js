@@ -232,6 +232,7 @@ function createWindow() {
     if (type === 'service-slept') send('service:slept', payload);
     if (type === 'tab-meta') send('tab:meta', payload);
     if (type === 'media-present') send('media:present', payload);
+    if (type === 'whatsapp-badge') pushState();
     if (type === 'download-started') {
       telechargements = [
         { id: payload.id, name: payload.name, path: payload.path, total: payload.total, received: 0, state: 'progress' },
@@ -307,6 +308,8 @@ function persistWindow() {
 // Restaure le dernier service consulté.
 async function restoreActive() {
   const state = store.load();
+  // WhatsApp prend toute la zone, comme un service : il passe donc avant.
+  if (state.whatsappOpen) return views.showWhatsApp();
   // En mode navigateur, c'est l'onglet courant qui occupe la fenêtre : les
   // services restent chargés en arrière-plan, on ne les détruit pas.
   if (state.browserMode) {
@@ -579,8 +582,19 @@ function registerIpc() {
     await restoreActive();
   });
 
+  ipcMain.handle('whatsapp:toggle', async (_e, on) => {
+    const state = store.load();
+    state.whatsappOpen = typeof on === 'boolean' ? on : !state.whatsappOpen;
+    store.save();
+    pushState();
+    await restoreActive();
+    return state.whatsappOpen;
+  });
+
   ipcMain.handle('service:select', async (_e, id) => {
     if (!store.getService(id)) return;
+    // Choisir un service referme WhatsApp : les deux occupent la même zone.
+    store.load().whatsappOpen = false;
     store.load().activeServiceId = id;
     store.save();
     pushState();
@@ -596,6 +610,7 @@ function registerIpc() {
 
   ipcMain.handle('browser:toggle', async (_e, on) => {
     const state = store.load();
+    state.whatsappOpen = false;
     const next = typeof on === 'boolean' ? on : !state.browserMode;
     store.setBrowserMode(next);
     pushState();
@@ -613,6 +628,7 @@ function registerIpc() {
 
   ipcMain.handle('tab:select', async (_e, id) => {
     if (!store.getTab(id)) return;
+    store.load().whatsappOpen = false;
     store.load().activeTabId = id;
     store.save();
     pushState();

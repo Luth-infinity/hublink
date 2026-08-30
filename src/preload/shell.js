@@ -35,6 +35,10 @@ contextBridge.exposeInMainWorld('hublink', {
     pickIcon: () => invoke('service:pick-icon')
   },
 
+  whatsapp: {
+    toggle: (on) => invoke('whatsapp:toggle', on)
+  },
+
   browser: {
     toggle: (on) => invoke('browser:toggle', on),
     addTab: (url) => invoke('tab:add', url),

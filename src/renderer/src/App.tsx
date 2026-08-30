@@ -282,6 +282,7 @@ export default function App() {
 
   const toggleBrowser = React.useCallback((on: boolean) => api.browser.toggle(on), []);
   const toggleDiscreet = React.useCallback((on: boolean) => api.setDiscreet(on), []);
+  const toggleWhatsApp = React.useCallback((on: boolean) => api.whatsapp.toggle(on), []);
   const toggleFavorite = React.useCallback(() => api.browser.toggleFavorite(), []);
   const openFavorite = React.useCallback((id: string) => api.browser.openFavorite(id), []);
   const removeFavorite = React.useCallback((id: string) => api.browser.removeFavorite(id), []);
@@ -420,6 +421,9 @@ export default function App() {
             onAddTab={addTab}
             discreet={state.discreet}
             onToggleDiscreet={toggleDiscreet}
+            whatsappOpen={state.whatsappOpen}
+            whatsappBadge={state.whatsappBadge}
+            onToggleWhatsApp={toggleWhatsApp}
             favorites={state.favorites}
             onOpenFavorite={openFavorite}
             onRemoveFavorite={removeFavorite}
@@ -429,7 +433,7 @@ export default function App() {
             <div ref={contentRef} className="relative min-h-0 flex-1 bg-shell">
               {/* En mode navigateur, la vue de l'onglet occupe la zone : cet
                   écran d'accueil n'aurait rien à y faire. */}
-              {!service && !state.browserMode && (
+              {!service && !state.browserMode && !state.whatsappOpen && (
                 <div className="grid h-full place-items-center px-8 text-center">
                   <div className="flex max-w-sm flex-col items-center gap-3">
                     <h2 className="text-base font-semibold">Aucun service</h2>

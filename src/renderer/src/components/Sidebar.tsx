@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Compass, EyeOff, Moon, Plus, Settings, Star, X } from 'lucide-react';
+import { Compass, EyeOff, MessageCircle, Moon, Plus, Settings, Star, X } from 'lucide-react';
 import type { Account, Favorite, MenuItem, Service, Tab } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,10 @@ type Props = {
   onAddTab: () => void;
   /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
   discreet: boolean;
+  /** WhatsApp occupe la zone principale, hors de tout compte. */
+  whatsappOpen: boolean;
+  whatsappBadge: number;
+  onToggleWhatsApp: (on: boolean) => void;
   onToggleDiscreet: (on: boolean) => void;
   favorites: Favorite[];
   onOpenFavorite: (id: string) => void;
@@ -94,6 +98,9 @@ function SidebarImpl({
   onAddTab,
   discreet,
   onToggleDiscreet,
+  whatsappOpen,
+  whatsappBadge,
+  onToggleWhatsApp,
   favorites,
   onOpenFavorite,
   onRemoveFavorite
@@ -284,6 +291,48 @@ function SidebarImpl({
       </button>
     );
 
+  /**
+   * WhatsApp, joignable de partout.
+   *
+   * Il n'appartient à aucun compte : ni la liste des services, ni le filtre de
+   * compte ne le concernent. Il se comporte comme un service pour l'affichage,
+   * d'où l'état actif plutôt qu'un interrupteur.
+   */
+  const WhatsAppToggle = () =>
+    collapsed ? (
+      <button
+        type="button"
+        onClick={() => onToggleWhatsApp(!whatsappOpen)}
+        title={whatsappOpen ? 'Fermer WhatsApp' : 'Ouvrir WhatsApp'}
+        aria-label="WhatsApp"
+        aria-current={whatsappOpen}
+        className={cn(
+          'relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
+          whatsappOpen ? 'bg-shell-active' : 'hover:bg-shell-hover'
+        )}
+      >
+        <MessageCircle
+          className={cn('size-[18px]', whatsappOpen ? 'text-shell-foreground' : 'text-shell-muted')}
+          aria-hidden
+        />
+        <Badge count={whatsappBadge} className="absolute -top-0.5 -right-0.5 ring-2 ring-shell" />
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={() => onToggleWhatsApp(!whatsappOpen)}
+        aria-current={whatsappOpen}
+        className={cn(
+          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+          whatsappOpen ? 'bg-shell-active text-shell-foreground' : 'text-shell-muted hover:bg-shell-hover'
+        )}
+      >
+        <MessageCircle className="size-4 shrink-0" aria-hidden />
+        <span className="flex-1 text-left">WhatsApp</span>
+        <Badge count={whatsappBadge} />
+      </button>
+    );
+
   /** Bascule du mode discrétion, jumelle de celle du mode navigateur. */
   const DiscreetToggle = () =>
     collapsed ? (
@@ -469,6 +518,7 @@ function SidebarImpl({
 
         <Separator className={cn('bg-shell-border', collapsed && 'mx-auto w-7')} />
         <footer className={cn('flex flex-col', collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2')}>
+          <WhatsAppToggle />
           <BrowserToggle />
           <Button
             variant="ghost"
@@ -589,6 +639,7 @@ function SidebarImpl({
 
         <Separator className="bg-shell-border" />
         <footer className="flex flex-col items-center gap-1 py-2">
+          <WhatsAppToggle />
           <BrowserToggle />
           <DiscreetToggle />
           <Button
@@ -682,6 +733,7 @@ function SidebarImpl({
 
       <Separator className="bg-shell-border" />
       <footer className="flex flex-col gap-0.5 p-2">
+        <WhatsAppToggle />
         <BrowserToggle />
         <DiscreetToggle />
         <Button

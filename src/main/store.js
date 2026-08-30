@@ -46,6 +46,10 @@ function seed() {
     history: [],
     // Masque les autres clients pendant un partage d'écran.
     discreet: false,
+    // WhatsApp : un service à part, qui n'appartient à aucun compte et reste
+    // joignable quel que soit le client sur lequel on travaille.
+    whatsappOpen: false,
+    whatsappBadge: 0,
     extensions: [],
     window: { width: 1440, height: 900, x: null, y: null, maximized: false }
   };
@@ -98,6 +102,8 @@ function normalize(state) {
   if (!Array.isArray(state.favorites)) state.favorites = [];
   if (!Array.isArray(state.history)) state.history = [];
   if (typeof state.discreet !== 'boolean') state.discreet = false;
+  if (typeof state.whatsappOpen !== 'boolean') state.whatsappOpen = false;
+  if (typeof state.whatsappBadge !== 'number') state.whatsappBadge = 0;
   if (typeof state.accentColor !== 'string') state.accentColor = null;
   if (!state.theme) state.theme = 'system';
   if (typeof state.sidebarCollapsed !== 'boolean') state.sidebarCollapsed = false;
