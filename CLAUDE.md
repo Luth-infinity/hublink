@@ -12,8 +12,8 @@ Les commentaires expliquent *pourquoi*, pas *quoi*.
 
 | | Version |
 |---|---|
-| Windows | **0.4.7** |
-| macOS | **0.3.7** — sept versions de retard |
+| Windows | **0.4.8** |
+| macOS | **0.3.7** — huit versions de retard |
 
 macOS accuse ce retard parce que les binaires Apple ne se construisent que sur un Mac
 (voir plus bas). **Si vous lisez ceci depuis un Mac, c'est probablement la tâche à
