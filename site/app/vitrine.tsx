@@ -17,7 +17,7 @@ const RELEASE = `${REPO}/releases/latest`;
 // Les deux plateformes n'avancent pas au même rythme : les binaires macOS se
 // construisent sur un Mac, ceux de Windows sur un PC. Annoncer un numéro unique
 // enverrait la moitié des visiteurs vers un fichier qui n'existe pas.
-const VERSION = { win: '0.4.5', mac: '0.3.7' };
+const VERSION = { win: '0.4.6', mac: '0.3.7' };
 
 const DOWNLOADS = {
   mac: `${REPO}/releases/download/v${VERSION.mac}/Hublink-${VERSION.mac}-arm64.dmg`,

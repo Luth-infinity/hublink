@@ -12,8 +12,8 @@ Les commentaires expliquent *pourquoi*, pas *quoi*.
 
 | | Version |
 |---|---|
-| Windows | **0.4.5** |
-| macOS | **0.3.7** — cinq versions de retard |
+| Windows | **0.4.6** |
+| macOS | **0.3.7** — six versions de retard |
 
 macOS accuse ce retard parce que les binaires Apple ne se construisent que sur un Mac
 (voir plus bas). **Si vous lisez ceci depuis un Mac, c'est probablement la tâche à
@@ -81,6 +81,19 @@ depuis la 0.4.1 ; `latest.yml` doit être joint à chaque release. Sur macOS, Sq
 exige une application signée et notariée, donc un compte développeur Apple payant : on
 s'y contente de signaler la version et de renvoyer vers la page de la release.
 
+## Trois choses peuvent occuper la zone principale
+
+Un service, un onglet du navigateur, ou WhatsApp. Le code l'a oublié deux fois : le
+bouton d'accueil ramenait à l'adresse de l'ancien service, et le panneau laissait deux
+éléments surlignés en même temps.
+
+En ajouter une quatrième suppose de reprendre `restoreActive()`, le gestionnaire
+`nav:home`, la sélection affichée dans le panneau, et les bascules qui doivent se fermer
+l'une l'autre (`service:select`, `tab:select`, `browser:toggle`, `whatsapp:toggle`).
+
+WhatsApp a sa session `persist:whatsapp` et n'appartient à aucun compte : il échappe donc
+au filtre de compte, au balayage de mise en veille et à la suppression d'un compte.
+
 ## Contrainte structurante : la vue web est native
 
 Une `WebContentsView` **se peint au-dessus du HTML du shell**, quoi qu'on fasse. Tout ce
@@ -108,6 +121,11 @@ Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en 
 - `protocol.handle` ne vaut que pour la session par défaut : chaque partition a son
   propre registre. La page d'accueil du navigateur est servie sur la session
   `persist:browser` (`src/main/startpage.js`).
+- **L'agent utilisateur ne doit contenir ni le nom de l'application ni Electron.**
+  `app.userAgentFallback` glisse `Hublink/x.y.z` avant `Chrome/` et parfois `Electron/…`
+  après : WhatsApp répond « fonctionne avec Google Chrome 100 ou version ultérieure », et
+  les portails Microsoft filtrent de la même façon. `src/main/ua.js` efface les deux. Le
+  défaut est invisible en développement, où l'application se nomme « Electron ».
 - `navigator.setAppBadge()` existe dans Electron mais **n'est reliée à rien**. Le relais
   vers l'application se fait dans `src/preload/guest.js`. C'est par là que Slack et Teams
   signalent leurs non-lus, plus par le titre de la page.

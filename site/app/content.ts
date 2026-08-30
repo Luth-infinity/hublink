@@ -112,6 +112,11 @@ export const fr: Contenu = {
           "Vos comptes et vos services dans un fichier, à relire sur une autre machine. Les connexions, elles, ne bougent pas : elles restent sur le poste."
       },
       {
+        titre: 'WhatsApp à portée',
+        texte:
+          "Votre messagerie n'appartient à aucun client : elle a son bouton et sa propre session, et reste joignable quel que soit le compte affiché."
+      },
+      {
         titre: 'Capture intégrée',
         texte:
           "Page entière ou zone visible, vers un fichier ou le presse-papiers, en deux clics depuis la barre d'outils. Rien à installer."
@@ -266,6 +271,11 @@ export const en: Contenu = {
         titre: 'Take your setup with you',
         texte:
           'Your accounts and services in a file, to read back on another machine. Your sign-ins stay put: they never leave the computer.'
+      },
+      {
+        titre: 'WhatsApp within reach',
+        texte:
+          'Your own messaging belongs to no client: it gets its own button and its own session, and stays reachable whatever account is on screen.'
       },
       {
         titre: 'Screenshots included',
