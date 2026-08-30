@@ -819,4 +819,8 @@ class ViewManager {
   }
 }
 
-module.exports = new ViewManager();
+const manager = new ViewManager();
+// Exposé pour le bouton d'accueil, qui doit savoir où ramener cette vue.
+manager.WHATSAPP_URL = WHATSAPP_URL;
+
+module.exports = manager;

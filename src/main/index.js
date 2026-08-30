@@ -692,6 +692,7 @@ function registerIpc() {
   ipcMain.handle('nav:devtools', () => views.withCurrent((wc) => wc.toggleDevTools()));
   ipcMain.handle('nav:home', () => {
     const state = store.load();
+    if (state.whatsappOpen) return views.withCurrent((wc) => wc.loadURL(views.WHATSAPP_URL));
     if (state.browserMode) return views.withCurrent((wc) => wc.loadURL(store.BROWSER_HOME));
     const service = store.getService(state.activeServiceId);
     if (service) views.withCurrent((wc) => wc.loadURL(service.url));

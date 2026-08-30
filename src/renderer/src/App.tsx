@@ -283,6 +283,10 @@ export default function App() {
   const toggleBrowser = React.useCallback((on: boolean) => api.browser.toggle(on), []);
   const toggleDiscreet = React.useCallback((on: boolean) => api.setDiscreet(on), []);
   const toggleWhatsApp = React.useCallback((on: boolean) => api.whatsapp.toggle(on), []);
+
+  // WhatsApp occupe la zone principale : aucun service n'y est affiché, aucun
+  // ne doit donc paraître sélectionné. Le choix reste mémorisé pour le retour.
+  const serviceMarque = state?.whatsappOpen ? null : (state?.activeServiceId ?? null);
   const toggleFavorite = React.useCallback(() => api.browser.toggleFavorite(), []);
   const openFavorite = React.useCallback((id: string) => api.browser.openFavorite(id), []);
   const removeFavorite = React.useCallback((id: string) => api.browser.removeFavorite(id), []);
@@ -397,7 +401,7 @@ export default function App() {
           <Sidebar
             services={services}
             accounts={state.accounts}
-            activeServiceId={state.activeServiceId}
+            activeServiceId={serviceMarque}
             activeAccountId={state.activeAccountId}
             unreadByAccount={unreadByAccount}
             onFilterAccount={filterAccount}
