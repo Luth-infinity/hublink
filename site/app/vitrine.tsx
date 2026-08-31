@@ -263,26 +263,45 @@ function Telecharger({ t }: { t: Contenu }) {
         <p className="reveal mx-auto mt-5 max-w-[60ch] text-[17px] leading-relaxed text-ink-soft">
           {t.telecharger.sous(VERSION.win, VERSION.mac)}
         </p>
+        {/* Un seul bouton survit au CSS : celui de la plateforme du visiteur. Les
+            deux portent donc le style principal — quand la détection échoue,
+            ils s'affichent côte à côte et aucun des deux n'a à passer devant
+            l'autre. */}
         <div className="reveal mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
+            data-cta="mac"
             href={DOWNLOADS.mac}
             className="w-full rounded-full bg-ink px-6 py-3.5 text-[15px] font-medium text-white transition-transform hover:scale-[1.02] sm:w-auto"
           >
             {t.telecharger.mac} · {VERSION.mac}
           </a>
           <a
+            data-cta="win"
             href={DOWNLOADS.win}
-            className="w-full rounded-full bg-card px-6 py-3.5 text-[15px] font-medium ring-1 ring-line transition-colors hover:bg-canvas sm:w-auto"
+            className="w-full rounded-full bg-ink px-6 py-3.5 text-[15px] font-medium text-white transition-transform hover:scale-[1.02] sm:w-auto"
           >
             {t.telecharger.win} · {VERSION.win}
           </a>
         </div>
+        {/* L'attribut porte la plateforme DÉTECTÉE, le lien mène à l'autre. */}
+        <p className="reveal mt-4 text-[13px] text-ink-soft">
+          <span data-cta-autre="mac">
+            <a href={DOWNLOADS.win} className="underline underline-offset-4 hover:text-ink">
+              {t.telecharger.autre('Windows')}
+            </a>
+          </span>
+          <span data-cta-autre="win">
+            <a href={DOWNLOADS.mac} className="underline underline-offset-4 hover:text-ink">
+              {t.telecharger.autre('macOS')}
+            </a>
+          </span>
+        </p>
         <p className="reveal mt-5 text-[13px] text-ink-soft">
           {t.telecharger.noteAvant}
           <a href={RELEASE} className="underline underline-offset-4 hover:text-ink">
             {t.telecharger.noteLien}
           </a>
-          {t.telecharger.noteApres(VERSION.win)}
+          {t.telecharger.noteApres(VERSION.win, VERSION.mac)}
         </p>
       </div>
     </section>

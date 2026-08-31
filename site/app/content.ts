@@ -36,7 +36,9 @@ export type Contenu = {
     win: string;
     noteAvant: string;
     noteLien: string;
-    noteApres: (win: string) => string;
+    noteApres: (win: string, mac: string) => string;
+    /** Lien discret vers l'autre plateforme que celle détectée chez le visiteur. */
+    autre: (plateforme: string) => string;
   };
   changelog: {
     titre: string;
@@ -180,12 +182,17 @@ export const fr: Contenu = {
   telecharger: {
     titre: 'Prenez-le, il est libre.',
     sous: (win, mac) =>
-      `Gratuit, sous licence MIT, sans compte à créer. Version ${win} sur Windows, ${mac} sur macOS.`,
+      win === mac
+        ? `Gratuit, sous licence MIT, sans compte à créer. Version ${win} sur Windows et macOS.`
+        : `Gratuit, sous licence MIT, sans compte à créer. Version ${win} sur Windows, ${mac} sur macOS.`,
     mac: 'macOS — Apple Silicon',
     win: 'Windows — 64 bits',
     noteAvant: 'Mac Intel, Windows ARM et les versions précédentes sont ',
     noteLien: 'sur la page des versions',
-    noteApres: (win) => `. La ${win} arrive prochainement sur macOS.`
+    // Les deux plateformes se rejoignent parfois : annoncer une version « à
+    // venir » alors qu'elle est déjà là ferait douter du reste de la page.
+    noteApres: (win, mac) => (win === mac ? '.' : `. La ${win} arrive prochainement sur macOS.`),
+    autre: (plateforme) => `Vous êtes sur ${plateforme} ?`
   },
   changelog: {
     titre: 'Ce qui a changé.',
@@ -341,12 +348,15 @@ export const en: Contenu = {
   telecharger: {
     titre: 'Take it, it is free.',
     sous: (win, mac) =>
-      `Free, MIT licensed, no account to create. Version ${win} on Windows, ${mac} on macOS.`,
+      win === mac
+        ? `Free, MIT licensed, no account to create. Version ${win} on Windows and macOS.`
+        : `Free, MIT licensed, no account to create. Version ${win} on Windows, ${mac} on macOS.`,
     mac: 'macOS — Apple Silicon',
     win: 'Windows — 64-bit',
     noteAvant: 'Intel Macs, ARM Windows and earlier versions are ',
     noteLien: 'on the releases page',
-    noteApres: (win) => `. ${win} is coming to macOS shortly.`
+    noteApres: (win, mac) => (win === mac ? '.' : `. ${win} is coming to macOS shortly.`),
+    autre: (plateforme) => `On ${plateforme} instead?`
   },
   changelog: {
     titre: 'What changed.',

@@ -53,3 +53,23 @@
     transform: none;
   }
 }
+
+/* Le visiteur ne télécharge qu'une plateforme : lui montrer les deux binaires
+   lui demande de trancher une question dont il connaît déjà la réponse. Le
+   script du <head> pose `data-os` avant le rendu, on masque donc l'autre sans
+   clignotement. Plateforme inconnue (ou JS coupé) : rien n'est masqué, les deux
+   boutons restent là. */
+html[data-os='mac'] [data-cta='win'],
+html[data-os='win'] [data-cta='mac'] {
+  display: none;
+}
+
+/* Le lien vers l'autre plateforme ne vaut que si on a su deviner la sienne :
+   sans détection, les deux boutons sont déjà visibles. */
+[data-cta-autre] {
+  display: none;
+}
+html[data-os='mac'] [data-cta-autre='mac'],
+html[data-os='win'] [data-cta-autre='win'] {
+  display: inline;
+}
