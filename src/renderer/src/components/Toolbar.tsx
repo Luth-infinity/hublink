@@ -122,7 +122,7 @@ function UpdateBadge({ update }: { update: Update }) {
           ? `Hublink ${update.version} est prêt à s'installer`
           : `Hublink ${update.version} est disponible`
       }
-      className="mr-1 flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-500/25 dark:text-emerald-300"
+      className="mr-1 flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-700 transition-all duration-150 hover:bg-emerald-500/25 active:scale-[0.97] motion-reduce:active:scale-100 dark:text-emerald-300"
     >
       <ArrowDownToLine className={cn('size-3', percent !== null && !pret && 'animate-pulse')} />
       {libelle}
@@ -177,7 +177,7 @@ function DownloadsButton({ downloads, open }: { downloads: Download[]; open: boo
       aria-label="Téléchargements"
       aria-expanded={open}
       className={cn(
-        'relative mr-1 flex items-center gap-1.5 overflow-hidden rounded-md px-1.5 py-1 transition-colors',
+        'relative mr-1 flex items-center gap-1.5 overflow-hidden rounded-md px-1.5 py-1 transition-all duration-150 active:scale-[0.97] motion-reduce:active:scale-100',
         open
           ? 'bg-shell-active text-shell-foreground'
           : 'text-shell-muted hover:bg-shell-active hover:text-shell-foreground'

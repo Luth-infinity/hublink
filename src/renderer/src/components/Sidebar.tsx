@@ -3,12 +3,14 @@ import { ChevronRight, Compass, EyeOff, Moon, Plus, Settings, Star, X } from 'lu
 import type { Account, Favorite, MenuItem, Service, Tab } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { useFlip } from '@/lib/flip';
+import { useOptimiste } from '@/lib/optimiste';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { ServiceIcon } from '@/components/ServiceIcon';
 import { AccountSwitch } from '@/components/AccountSwitch';
+import { ModeSwitch } from '@/components/ModeSwitch';
 
 type Props = {
   services: Service[];
@@ -108,6 +110,7 @@ function SidebarImpl({
   onRemoveFavorite
 }: Props) {
   const accountById = React.useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+  const [discret, changerDiscret] = useOptimiste(discreet, onToggleDiscreet);
 
   // Le compte qu'on est en train de montrer reste lisible, tous les autres sont
   // floutés. Le mode navigateur n'affiche aucun compte : l'interrupteur n'y est
@@ -117,9 +120,11 @@ function SidebarImpl({
     accountById.get(services.find((x) => x.id === activeServiceId)?.accountId ?? '')?.id ??
     null;
 
+  // La valeur optimiste, pas celle du disque : le floutage doit tomber au clic,
+  // pas au retour de l'IPC.
   const masque = React.useCallback(
-    (accountId: string) => discreet && accountId !== compteMontre,
-    [discreet, compteMontre]
+    (accountId: string) => discret && accountId !== compteMontre,
+    [discret, compteMontre]
   );
 
   // Le flou seul laisserait deviner la longueur d'un nom : on le double d'un
@@ -272,15 +277,21 @@ function SidebarImpl({
           title={titleOf(service, asleep)}
           aria-current={active}
           className={cn(
-            'flex w-full cursor-grab items-center gap-2.5 rounded-md py-1.5 pr-2 pl-2 text-left transition-colors active:cursor-grabbing',
+            'group/ligne flex w-full cursor-grab items-center gap-2.5 rounded-md py-1.5 pr-2 pl-2 text-left transition-[background-color,color] duration-150 active:cursor-grabbing',
             active
               ? 'bg-shell-active text-shell-foreground'
               : 'text-shell-muted hover:bg-shell-hover hover:text-shell-foreground'
           )}
         >
+          {/* Le repère du compte n'existe que sur la ligne active. Au survol
+              d'une autre, il s'esquisse dans la couleur du client : on voit à
+              qui appartient un service avant même de le sélectionner. */}
           <span
-            className="h-5 w-0.5 shrink-0 rounded-full"
-            style={{ backgroundColor: active && account ? account.color : 'transparent' }}
+            className={cn(
+              'w-0.5 shrink-0 rounded-full transition-[height,opacity] duration-200',
+              active ? 'h-5 opacity-100' : 'h-2 opacity-0 group-hover/ligne:h-4 group-hover/ligne:opacity-60'
+            )}
+            style={{ backgroundColor: account ? account.color : 'transparent' }}
             aria-hidden
           />
           <ServiceIcon service={service} className="size-5" textClassName="text-[9px]" isDark={isDark} />
@@ -296,76 +307,62 @@ function SidebarImpl({
 
   // --- navigateur neutre ----------------------------------------------------
 
-  /** Le commutateur de mode, toujours juste au-dessus des paramètres. */
-  const BrowserToggle = () =>
-    collapsed ? (
-      <button
-        type="button"
-        onClick={() => onToggleBrowser(!browserMode)}
-        title={browserMode ? 'Revenir aux comptes' : 'Passer en mode navigateur'}
-        aria-label="Mode navigateur"
-        aria-pressed={browserMode}
-        className="flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition-colors hover:bg-shell-hover"
-      >
-        <Compass
-          className={cn('size-[18px]', browserMode ? 'text-shell-foreground' : 'text-shell-muted')}
-          aria-hidden
-        />
-        {/* Le commutateur reste visible en rail : sans lui, l'icône seule ne
-            dirait pas qu'il s'agit d'un mode qu'on active. */}
-        <Switch checked={browserMode} className="pointer-events-none scale-75" tabIndex={-1} aria-hidden />
-      </button>
-    ) : (
-      <button
-        type="button"
-        onClick={() => onToggleBrowser(!browserMode)}
-        aria-pressed={browserMode}
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-shell-hover"
-      >
-        <Compass
-          className={cn('size-4 shrink-0', browserMode ? 'text-shell-foreground' : 'text-shell-muted')}
-          aria-hidden
-        />
-        <span className={cn('flex-1 text-left', browserMode ? 'text-shell-foreground' : 'text-shell-muted')}>
-          Mode navigateur
-        </span>
-        <Switch checked={browserMode} className="pointer-events-none" tabIndex={-1} aria-hidden />
-      </button>
-    );
+  /**
+   * Le commutateur de mode se place TOUJOURS juste au-dessus des paramètres,
+   * la discrétion au-dessus de lui. Le pied de page est ancré en bas et la
+   * discrétion disparaît en mode navigateur — aucun compte à masquer : la
+   * mettre en dessous ferait descendre le commutateur d'une ligne au moment
+   * même où on le regarde basculer.
+   */
+  const BrowserToggle = () => (
+    <ModeSwitch browserMode={browserMode} onToggle={onToggleBrowser} collapsed={collapsed} />
+  );
 
   /** Bascule du mode discrétion, jumelle de celle du mode navigateur. */
   const DiscreetToggle = () =>
     collapsed ? (
       <button
         type="button"
-        onClick={() => onToggleDiscreet(!discreet)}
-        title={discreet ? 'Réafficher les autres comptes' : 'Masquer les autres comptes'}
+        disabled={browserMode}
+        onClick={() => changerDiscret(!discret)}
+        title={
+          browserMode
+            ? "Le navigateur n'affiche aucun compte : rien à masquer"
+            : discret
+              ? 'Réafficher les autres comptes'
+              : 'Masquer les autres comptes'
+        }
         aria-label="Mode discrétion"
-        aria-pressed={discreet}
-        className="flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition-colors hover:bg-shell-hover"
+        aria-pressed={discret}
+        className="flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition-colors hover:bg-shell-hover disabled:pointer-events-none disabled:opacity-40"
       >
         <EyeOff
-          className={cn('size-[18px]', discreet ? 'text-shell-foreground' : 'text-shell-muted')}
+          className={cn('size-[18px]', discret ? 'text-shell-foreground' : 'text-shell-muted')}
           aria-hidden
         />
-        <Switch checked={discreet} className="pointer-events-none scale-75" tabIndex={-1} aria-hidden />
+        <Switch checked={discret} className="pointer-events-none scale-75" tabIndex={-1} aria-hidden />
       </button>
     ) : (
       <button
         type="button"
-        onClick={() => onToggleDiscreet(!discreet)}
-        aria-pressed={discreet}
-        title="Masque le nom et le logo des autres comptes, le temps d'un partage d'écran"
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-shell-hover"
+        disabled={browserMode}
+        onClick={() => changerDiscret(!discret)}
+        aria-pressed={discret}
+        title={
+          browserMode
+            ? "Le navigateur n'affiche aucun compte : il n'y a rien à masquer"
+            : "Masque le nom et le logo des autres comptes, le temps d'un partage d'écran"
+        }
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-shell-hover disabled:pointer-events-none disabled:opacity-40"
       >
         <EyeOff
-          className={cn('size-4 shrink-0', discreet ? 'text-shell-foreground' : 'text-shell-muted')}
+          className={cn('size-4 shrink-0', discret ? 'text-shell-foreground' : 'text-shell-muted')}
           aria-hidden
         />
-        <span className={cn('flex-1 text-left', discreet ? 'text-shell-foreground' : 'text-shell-muted')}>
+        <span className={cn('flex-1 text-left', discret ? 'text-shell-foreground' : 'text-shell-muted')}>
           Mode discrétion
         </span>
-        <Switch checked={discreet} className="pointer-events-none" tabIndex={-1} aria-hidden />
+        <Switch checked={discret} className="pointer-events-none" tabIndex={-1} aria-hidden />
       </button>
     );
 
@@ -390,9 +387,23 @@ function SidebarImpl({
           collapsed ? 'w-14' : 'w-[248px]'
         )}
       >
+        {/* Le mode navigateur n'a pas de carrousel de comptes : la liste
+            démarrait 40 px plus haut qu'en Hub et remontait d'un bond au
+            changement de mode, pendant qu'elle apparaissait. On occupe la même
+            hauteur, avec ce qu'il y a à dire ici : cette session n'appartient
+            à aucun client. */}
+        {!collapsed && (
+          <div className="p-2 pb-0">
+            <div className="flex h-8 items-center justify-center gap-1.5 rounded-full bg-shell-hover px-2.5">
+              <Compass className="size-3.5 shrink-0 text-shell-muted" aria-hidden />
+              <span className="truncate text-[12px] font-medium text-shell-muted">Session neutre</span>
+            </div>
+          </div>
+        )}
+
         <div
           className={cn(
-            'flex flex-1 flex-col overflow-y-auto',
+            'flex flex-1 animate-in flex-col overflow-y-auto fade-in duration-200 ease-out motion-reduce:animate-none',
             collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2'
           )}
         >
@@ -518,6 +529,7 @@ function SidebarImpl({
 
         <Separator className={cn('bg-shell-border', collapsed && 'mx-auto w-7')} />
         <footer className={cn('flex flex-col', collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2')}>
+          <DiscreetToggle />
           <BrowserToggle />
           <Button
             variant="ghost"
@@ -558,7 +570,7 @@ function SidebarImpl({
           aria-label={service.name}
           aria-current={active}
           className={cn(
-            'relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
+            'relative grid size-9 shrink-0 place-items-center rounded-lg transition-[background-color,transform] duration-150 hover:scale-105 active:scale-95 motion-reduce:hover:scale-100',
             active ? 'bg-shell-active' : 'hover:bg-shell-hover'
           )}
         >
@@ -639,8 +651,8 @@ function SidebarImpl({
 
         <Separator className="bg-shell-border" />
         <footer className="flex flex-col items-center gap-1 py-2">
-          <BrowserToggle />
           <DiscreetToggle />
+          <BrowserToggle />
           <Button
             variant="ghost"
             size="icon-sm"
@@ -679,7 +691,7 @@ function SidebarImpl({
           se substituer d'un coup. */}
       <div
         key={activeAccountId ?? 'tous'}
-        className="flex-1 animate-in fade-in overflow-y-auto p-2 duration-150 motion-reduce:animate-none"
+        className="flex-1 animate-in fade-in overflow-y-auto p-2 duration-200 ease-out motion-reduce:animate-none"
       >
         {groups
           ? groups.map(({ account, items }, rang) => {
@@ -816,8 +828,8 @@ function SidebarImpl({
 
       <Separator className="bg-shell-border" />
       <footer className="flex flex-col gap-0.5 p-2">
-        <BrowserToggle />
         <DiscreetToggle />
+        <BrowserToggle />
         <Button
           variant="ghost"
           size="sm"
