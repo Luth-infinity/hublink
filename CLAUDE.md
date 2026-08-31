@@ -8,16 +8,17 @@ Le code et les commits sont **en français**, au présent, décrivant le comport
 plutôt que la modification (« Corrige l'import manquant qui cassait le démarrage »).
 Les commentaires expliquent *pourquoi*, pas *quoi*.
 
-## État au 29 août 2026
+## État au 31 août 2026
 
 | | Version |
 |---|---|
 | Windows | **0.4.8** |
-| macOS | **0.3.7** — huit versions de retard |
+| macOS | **0.4.8** — rattrapé le 31 août 2026 |
 
-macOS accuse ce retard parce que les binaires Apple ne se construisent que sur un Mac
-(voir plus bas). **Si vous lisez ceci depuis un Mac, c'est probablement la tâche à
-faire.**
+Les deux plateformes sont à parité. Elles ne le restent jamais longtemps : les binaires
+Apple ne se construisent que sur un Mac (voir plus bas), donc macOS décroche dès qu'une
+version est publiée depuis un PC. **Si le tableau ci-dessus montre à nouveau un écart et
+que vous lisez ceci depuis un Mac, c'est probablement la tâche à faire.**
 
 ## Rattraper macOS — la marche à suivre
 
@@ -81,18 +82,22 @@ depuis la 0.4.1 ; `latest.yml` doit être joint à chaque release. Sur macOS, Sq
 exige une application signée et notariée, donc un compte développeur Apple payant : on
 s'y contente de signaler la version et de renvoyer vers la page de la release.
 
-## Trois choses peuvent occuper la zone principale
+## Deux choses peuvent occuper la zone principale
 
-Un service, un onglet du navigateur, ou WhatsApp. Le code l'a oublié deux fois : le
-bouton d'accueil ramenait à l'adresse de l'ancien service, et le panneau laissait deux
-éléments surlignés en même temps.
+Un service, ou un onglet du navigateur. Le code l'a oublié deux fois : le bouton
+d'accueil ramenait à l'adresse de l'ancien service, et le panneau laissait deux éléments
+surlignés en même temps.
 
-En ajouter une quatrième suppose de reprendre `restoreActive()`, le gestionnaire
+En ajouter une troisième suppose de reprendre `restoreActive()`, le gestionnaire
 `nav:home`, la sélection affichée dans le panneau, et les bascules qui doivent se fermer
-l'une l'autre (`service:select`, `tab:select`, `browser:toggle`, `whatsapp:toggle`).
+l'une l'autre (`service:select`, `tab:select`, `browser:toggle`).
 
-WhatsApp a sa session `persist:whatsapp` et n'appartient à aucun compte : il échappe donc
-au filtre de compte, au balayage de mise en veille et à la suppression d'un compte.
+**Il y en a eu trois.** WhatsApp avait son mode dédié, sa session `persist:whatsapp` et
+aucun compte : il échappait au filtre de compte, au balayage de mise en veille et à la
+suppression d'un compte. Ces exceptions coûtaient plus que le confort d'un bouton — il
+est redevenu un service ordinaire, migré dans le premier compte au premier démarrage.
+La session `persist:whatsapp` n'est plus lue : ne pas la recâbler, l'utilisateur a
+rescanné son code depuis. Ne pas réintroduire de zone « solo » en bas du panneau.
 
 ## Contrainte structurante : la vue web est native
 
@@ -140,4 +145,19 @@ Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en 
   fiche : détecter l'identifiant d'extension n'importe où dans l'URL décodée, pas
   seulement en tête.
 - `site/.next/` est versionné à tort (128 fichiers qui changent à chaque build). Le
-  retirer du suivi reste à faire.
+  retirer du suivi reste à faire. En attendant, ne mettre en scène que les fichiers
+  voulus : un `git add -A` après un `next dev` noie le commit sous une centaine
+  d'artefacts.
+- **`npm run dist:mac` laisse deux `Hublink.app` homonymes** dans `release/` :
+  `release/mac` est la build **Intel**, `release/mac-arm64` l'Apple Silicon. Spotlight
+  les indexe, LaunchServices les met dans le même panier que l'app installée — et une
+  session entière a été passée à chercher une régression de performance qui n'était que
+  la build Intel lancée sous Rosetta (trois renderers à 90 % de CPU, contre 1 % en
+  natif). Supprimer les deux dossiers après chaque release ; les `.dmg` suffisent.
+  Vérifier en cas de doute : `lipo -archs` sur le binaire du process qui tourne.
+- **Ne jamais lancer l'app par `open` juste après l'avoir copiée depuis un `.dmg`.**
+  Le bundle porte l'attribut de quarantaine et n'est signé qu'en ad-hoc : Gatekeeper
+  répond « code has no resources but signature indicates they must be present », macOS
+  affiche « Hublink est endommagé » et **le bouton par défaut de cette boîte met l'app
+  à la corbeille**. C'est le clic droit → « Ouvrir » que le site documente, ou
+  `xattr -dr com.apple.quarantine` sur une build qu'on vient de produire soi-même.
