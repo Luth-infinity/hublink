@@ -161,8 +161,37 @@ export default function App() {
   // l'overlay sombre et plus aucun clic n'aboutit.
   const overlayOpen =
     serviceDialog.open || accountDialog.open || settingsOpen;
+  // Image figée de la page, posée derrière la modale le temps qu'elle vit.
+  const [fond, setFond] = React.useState<string | null>(null);
+
   React.useEffect(() => {
-    api.setOverlay(overlayOpen);
+    let annule = false;
+    if (overlayOpen) {
+      // Ordre imposé : capturer, PEINDRE l'image, et seulement ensuite masquer
+      // la vue. Masquer d'abord laisserait un trou d'une frame — c'est ce trou
+      // qui se voyait comme un clignotement.
+      (async () => {
+        const image = await api.viewStill();
+        if (annule) return;
+        setFond(image);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (!annule) api.setOverlay(true);
+        }));
+      })();
+      return () => {
+        annule = true;
+      };
+    }
+    // À la fermeture, l'inverse : laisser l'animation de sortie se jouer
+    // par-dessus l'image, rendre la vue, puis retirer l'image.
+    const t = setTimeout(() => {
+      api.setOverlay(false);
+      requestAnimationFrame(() => setFond(null));
+    }, 220);
+    return () => {
+      annule = true;
+      clearTimeout(t);
+    };
   }, [overlayOpen]);
 
   // La vue native est positionnée par le process principal : on lui envoie la
@@ -450,7 +479,19 @@ export default function App() {
           />
 
           <main className="flex min-w-0 flex-1 flex-col">
-            <div ref={contentRef} className="relative min-h-0 flex-1 bg-shell">
+            <div ref={contentRef} className="relative min-h-0 flex-1 overflow-hidden bg-shell">
+              {/* La page figée, le temps d'une modale. Elle occupe exactement
+                  la place de la vue native qu'elle remplace, donc rien ne
+                  bouge à l'écran au moment du masquage. `object-cover` parce
+                  que l'image est capturée à la moitié de la résolution. */}
+              {fond && (
+                <img
+                  src={fond}
+                  alt=""
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 size-full object-cover"
+                />
+              )}
               {/* En mode navigateur, la vue de l'onglet occupe la zone : cet
                   écran d'accueil n'aurait rien à y faire. */}
               {!service && !state.browserMode && (

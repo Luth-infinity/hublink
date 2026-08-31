@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Check, FileDown, FolderOpen, Search, Settings, Trash2, Users, X } from 'lucide-react';
 import type { Account, Download, HistoryEntry } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
+import { ListeSurlignee } from '@/components/ListeSurlignee';
 import { AccountAvatar } from '@/components/AccountAvatar';
 
 /**
@@ -53,7 +54,8 @@ export function DownloadsPanel({ downloads }: { downloads: Download[] }) {
         </button>
       </div>
 
-      <ul className="min-h-0 flex-1 overflow-y-auto py-1">
+      <ListeSurlignee className="min-h-0 flex-1 overflow-y-auto py-1">
+        <ul>
         {downloads.map((d) => {
           const pct = d.total > 0 ? Math.min(100, Math.round((d.received / d.total) * 100)) : null;
           return (
@@ -65,7 +67,8 @@ export function DownloadsPanel({ downloads }: { downloads: Download[] }) {
                   api.downloads.open(d.path);
                   api.panels.close();
                 }}
-                className="group flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors enabled:hover:bg-shell-hover disabled:cursor-default"
+                data-surlignable
+                className="group relative z-10 flex w-full items-center gap-2.5 px-3 py-2 text-left disabled:cursor-default"
               >
                 <FileDown
                   className={cn(
@@ -115,7 +118,8 @@ export function DownloadsPanel({ downloads }: { downloads: Download[] }) {
             </li>
           );
         })}
-      </ul>
+        </ul>
+      </ListeSurlignee>
     </div>
   );
 }
@@ -171,7 +175,7 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto py-1">
+      <ListeSurlignee className="min-h-0 flex-1 overflow-y-auto py-1">
         {groupes.length === 0 && (
           <p className="px-3 py-6 text-center text-[12px] text-shell-muted">
             {history.length === 0
@@ -187,7 +191,11 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
             </p>
             <ul>
               {groupe.entrees.map((e) => (
-                <li key={e.id} className="group flex items-center gap-2 px-3 py-1.5 hover:bg-shell-hover">
+                <li
+                  key={e.id}
+                  data-surlignable
+                  className="group relative z-10 flex items-center gap-2 px-3 py-1.5"
+                >
                   <button
                     type="button"
                     onClick={() => {
@@ -225,7 +233,7 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
             </ul>
           </div>
         ))}
-      </div>
+      </ListeSurlignee>
     </div>
   );
 }
@@ -262,8 +270,9 @@ export function AccountsPanel({
     <button
       type="button"
       onClick={onClick}
+      data-surlignable
       className={cn(
-        'flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] transition-colors hover:bg-shell-hover',
+        'relative z-10 flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] transition-colors',
         actif && 'bg-shell-active'
       )}
     >
@@ -274,7 +283,8 @@ export function AccountsPanel({
 
   return (
     <div role="dialog" aria-label="Comptes" className={cn(CADRE, 'max-h-[420px] w-[260px]')}>
-      <ul className="min-h-0 flex-1 overflow-y-auto py-1">
+      <ListeSurlignee className="min-h-0 flex-1 overflow-y-auto py-1">
+        <ul>
         <li>
           <Ligne
             actif={activeAccountId === null}
@@ -324,7 +334,8 @@ export function AccountsPanel({
             </li>
           );
         })}
-      </ul>
+        </ul>
+      </ListeSurlignee>
 
       <div className="border-t border-shell-border">
         <button
@@ -333,6 +344,9 @@ export function AccountsPanel({
             api.openAccountsSettings();
             api.panels.close();
           }}
+          /* Hors de la liste surlignée — il est dans le pied du panneau, que la
+             pastille ne peut pas atteindre. Il garde donc son propre fond, sans
+             quoi il serait le seul item du panneau sans retour au survol. */
           className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] text-shell-muted transition-colors hover:bg-shell-hover hover:text-shell-foreground"
         >
           <Settings className="size-4 shrink-0" aria-hidden />

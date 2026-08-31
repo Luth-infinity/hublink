@@ -7,7 +7,8 @@ const {
   Menu,
   nativeImage,
   nativeTheme,
-  protocol
+  protocol,
+  screen
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -69,6 +70,14 @@ function pousserTelechargements() {
 // fenêtres partagent la même origine.
 let panneau = null;
 
+// Menus ouverts dans le calque : un identifiant par appel, et la promesse à
+// tenir quand le choix revient. Plusieurs peuvent se succéder très vite (un
+// clic droit pendant qu'un autre se ferme), d'où la table plutôt qu'une
+// unique variable.
+let dernierMenu = 0;
+let menuEnCours = null;
+const menuAttente = new Map();
+
 function pousserPanneau() {
   send('panel:state', panneau);
   majReceptiviteCalque();
@@ -80,7 +89,7 @@ function pousserPanneau() {
  */
 function majReceptiviteCalque() {
   if (!calque || calque.isDestroyed()) return;
-  calque.setIgnoreMouseEvents(!panneau, { forward: true });
+  calque.setIgnoreMouseEvents(!panneau && !menuEnCours, { forward: true });
 }
 
 // Actions proposées dans un message. La fonction ne peut pas traverser l'IPC :
@@ -140,6 +149,12 @@ function ensureCalque() {
   });
   calque.on('closed', () => {
     calque = null;
+    // Un menu meurt avec la fenêtre qui le dessine. Sans ce dénouement, son
+    // appelant attendrait indéfiniment et `menuEnCours` resterait vrai — le
+    // calque suivant naîtrait en avalant tous les clics.
+    for (const [, resoudre] of menuAttente) resoudre(null);
+    menuAttente.clear();
+    menuEnCours = null;
   });
   return calque;
 }
@@ -148,9 +163,10 @@ function ensureCalque() {
 function planifierFermetureCalque() {
   clearTimeout(calqueTimer);
   calqueTimer = setTimeout(() => {
-    // Un panneau ouvert vit dans cette fenêtre : la refermer le ferait
-    // disparaître sous le doigt de l'utilisateur.
-    if (panneau) return planifierFermetureCalque();
+    // Un panneau ou un menu ouvert vit dans cette fenêtre : la refermer le
+    // ferait disparaître sous le doigt de l'utilisateur — et, pour un menu,
+    // laisserait l'appelant attendre un choix qui ne viendrait jamais.
+    if (panneau || menuEnCours) return planifierFermetureCalque();
     if (calque && !calque.isDestroyed()) calque.close();
   }, 15000);
   if (calqueTimer.unref) calqueTimer.unref();
@@ -439,7 +455,10 @@ function registerIpc() {
   });
 
   ipcMain.on('overlay:interactive', (_e, on) => {
-    if (panneau) return;
+    // Un panneau ou un menu ouvert impose sa réceptivité : le suivi du
+    // pointeur, qui ne connaît que les messages, la lèverait sans le savoir et
+    // rendrait le menu incliquable.
+    if (panneau || menuEnCours) return;
     if (calque && !calque.isDestroyed()) calque.setIgnoreMouseEvents(!on, { forward: true });
   });
 
@@ -654,27 +673,76 @@ function registerIpc() {
   ipcMain.on('layout:bounds', (_e, bounds) => views.setBounds(bounds));
   ipcMain.on('layout:overlay', (_e, active) => views.setOverlay(active));
 
+  /**
+   * Fige la page derrière une modale.
+   *
+   * Une modale doit masquer la vue web, sinon elle s'ouvre derrière elle. Mais
+   * la masquer laissait un trou : la page disparaissait le temps du dialogue,
+   * et revenait d'un coup — un clignotement d'une seconde, signalé comme un
+   * bug. On rend donc une image de la page, que le shell affiche derrière la
+   * modale : la vue peut disparaître sans que rien ne bouge à l'écran.
+   *
+   * Demi-résolution et JPEG : l'image est floutée à l'arrivée, sa finesse ne
+   * sert à rien, et un PNG pleine taille ferait passer plusieurs mégaoctets
+   * par l'IPC à chaque ouverture.
+   */
+  ipcMain.handle('view:still', async () => {
+    if (!views.current) return null;
+    try {
+      const image = await views.current.webContents.capturePage();
+      if (image.isEmpty()) return null;
+      const { width } = image.getSize();
+      const reduite = width > 900 ? image.resize({ width: 900 }) : image;
+      return `data:image/jpeg;base64,${reduite.toJPEG(55).toString('base64')}`;
+    } catch {
+      // Une vue qui n'a pas encore peint refuse la capture : la modale
+      // s'ouvrira sur le fond du shell, comme avant.
+      return null;
+    }
+  });
+
   // Menus natifs : ils se dessinent au-dessus des WebContentsView, contrairement
   // à un menu HTML du shell qui serait masqué par la page.
-  ipcMain.handle('menu:popup', (_e, items) => {
+  /**
+   * Les menus étaient natifs faute de pouvoir dessiner au-dessus de la vue web.
+   * La fenêtre de calque lève cette contrainte : ils sont désormais en HTML,
+   * donc animés et cohérents avec le reste, au prix du rendu système.
+   *
+   * L'API ne change pas — on rend toujours une promesse portant l'identifiant
+   * choisi — pour que les appelants n'aient rien à savoir de ce déménagement.
+   */
+  ipcMain.handle('menu:popup', async (_e, items) => {
+    const c = ensureCalque();
+    if (!c) return null;
+
+    // Le menu s'ouvre là où est le pointeur, comme le faisait le menu natif.
+    // `getCursorScreenPoint` est en coordonnées écran : le calque, lui, pense
+    // en coordonnées de son contenu.
+    const curseur = screen.getCursorScreenPoint();
+    const zone = c.getContentBounds();
+    const ancre = { x: curseur.x - zone.x, y: curseur.y - zone.y };
+
+    const id = ++dernierMenu;
+    menuEnCours = id;
+    majReceptiviteCalque();
+
+    const envoyer = () => c.webContents.send('menu:open', { id, items, ancre });
+    if (c.webContents.isLoading()) c.webContents.once('did-finish-load', envoyer);
+    else envoyer();
+
     return new Promise((resolve) => {
-      let picked = null;
-      const menu = Menu.buildFromTemplate(
-        items.map((item) =>
-          item.type === 'separator'
-            ? { type: 'separator' }
-            : {
-                label: item.label,
-                enabled: item.enabled !== false,
-                click: () => {
-                  picked = item.id;
-                }
-              }
-        )
-      );
-      menu.on('menu-will-close', () => setImmediate(() => resolve(picked)));
-      menu.popup({ window: win });
+      menuAttente.set(id, resolve);
     });
+  });
+
+  ipcMain.on('menu:pick', (_e, { id, picked }) => {
+    const resoudre = menuAttente.get(id);
+    if (!resoudre) return;
+    menuAttente.delete(id);
+    if (menuEnCours === id) menuEnCours = null;
+    majReceptiviteCalque();
+    planifierFermetureCalque();
+    resoudre(picked ?? null);
   });
 
   ipcMain.handle('nav:back', () => views.withCurrent((wc) => wc.navigationHistory.goBack()));

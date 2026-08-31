@@ -17,7 +17,9 @@
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  /* Le survol doit se voir : à 0.97 sur un fond à 1.00, l'écart de 3 %
+     était indiscernable et les boutons paraissaient morts au passage. */
+  --accent: oklch(0.935 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
@@ -58,7 +60,7 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --accent: oklch(0.295 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 12%);
@@ -158,4 +160,84 @@ html.calque,
 html.calque body,
 html.calque #root {
   background: transparent !important;
+}
+
+/* --- Entrée en cascade du contenu d'une modale ------------------------------
+   Une boîte de dialogue qui apparaît d'un bloc paraît surgir ; la même dont le
+   titre précède les champs paraît s'ouvrir. Le décalage se pose ici, sur les
+   enfants directs, plutôt que dans chaque boîte : elles n'ont rien à savoir de
+   leur propre animation, et aucune ne peut oublier de la porter. */
+@keyframes cascade-modale {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-slot='dialog-content'][data-state='open'] > * {
+    animation: cascade-modale 420ms cubic-bezier(0.2, 0, 0, 1) backwards;
+  }
+  /* `backwards` maintient l'état initial pendant le délai : sans lui, l'enfant
+     s'affiche en clair puis saute à sa position de départ. */
+  [data-slot='dialog-content'][data-state='open'] > *:nth-child(1) {
+    animation-delay: 120ms;
+  }
+  [data-slot='dialog-content'][data-state='open'] > *:nth-child(2) {
+    animation-delay: 185ms;
+  }
+  [data-slot='dialog-content'][data-state='open'] > *:nth-child(3) {
+    animation-delay: 245ms;
+  }
+  [data-slot='dialog-content'][data-state='open'] > *:nth-child(n + 4) {
+    animation-delay: 300ms;
+  }
+  /* Le bouton de fermeture est en position absolue : le décaler le ferait
+     glisser sur le titre. */
+  [data-slot='dialog-content'] > [data-slot='dialog-close'] {
+    animation: none;
+  }
+}
+
+/* --- Ouverture d'un panneau ancré -------------------------------------------
+   Le panneau naît du bouton qui l'ouvre. Le flou de départ compte autant que
+   l'échelle : il donne l'impression que le contenu se fixe en arrivant, là où
+   une simple mise à l'échelle donne celle d'un calque qu'on tire. */
+@keyframes ouvre-panneau {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(-4px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+.ouvre-panneau {
+  animation: ouvre-panneau 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ouvre-panneau {
+    animation: none;
+  }
+}
+
+/* Le flou du voile s'installe, il ne se pose pas. `backdrop-filter` s'anime
+   dans Chromium : sans cette montée, le fond passe de net à flou d'un coup au
+   moment même où la modale, elle, arrive en douceur. */
+@keyframes monte-flou {
+  from {
+    backdrop-filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .voile-modale[data-state='open'] {
+    animation-name: enter, monte-flou;
+    animation-duration: 200ms, 260ms;
+  }
 }

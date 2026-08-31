@@ -248,8 +248,18 @@ declare global {
       setContentBounds(bounds: { x: number; y: number; width: number; height: number }): void;
       /** Masque la vue web native, sinon elle recouvre les modales du shell. */
       setOverlay(active: boolean): void;
+      /** Image figée de la page, à afficher derrière une modale. */
+      viewStill(): Promise<string | null>;
       toggleSidebar(collapsed?: boolean): Promise<void>;
       popupMenu(items: MenuItem[]): Promise<string | null>;
+
+      /** Pont du menu contextuel : le calque l'affiche, le shell le demande. */
+      menu: {
+        onOpen(
+          handler: (demande: { id: number; items: MenuItem[]; ancre: { x: number; y: number } }) => void
+        ): () => void;
+        pick(id: number, picked: string | null): void;
+      };
       openExternal(url: string): Promise<void>;
       about(): Promise<{ version: string; electron: string; chrome: string; userData: string }>;
       checkUpdate(): Promise<Update | null>;

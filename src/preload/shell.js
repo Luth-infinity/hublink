@@ -95,6 +95,7 @@ contextBridge.exposeInMainWorld('hublink', {
 
   setContentBounds: (bounds) => ipcRenderer.send('layout:bounds', bounds),
   setOverlay: (active) => ipcRenderer.send('layout:overlay', active),
+  viewStill: () => invoke('view:still'),
   toggleSidebar: (collapsed) => invoke('layout:toggle-sidebar', collapsed),
   popupMenu: (items) => invoke('menu:popup', items),
   openExternal: (url) => invoke('app:open-external', url),
@@ -103,6 +104,13 @@ contextBridge.exposeInMainWorld('hublink', {
   onUpdateAvailable: (handler) => on('update:available', handler),
   overlay: {
     setInteractive: (on) => ipcRenderer.send('overlay:interactive', on)
+  },
+
+  // Les menus vivent dans le calque : le shell demande, le calque affiche, le
+  // processus principal fait le lien et rend le choix.
+  menu: {
+    onOpen: (handler) => on('menu:open', handler),
+    pick: (id, picked) => ipcRenderer.send('menu:pick', { id, picked })
   },
 
   panels: {

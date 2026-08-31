@@ -1,8 +1,10 @@
 import * as React from 'react';
+import { cn } from '@/lib/utils';
 import { Toaster, toast } from 'sonner';
 import type { AppState, Download } from '@/types';
 import { useSyncedTheme } from '@/lib/theme';
 import { AccountsPanel, DownloadsPanel, HistoryPanel } from '@/components/panels';
+import { MenuFlottant, type DemandeMenu } from '@/components/MenuFlottant';
 
 const api = window.hublink;
 
@@ -44,8 +46,20 @@ export default function Overlay() {
     return totaux;
   }, [etat]);
 
+  const [menu, setMenu] = React.useState<DemandeMenu | null>(null);
+  const choisir = React.useCallback(
+    (picked: string | null) => {
+      setMenu((courant) => {
+        if (courant) api.menu.pick(courant.id, picked);
+        return null;
+      });
+    },
+    []
+  );
+
   React.useEffect(() => api.downloadsList.onList(setDownloads), []);
   React.useEffect(() => api.panels.onState(setPanneau), []);
+  React.useEffect(() => api.menu.onOpen(setMenu), []);
 
   React.useEffect(
     () =>
@@ -63,7 +77,7 @@ export default function Overlay() {
   // mouvements. Sans panneau ouvert, on ne devient réceptif que sur un message.
   React.useEffect(() => {
     const bouge = (e: MouseEvent) => {
-      if (panneau) return;
+      if (panneau || menu) return;
       const sur = Boolean(
         document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-sonner-toast]')
       );
@@ -73,7 +87,7 @@ export default function Overlay() {
     };
     window.addEventListener('mousemove', bouge);
     return () => window.removeEventListener('mousemove', bouge);
-  }, [panneau]);
+  }, [panneau, menu]);
 
   // Échap referme, comme n'importe quel menu.
   React.useEffect(() => {
@@ -85,6 +99,7 @@ export default function Overlay() {
 
   return (
     <div className="pointer-events-none h-full w-full">
+      {menu && <MenuFlottant demande={menu} onChoisir={choisir} />}
       {panneau && (
         <>
           {/* Le clic à côté referme. Il ne traverse pas jusqu'à la page : c'est
@@ -92,7 +107,14 @@ export default function Overlay() {
               par accident en le fermant. */}
           <div className="pointer-events-auto fixed inset-0" onClick={() => api.panels.close()} />
           <div
-            className="animate-in fade-in slide-in-from-top-1 pointer-events-auto fixed duration-150"
+            /* Le panneau se déplie depuis le bouton qui l'ouvre : il grandit
+               et se dénoue du flou, au lieu de se poser tout formé à côté de
+               son ancre. L'origine suit le côté d'accrochage, faute de quoi il
+               semblerait sortir du mauvais bord. */
+            className={cn(
+              'ouvre-panneau pointer-events-auto fixed',
+              panneau.kind === 'accounts' ? 'origin-top-left' : 'origin-top-right'
+            )}
             style={
               // Les boutons de la barre sont à droite, celui des comptes en
               // haut du panneau latéral : on aligne du côté le plus proche.
