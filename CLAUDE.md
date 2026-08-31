@@ -12,8 +12,8 @@ Les commentaires expliquent *pourquoi*, pas *quoi*.
 
 | | Version |
 |---|---|
-| Windows | **0.4.8** |
-| macOS | **0.4.8** — rattrapé le 31 août 2026 |
+| Windows | **0.5.0** |
+| macOS | **0.5.0** |
 
 Les deux plateformes sont à parité. Elles ne le restent jamais longtemps : les binaires
 Apple ne se construisent que sur un Mac (voir plus bas), donc macOS décroche dès qu'une
@@ -45,7 +45,7 @@ Les binaires attendus par le site sont nommés `Hublink-<version>-arm64.dmg` et
 L'ordre compte : le site se redéploie automatiquement au push sur `main`, donc pousser
 le bump de version avant que les binaires n'existent afficherait des liens morts.
 
-1. Bump `package.json` + `VERSION` dans `site/app/page.tsx`, commit.
+1. Bump `package.json` + `VERSION` dans `site/app/vitrine.tsx`, commit.
 2. `npm run dist:win` (et `dist:mac` sur un Mac).
 3. Créer une branche, la pousser.
 4. `gh release create vX.Y.Z --draft --target <sha>` avec les binaires **et
@@ -53,6 +53,12 @@ le bump de version avant que les binaires n'existent afficherait des liens morts
 5. Fusionner sur `main`, pousser.
 6. `gh release edit vX.Y.Z --draft=false`.
 7. Vérifier : liens de téléchargement en 200, bandeau du site, changelog.
+
+Course à surveiller entre les étapes 5 et 6 : `releases.ts` écarte les brouillons.
+Si le déploiement déclenché par le push interroge l'API avant la publication, le
+changelog sort sans la nouvelle version et n'y revient qu'à la revalidation, une
+heure plus tard. Publier au plus vite après le push, et vérifier le changelog en
+ligne plutôt que de le supposer.
 
 Il n'y a **pas de CI** : `.github/` ne contient qu'un `FUNDING.yml`.
 
@@ -70,7 +76,8 @@ d'installation. `section()` découpe sur ce titre. Sans section anglaise, la pag
 retombe sur le français — mieux vaut ça qu'un changelog vide, mais ça se voit.
 
 **Les versions sont par plateforme.** `const VERSION = { win, mac }` dans
-`site/app/page.tsx`, à bumper à la main en plus de `package.json`. Les deux plateformes
+`site/app/vitrine.tsx` — pas `page.tsx`, qui n'est qu'une route depuis que le
+site est bilingue —, à bumper à la main en plus de `package.json`. Les deux plateformes
 n'avancent pas ensemble.
 
 **`.dmg` ne se construit que sur macOS.** electron-builder refuse explicitement :
