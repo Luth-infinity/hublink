@@ -46,10 +46,9 @@ function seed() {
     history: [],
     // Masque les autres clients pendant un partage d'écran.
     discreet: false,
-    // WhatsApp : un service à part, qui n'appartient à aucun compte et reste
-    // joignable quel que soit le client sur lequel on travaille.
-    whatsappOpen: false,
-    whatsappBadge: 0,
+    // Comptes repliés dans la vue « Tous ». Persisté : un compte qu'on a plié
+    // pour se concentrer doit le rester au prochain démarrage.
+    collapsedAccounts: [],
     extensions: [],
     window: { width: 1440, height: 900, x: null, y: null, maximized: false }
   };
@@ -102,8 +101,7 @@ function normalize(state) {
   if (!Array.isArray(state.favorites)) state.favorites = [];
   if (!Array.isArray(state.history)) state.history = [];
   if (typeof state.discreet !== 'boolean') state.discreet = false;
-  if (typeof state.whatsappOpen !== 'boolean') state.whatsappOpen = false;
-  if (typeof state.whatsappBadge !== 'number') state.whatsappBadge = 0;
+  if (!Array.isArray(state.collapsedAccounts)) state.collapsedAccounts = [];
   if (typeof state.accentColor !== 'string') state.accentColor = null;
   if (!state.theme) state.theme = 'system';
   if (typeof state.sidebarCollapsed !== 'boolean') state.sidebarCollapsed = false;
@@ -117,6 +115,36 @@ function normalize(state) {
     delete account.spaceId;
   }
   if (!state.accounts.some((a) => a.id === state.activeAccountId)) state.activeAccountId = null;
+  // Un compte supprimé ne doit pas rester replié dans un coin de la config.
+  state.collapsedAccounts = state.collapsedAccounts.filter((id) =>
+    state.accounts.some((a) => a.id === id)
+  );
+
+  // WhatsApp n'a plus de mode dédié : il devient un service comme les autres,
+  // dans la session de son compte. La présence des anciens champs sert de
+  // marqueur de migration — une fois retirés, on ne le recrée jamais deux fois.
+  // La session `persist:whatsapp` n'est plus lue : il faudra rescanner le code.
+  if (state.whatsappOpen !== undefined || state.whatsappBadge !== undefined) {
+    const estWhatsApp = (url) => {
+      try {
+        return new URL(url).hostname.endsWith('whatsapp.com');
+      } catch {
+        return false;
+      }
+    };
+    const deja = state.services.some((service) => estWhatsApp(service.url));
+    if (!deja && state.accounts[0]) {
+      state.services.push({
+        id: uid('s'),
+        name: 'WhatsApp',
+        url: 'https://web.whatsapp.com/',
+        accountId: state.accounts[0].id,
+        favicon: null
+      });
+    }
+    delete state.whatsappOpen;
+    delete state.whatsappBadge;
+  }
 
   const known = new Set(state.accounts.map((a) => a.id));
   for (const service of state.services) {
@@ -221,12 +249,40 @@ function updateAccount(id, patch) {
   return account;
 }
 
+/**
+ * Réordonne les comptes, donc l'ordre des sections de la vue « Tous ».
+ * Même principe que `reorderServices` : ce que l'appelant a omis reste à la
+ * fin, un identifiant inconnu est ignoré.
+ */
+function reorderAccounts(orderedIds) {
+  const s = load();
+  const byId = new Map(s.accounts.map((account) => [account.id, account]));
+  const next = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+  for (const account of s.accounts) if (!next.includes(account)) next.push(account);
+  s.accounts = next;
+  save();
+}
+
+/** Replie ou déplie un compte dans la vue « Tous ». */
+function setAccountCollapsed(id, collapsed) {
+  const s = load();
+  const plie = s.collapsedAccounts.includes(id);
+  const veut = typeof collapsed === 'boolean' ? collapsed : !plie;
+  if (veut === plie) return s.collapsedAccounts;
+  s.collapsedAccounts = veut
+    ? [...s.collapsedAccounts, id]
+    : s.collapsedAccounts.filter((x) => x !== id);
+  save();
+  return s.collapsedAccounts;
+}
+
 function removeAccount(id) {
   const s = load();
   if (s.accounts.length <= 1) return [];
   const orphans = s.services.filter((service) => service.accountId === id).map((service) => service.id);
   if (s.activeAccountId === id) s.activeAccountId = null;
   s.accounts = s.accounts.filter((a) => a.id !== id);
+  s.collapsedAccounts = s.collapsedAccounts.filter((x) => x !== id);
   s.services = s.services.filter((service) => service.accountId !== id);
   if (!s.services.some((service) => service.id === s.activeServiceId)) {
     s.activeServiceId = s.services[0] ? s.services[0].id : null;
@@ -597,6 +653,8 @@ module.exports = {
   addAccount,
   updateAccount,
   removeAccount,
+  reorderAccounts,
+  setAccountCollapsed,
   addService,
   updateService,
   updateServiceIfChanged,

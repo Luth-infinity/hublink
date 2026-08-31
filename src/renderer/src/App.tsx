@@ -282,11 +282,27 @@ export default function App() {
 
   const toggleBrowser = React.useCallback((on: boolean) => api.browser.toggle(on), []);
   const toggleDiscreet = React.useCallback((on: boolean) => api.setDiscreet(on), []);
-  const toggleWhatsApp = React.useCallback((on: boolean) => api.whatsapp.toggle(on), []);
+  // Même mécanique que pour les services : l'appelant désigne deux voisins, on
+  // recalcule l'ordre COMPLET ici. La chaîne d'identifiants sert de dépendance
+  // stable — le tableau, lui, est neuf à chaque état poussé.
+  const allAccountIds = (state?.accounts ?? []).map((a) => a.id).join(',');
+  const reorderAccounts = React.useCallback(
+    (draggedId: string, targetId: string) => {
+      const ids = allAccountIds ? allAccountIds.split(',') : [];
+      const from = ids.indexOf(draggedId);
+      const to = ids.indexOf(targetId);
+      if (from < 0 || to < 0 || from === to) return;
+      ids.splice(to, 0, ids.splice(from, 1)[0]);
+      api.accounts.reorder(ids);
+    },
+    [allAccountIds]
+  );
+  const toggleAccountCollapsed = React.useCallback(
+    (id: string, collapsed: boolean) => api.accounts.setCollapsed(id, collapsed),
+    []
+  );
 
-  // WhatsApp occupe la zone principale : aucun service n'y est affiché, aucun
-  // ne doit donc paraître sélectionné. Le choix reste mémorisé pour le retour.
-  const serviceMarque = state?.whatsappOpen ? null : (state?.activeServiceId ?? null);
+  const serviceMarque = state?.activeServiceId ?? null;
   const toggleFavorite = React.useCallback(() => api.browser.toggleFavorite(), []);
   const openFavorite = React.useCallback((id: string) => api.browser.openFavorite(id), []);
   const removeFavorite = React.useCallback((id: string) => api.browser.removeFavorite(id), []);
@@ -425,9 +441,9 @@ export default function App() {
             onAddTab={addTab}
             discreet={state.discreet}
             onToggleDiscreet={toggleDiscreet}
-            whatsappOpen={state.whatsappOpen}
-            whatsappBadge={state.whatsappBadge}
-            onToggleWhatsApp={toggleWhatsApp}
+            collapsedAccounts={state.collapsedAccounts}
+            onToggleAccountCollapsed={toggleAccountCollapsed}
+            onReorderAccounts={reorderAccounts}
             favorites={state.favorites}
             onOpenFavorite={openFavorite}
             onRemoveFavorite={removeFavorite}
@@ -437,7 +453,7 @@ export default function App() {
             <div ref={contentRef} className="relative min-h-0 flex-1 bg-shell">
               {/* En mode navigateur, la vue de l'onglet occupe la zone : cet
                   écran d'accueil n'aurait rien à y faire. */}
-              {!service && !state.browserMode && !state.whatsappOpen && (
+              {!service && !state.browserMode && (
                 <div className="grid h-full place-items-center px-8 text-center">
                   <div className="flex max-w-sm flex-col items-center gap-3">
                     <h2 className="text-base font-semibold">Aucun service</h2>

@@ -232,7 +232,6 @@ function createWindow() {
     if (type === 'service-slept') send('service:slept', payload);
     if (type === 'tab-meta') send('tab:meta', payload);
     if (type === 'media-present') send('media:present', payload);
-    if (type === 'whatsapp-badge') pushState();
     if (type === 'download-started') {
       telechargements = [
         { id: payload.id, name: payload.name, path: payload.path, total: payload.total, received: 0, state: 'progress' },
@@ -308,8 +307,6 @@ function persistWindow() {
 // Restaure le dernier service consulté.
 async function restoreActive() {
   const state = store.load();
-  // WhatsApp prend toute la zone, comme un service : il passe donc avant.
-  if (state.whatsappOpen) return views.showWhatsApp();
   // En mode navigateur, c'est l'onglet courant qui occupe la fenêtre : les
   // services restent chargés en arrière-plan, on ne les détruit pas.
   if (state.browserMode) {
@@ -331,9 +328,6 @@ async function restoreActive() {
 // par les liens `target="_blank"` des pages.
 async function openTab(url) {
   const tab = store.addTab(url);
-  // L'onglet occupe la zone principale : WhatsApp doit lui céder la place,
-  // sans quoi les deux se croiraient affichés.
-  store.load().whatsappOpen = false;
   store.load().browserMode = true;
   store.save();
   pushState();
@@ -585,19 +579,8 @@ function registerIpc() {
     await restoreActive();
   });
 
-  ipcMain.handle('whatsapp:toggle', async (_e, on) => {
-    const state = store.load();
-    state.whatsappOpen = typeof on === 'boolean' ? on : !state.whatsappOpen;
-    store.save();
-    pushState();
-    await restoreActive();
-    return state.whatsappOpen;
-  });
-
   ipcMain.handle('service:select', async (_e, id) => {
     if (!store.getService(id)) return;
-    // Choisir un service referme WhatsApp : les deux occupent la même zone.
-    store.load().whatsappOpen = false;
     store.load().activeServiceId = id;
     store.save();
     pushState();
@@ -609,11 +592,20 @@ function registerIpc() {
     pushState();
   });
 
+  ipcMain.handle('account:reorder', (_e, orderedIds) => {
+    store.reorderAccounts(orderedIds);
+    pushState();
+  });
+
+  ipcMain.handle('account:collapse', (_e, { id, collapsed }) => {
+    store.setAccountCollapsed(id, collapsed);
+    pushState();
+  });
+
   // --- navigateur neutre ---------------------------------------------------
 
   ipcMain.handle('browser:toggle', async (_e, on) => {
     const state = store.load();
-    state.whatsappOpen = false;
     const next = typeof on === 'boolean' ? on : !state.browserMode;
     store.setBrowserMode(next);
     pushState();
@@ -631,7 +623,6 @@ function registerIpc() {
 
   ipcMain.handle('tab:select', async (_e, id) => {
     if (!store.getTab(id)) return;
-    store.load().whatsappOpen = false;
     store.load().activeTabId = id;
     store.save();
     pushState();
@@ -695,7 +686,6 @@ function registerIpc() {
   ipcMain.handle('nav:devtools', () => views.withCurrent((wc) => wc.toggleDevTools()));
   ipcMain.handle('nav:home', () => {
     const state = store.load();
-    if (state.whatsappOpen) return views.withCurrent((wc) => wc.loadURL(views.WHATSAPP_URL));
     if (state.browserMode) return views.withCurrent((wc) => wc.loadURL(store.BROWSER_HOME));
     const service = store.getService(state.activeServiceId);
     if (service) views.withCurrent((wc) => wc.loadURL(service.url));

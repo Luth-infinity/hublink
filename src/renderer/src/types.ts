@@ -112,9 +112,8 @@ export type AppState = {
   history: HistoryEntry[];
   /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
   discreet: boolean;
-  /** WhatsApp affiché dans la zone principale, hors de tout compte. */
-  whatsappOpen: boolean;
-  whatsappBadge: number;
+  /** Comptes repliés dans la vue « Tous ». */
+  collapsedAccounts: string[];
   /** Teinte du shell en mode navigateur, faute de couleur de compte. */
   accentColor: string | null;
   extensions: ExtensionRecord[];
@@ -174,6 +173,8 @@ declare global {
         update(id: string, patch: Partial<Account>): Promise<void>;
         remove(id: string): Promise<void>;
         restore(): Promise<Service | null>;
+        reorder(orderedIds: string[]): Promise<void>;
+        setCollapsed(id: string, collapsed?: boolean): Promise<void>;
         pickAvatar(): Promise<string | null>;
       };
 
@@ -186,8 +187,6 @@ declare global {
         reorder(orderedIds: string[]): Promise<void>;
         pickIcon(): Promise<string | null>;
       };
-
-      whatsapp: { toggle(on?: boolean): Promise<boolean> };
 
       browser: {
         toggle(on?: boolean): Promise<boolean>;

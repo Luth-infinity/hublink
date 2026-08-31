@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('hublink', {
     add: (data) => invoke('account:add', data),
     update: (id, patch) => invoke('account:update', { id, patch }),
     remove: (id) => invoke('account:remove', id),
+    reorder: (orderedIds) => invoke('account:reorder', orderedIds),
+    setCollapsed: (id, collapsed) => invoke('account:collapse', { id, collapsed }),
     pickAvatar: () => invoke('account:pick-avatar')
   },
 
@@ -33,10 +35,6 @@ contextBridge.exposeInMainWorld('hublink', {
     select: (id) => invoke('service:select', id),
     reorder: (orderedIds) => invoke('service:reorder', orderedIds),
     pickIcon: () => invoke('service:pick-icon')
-  },
-
-  whatsapp: {
-    toggle: (on) => invoke('whatsapp:toggle', on)
   },
 
   browser: {

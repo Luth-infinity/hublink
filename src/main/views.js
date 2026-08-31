@@ -28,17 +28,10 @@ const AUTH_HOSTS = [
 const BROWSER_ACCOUNT = '__browser__';
 const BROWSER_PARTITION = 'persist:browser';
 
-// WhatsApp a sa propre session : il n'appartient à aucun compte, et ne doit
-// donc ni voir leurs cookies ni disparaître quand on filtre sur un client.
-const WHATSAPP_ID = '__whatsapp__';
-const WHATSAPP_PARTITION = 'persist:whatsapp';
-const WHATSAPP_URL = 'https://web.whatsapp.com/';
-
 // La partition est portée par le compte : les comptes migrés depuis l'ancien
 // modèle gardent la leur, sinon leurs cookies deviendraient inaccessibles.
 const partitionFor = (accountId) => {
   if (accountId === BROWSER_ACCOUNT) return BROWSER_PARTITION;
-  if (accountId === WHATSAPP_ID) return WHATSAPP_PARTITION;
   const account = store.getAccount(accountId);
   return (account && account.partition) || `persist:account-${accountId}`;
 };
@@ -131,9 +124,6 @@ class ViewManager {
       if ((this.lastActiveAt.get(serviceId) ?? 0) > cutoff) continue;
       // Un service endormi n'a plus de page : il ne peut donc plus signaler
       // ses non-lus. Ceux qu'on a marqués restent chargés pour cette raison.
-      // Une messagerie mise en veille cesse de prévenir : celle-ci reste
-      // chargée tant qu'on ne l'a pas fermée.
-      if (serviceId === WHATSAPP_ID) continue;
       const service = store.getService(serviceId);
       if (service && service.keepAwake) continue;
       this.destroyService(serviceId);
@@ -516,91 +506,6 @@ class ViewManager {
     return 'aucune';
   }
 
-  // --- WhatsApp -------------------------------------------------------------
-
-  async ensureWhatsAppView() {
-    const existante = this.views.get(WHATSAPP_ID);
-    if (existante) return existante;
-
-    const ses = await this.ensureSession(WHATSAPP_ID);
-    const view = new WebContentsView({
-      webPreferences: {
-        session: ses,
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        spellcheck: true,
-        preload: path.join(__dirname, '..', 'preload', 'guest.js'),
-        additionalArguments: ['--hublink-block-passkeys']
-      }
-    });
-    view.setBackgroundColor('#ffffff');
-    // WhatsApp refuse les navigateurs qu'il ne reconnaît pas : sans cet
-    // en-tête, il renvoie vers une page « navigateur non pris en charge ».
-    view.webContents.setUserAgent(uaFor({ spoofChrome: true }));
-    this.views.set(WHATSAPP_ID, view);
-    this.wireWhatsApp(view);
-    view.webContents.loadURL(WHATSAPP_URL);
-    return view;
-  }
-
-  wireWhatsApp(view) {
-    const wc = view.webContents;
-
-    // WhatsApp met son compteur dans le titre : « (3) WhatsApp ».
-    wc.on('page-title-updated', (_e, title) => {
-      const m = /\((\d+)\)/.exec(title);
-      this.setWhatsAppBadge(m ? parseInt(m[1], 10) : 0);
-    });
-
-    wc.setWindowOpenHandler(({ url }) => {
-      if (isAuthUrl(url)) {
-        return { action: 'allow', overrideBrowserWindowOptions: popupOptions({ width: 520, height: 720 }) };
-      }
-      // Un lien reçu dans une conversation s'ouvre dans le navigateur intégré :
-      // il n'a rien à faire dans la session de la messagerie, mais il n'y a
-      // plus de raison de quitter l'application pour autant.
-      if (isExternalUrl(url)) this.onEvent('tab-requested', { url });
-      return { action: 'deny' };
-    });
-
-    this.wireMedia(wc, WHATSAPP_ID);
-  }
-
-  setWhatsAppBadge(badge) {
-    const s = store.load();
-    if (s.whatsappBadge === badge) return;
-    s.whatsappBadge = badge;
-    store.save();
-    this.onEvent('whatsapp-badge', { badge });
-  }
-
-  async showWhatsApp() {
-    if (!this.window) return;
-    const view = await this.ensureWhatsAppView();
-
-    if (this.current && this.current !== view) {
-      this.current.setVisible(false);
-      this.window.contentView.removeChildView(this.current);
-    }
-    this.current = view;
-    this.currentId = WHATSAPP_ID;
-    this.lastActiveAt.set(WHATSAPP_ID, Date.now());
-    this.window.contentView.addChildView(view);
-    view.setBounds(this.bounds);
-    view.setVisible(!this.overlay);
-    if (!this.overlay) view.webContents.focus();
-
-    const wc = view.webContents;
-    this.onEvent('nav-state', {
-      serviceId: WHATSAPP_ID,
-      url: wc.getURL(),
-      canGoBack: wc.navigationHistory.canGoBack(),
-      canGoForward: wc.navigationHistory.canGoForward(),
-      loading: wc.isLoading()
-    });
-  }
-
   async showTab(tabId) {
     if (!this.window) return;
     const view = await this.ensureTabView(tabId);
@@ -830,7 +735,7 @@ class ViewManager {
     for (const [serviceId] of [...this.views]) {
       // Les onglets du navigateur vivent dans la même Map : sans ce garde-fou,
       // supprimer un compte les fermerait tous.
-      if (serviceId === WHATSAPP_ID || store.getTab(serviceId)) continue;
+      if (store.getTab(serviceId)) continue;
       const service = store.getService(serviceId);
       if (!service || service.accountId === accountId) this.destroyService(serviceId);
     }
@@ -843,7 +748,5 @@ class ViewManager {
 }
 
 const manager = new ViewManager();
-// Exposé pour le bouton d'accueil, qui doit savoir où ramener cette vue.
-manager.WHATSAPP_URL = WHATSAPP_URL;
 
 module.exports = manager;

@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { Compass, EyeOff, MessageCircle, Moon, Plus, Settings, Star, X } from 'lucide-react';
+import { ChevronRight, Compass, EyeOff, Moon, Plus, Settings, Star, X } from 'lucide-react';
 import type { Account, Favorite, MenuItem, Service, Tab } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
+import { useFlip } from '@/lib/flip';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -40,11 +41,12 @@ type Props = {
   onAddTab: () => void;
   /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
   discreet: boolean;
-  /** WhatsApp occupe la zone principale, hors de tout compte. */
-  whatsappOpen: boolean;
-  whatsappBadge: number;
-  onToggleWhatsApp: (on: boolean) => void;
   onToggleDiscreet: (on: boolean) => void;
+  /** Comptes repliés dans la vue « Tous ». */
+  collapsedAccounts: string[];
+  onToggleAccountCollapsed: (id: string, collapsed: boolean) => void;
+  /** Déplace `draggedId` à la place de `targetId` dans l'ordre des comptes. */
+  onReorderAccounts: (draggedId: string, targetId: string) => void;
   favorites: Favorite[];
   onOpenFavorite: (id: string) => void;
   onRemoveFavorite: (id: string) => void;
@@ -55,7 +57,7 @@ function Badge({ count, className }: { count: number; className?: string }) {
   return (
     <span
       className={cn(
-        'grid min-w-[18px] shrink-0 place-items-center rounded-full bg-red-500 px-1 text-[10px] leading-[18px] font-bold text-white',
+        'grid min-w-[18px] shrink-0 animate-in zoom-in-50 place-items-center rounded-full bg-red-500 px-1 text-[10px] leading-[18px] font-bold text-white duration-200',
         className
       )}
     >
@@ -98,9 +100,9 @@ function SidebarImpl({
   onAddTab,
   discreet,
   onToggleDiscreet,
-  whatsappOpen,
-  whatsappBadge,
-  onToggleWhatsApp,
+  collapsedAccounts,
+  onToggleAccountCollapsed,
+  onReorderAccounts,
   favorites,
   onOpenFavorite,
   onRemoveFavorite
@@ -125,6 +127,19 @@ function SidebarImpl({
   const FLOU = 'blur-[5px] tracking-tight select-none';
   const [dragging, setDragging] = React.useState<string | null>(null);
   const [dropTarget, setDropTarget] = React.useState<string | null>(null);
+  // Le glissé des comptes est tenu à part de celui des services : partager
+  // l'état ferait accepter un service comme cible de section, et l'inverse.
+  const [dragAccount, setDragAccount] = React.useState<string | null>(null);
+  const [dropAccount, setDropAccount] = React.useState<string | null>(null);
+  const estPlie = React.useCallback(
+    (id: string) => collapsedAccounts.includes(id),
+    [collapsedAccounts]
+  );
+
+  // L'ordre des sections ET celui des services : réordonner l'un ou l'autre
+  // doit faire glisser les lignes plutôt que les téléporter.
+  const ordre = `${accounts.map((a) => a.id).join(',')}|${services.map((x) => x.id).join(',')}`;
+  const flip = useFlip(ordre);
 
   // En vue « Tous », les services sont regroupés par compte : l'en-tête dit à
   // qui ils appartiennent, ce qui rend inutile de le répéter sous chacun.
@@ -166,6 +181,32 @@ function SidebarImpl({
       }
     );
 
+  /**
+   * Menu de la section d'un compte. Comme pour les services, « Monter » et
+   * « Descendre » visent le voisin VISIBLE : un compte sans service n'apparaît
+   * pas, viser son index ne bougerait rien à l'écran.
+   */
+  const accountMenu = (account: Account, index: number, voisins: Account[]) => {
+    const replie = estPlie(account.id);
+    return popup(
+      [
+        { id: 'fold', label: replie ? 'Déplier' : 'Replier' },
+        { type: 'separator' },
+        { id: 'up', label: 'Monter', enabled: index > 0 },
+        { id: 'down', label: 'Descendre', enabled: index < voisins.length - 1 },
+        { type: 'separator' },
+        { id: 'only', label: `N'afficher que ${account.name}` }
+      ],
+      {
+        fold: () => onToggleAccountCollapsed(account.id, !replie),
+        up: () => index > 0 && onReorderAccounts(account.id, voisins[index - 1].id),
+        down: () =>
+          index < voisins.length - 1 && onReorderAccounts(account.id, voisins[index + 1].id),
+        only: () => onFilterAccount(account.id)
+      }
+    );
+  };
+
   const titleOf = (service: Service, asleep: boolean) => {
     if (masque(service.accountId)) return 'Compte masqué';
     const account = accountById.get(service.accountId);
@@ -189,6 +230,7 @@ function SidebarImpl({
     const account = accountById.get(service.accountId);
     return (
       <li
+        ref={flip(service.id)}
         onDragOver={(e) => {
           if (!dragging || dragging === service.id) return;
           // Réordonner ne change pas de compte : on refuse le dépôt entre groupes.
@@ -205,7 +247,7 @@ function SidebarImpl({
           setDropTarget(null);
         }}
         className={cn(
-          'rounded-md',
+          'rounded-md transition-[box-shadow,opacity] duration-150',
           dropTarget === service.id && 'ring-2 ring-ring/60',
           dragging === service.id && 'opacity-40'
         )}
@@ -230,7 +272,7 @@ function SidebarImpl({
           title={titleOf(service, asleep)}
           aria-current={active}
           className={cn(
-            'flex w-full items-center gap-2.5 rounded-md py-1.5 pr-2 pl-2 text-left transition-colors',
+            'flex w-full cursor-grab items-center gap-2.5 rounded-md py-1.5 pr-2 pl-2 text-left transition-colors active:cursor-grabbing',
             active
               ? 'bg-shell-active text-shell-foreground'
               : 'text-shell-muted hover:bg-shell-hover hover:text-shell-foreground'
@@ -288,48 +330,6 @@ function SidebarImpl({
           Mode navigateur
         </span>
         <Switch checked={browserMode} className="pointer-events-none" tabIndex={-1} aria-hidden />
-      </button>
-    );
-
-  /**
-   * WhatsApp, joignable de partout.
-   *
-   * Il n'appartient à aucun compte : ni la liste des services, ni le filtre de
-   * compte ne le concernent. Il se comporte comme un service pour l'affichage,
-   * d'où l'état actif plutôt qu'un interrupteur.
-   */
-  const WhatsAppToggle = () =>
-    collapsed ? (
-      <button
-        type="button"
-        onClick={() => onToggleWhatsApp(!whatsappOpen)}
-        title={whatsappOpen ? 'Fermer WhatsApp' : 'Ouvrir WhatsApp'}
-        aria-label="WhatsApp"
-        aria-current={whatsappOpen}
-        className={cn(
-          'relative grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
-          whatsappOpen ? 'bg-shell-active' : 'hover:bg-shell-hover'
-        )}
-      >
-        <MessageCircle
-          className={cn('size-[18px]', whatsappOpen ? 'text-shell-foreground' : 'text-shell-muted')}
-          aria-hidden
-        />
-        <Badge count={whatsappBadge} className="absolute -top-0.5 -right-0.5 ring-2 ring-shell" />
-      </button>
-    ) : (
-      <button
-        type="button"
-        onClick={() => onToggleWhatsApp(!whatsappOpen)}
-        aria-current={whatsappOpen}
-        className={cn(
-          'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
-          whatsappOpen ? 'bg-shell-active text-shell-foreground' : 'text-shell-muted hover:bg-shell-hover'
-        )}
-      >
-        <MessageCircle className="size-4 shrink-0" aria-hidden />
-        <span className="flex-1 text-left">WhatsApp</span>
-        <Badge count={whatsappBadge} />
       </button>
     );
 
@@ -518,7 +518,6 @@ function SidebarImpl({
 
         <Separator className={cn('bg-shell-border', collapsed && 'mx-auto w-7')} />
         <footer className={cn('flex flex-col', collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2')}>
-          <WhatsAppToggle />
           <BrowserToggle />
           <Button
             variant="ghost"
@@ -549,6 +548,7 @@ function SidebarImpl({
       return (
         <button
           type="button"
+          ref={flip(service.id)}
           onClick={() => onSelectService(service.id)}
           onContextMenu={(e) => {
             e.preventDefault();
@@ -639,7 +639,6 @@ function SidebarImpl({
 
         <Separator className="bg-shell-border" />
         <footer className="flex flex-col items-center gap-1 py-2">
-          <WhatsAppToggle />
           <BrowserToggle />
           <DiscreetToggle />
           <Button
@@ -675,38 +674,122 @@ function SidebarImpl({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-2">
+      {/* La clé change avec le filtre : passer d'un client à « Tous » remonte
+          une liste entièrement différente, qui gagne à apparaître plutôt qu'à
+          se substituer d'un coup. */}
+      <div
+        key={activeAccountId ?? 'tous'}
+        className="flex-1 animate-in fade-in overflow-y-auto p-2 duration-150 motion-reduce:animate-none"
+      >
         {groups
-          ? groups.map(({ account, items }) => (
-              <section key={account.id} className="mb-3">
-                <button
-                  type="button"
-                  onClick={() => onFilterAccount(account.id)}
-                  title={masque(account.id) ? 'Afficher ce compte' : `N'afficher que ${account.name}`}
-                  className="mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:bg-shell-hover"
-                >
-                  <AccountAvatar
-                    account={account}
-                    className={cn('size-4 rounded', masque(account.id) && FLOU)}
-                    textClassName="text-[7px]"
-                  />
-                  <h2
+          ? groups.map(({ account, items }, rang) => {
+              const replie = estPlie(account.id);
+              const voisins = groups.map((g) => g.account);
+              return (
+                <section key={account.id} ref={flip(`compte:${account.id}`)} className="mb-3">
+                  {/* En-tête glissable : c'est par lui qu'on réordonne les
+                      clients. Le chevron plie la section, le nom filtre dessus
+                      — deux gestes distincts, donc deux boutons imbriqués dans
+                      une ligne plutôt qu'un seul bouton pour tout. */}
+                  <div
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', account.id);
+                      setDragAccount(account.id);
+                    }}
+                    onDragEnd={() => {
+                      setDragAccount(null);
+                      setDropAccount(null);
+                    }}
+                    onDragOver={(e) => {
+                      if (!dragAccount || dragAccount === account.id) return;
+                      e.preventDefault();
+                      setDropAccount(account.id);
+                    }}
+                    onDragLeave={() =>
+                      setDropAccount((prev) => (prev === account.id ? null : prev))
+                    }
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragAccount && dragAccount !== account.id) {
+                        onReorderAccounts(dragAccount, account.id);
+                      }
+                      setDragAccount(null);
+                      setDropAccount(null);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      accountMenu(account, rang, voisins);
+                    }}
                     className={cn(
-                      'truncate text-[11px] font-semibold tracking-wide text-shell-muted uppercase',
-                      masque(account.id) && FLOU
+                      'mb-1 flex cursor-grab items-center gap-1 rounded-md pr-2 transition-[background-color,opacity,box-shadow] duration-150 active:cursor-grabbing',
+                      'hover:bg-shell-hover',
+                      dropAccount === account.id && 'ring-2 ring-ring/60',
+                      dragAccount === account.id && 'opacity-40'
                     )}
                   >
-                    {account.name}
-                  </h2>
-                  <Badge count={unreadByAccount[account.id] || 0} className="ml-auto" />
-                </button>
-                <ul className="flex flex-col gap-0.5">
-                  {items.map((service, index) => (
-                    <ServiceRow key={service.id} service={service} index={index} siblings={items} />
-                  ))}
-                </ul>
-              </section>
-            ))
+                    <button
+                      type="button"
+                      onClick={() => onToggleAccountCollapsed(account.id, !replie)}
+                      title={replie ? `Déplier ${account.name}` : `Replier ${account.name}`}
+                      aria-expanded={!replie}
+                      className="grid size-6 shrink-0 place-items-center rounded text-shell-muted transition-colors hover:text-shell-foreground"
+                    >
+                      <ChevronRight
+                        className={cn(
+                          'size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none',
+                          !replie && 'rotate-90'
+                        )}
+                        aria-hidden
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onFilterAccount(account.id)}
+                      title={
+                        masque(account.id) ? 'Afficher ce compte' : `N'afficher que ${account.name}`
+                      }
+                      className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+                    >
+                      <AccountAvatar
+                        account={account}
+                        className={cn('size-4 rounded', masque(account.id) && FLOU)}
+                        textClassName="text-[7px]"
+                      />
+                      <h2
+                        className={cn(
+                          'truncate text-[11px] font-semibold tracking-wide text-shell-muted uppercase',
+                          masque(account.id) && FLOU
+                        )}
+                      >
+                        {account.name}
+                      </h2>
+                    </button>
+                    <Badge count={unreadByAccount[account.id] || 0} />
+                  </div>
+                  {/* `grid-rows` de 1fr à 0fr : la hauteur s'anime sans qu'on
+                      ait à la mesurer, ce qu'un max-height fixe imposerait. */}
+                  <div
+                    className={cn(
+                      'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+                      replie ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+                    )}
+                  >
+                    <ul className="flex min-h-0 flex-col gap-0.5 overflow-hidden">
+                      {items.map((service, index) => (
+                        <ServiceRow
+                          key={service.id}
+                          service={service}
+                          index={index}
+                          siblings={items}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                </section>
+              );
+            })
           : (
               <ul className="flex flex-col gap-0.5">
                 {services.map((service, index) => (
@@ -733,7 +816,6 @@ function SidebarImpl({
 
       <Separator className="bg-shell-border" />
       <footer className="flex flex-col gap-0.5 p-2">
-        <WhatsAppToggle />
         <BrowserToggle />
         <DiscreetToggle />
         <Button
