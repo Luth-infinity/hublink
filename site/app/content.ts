@@ -10,7 +10,7 @@ export type Locale = 'en' | 'fr';
 
 export type Contenu = {
   meta: { title: string; description: string };
-  nav: { fonctions: string; versions: string; telecharger: string; autreLangue: string };
+  nav: { fonctions: string; versions: string; telecharger: string; langue: string };
   hero: {
     badge: (win: string, mac: string) => string;
     titre: string;
@@ -61,7 +61,7 @@ export const fr: Contenu = {
     fonctions: 'Fonctionnalités',
     versions: 'Versions',
     telecharger: 'Télécharger',
-    autreLangue: 'EN'
+    langue: 'Langue'
   },
   hero: {
     badge: (win, mac) => `Version ${win} sur Windows — ${mac} sur macOS`,
@@ -227,7 +227,7 @@ export const en: Contenu = {
     fonctions: 'Features',
     versions: 'Releases',
     telecharger: 'Download',
-    autreLangue: 'FR'
+    langue: 'Language'
   },
   hero: {
     badge: (win, mac) => `Version ${win} on Windows — ${mac} on macOS`,

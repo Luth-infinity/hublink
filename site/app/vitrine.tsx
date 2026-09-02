@@ -26,8 +26,6 @@ const DOWNLOADS = {
 
 type Props = { t: Contenu; locale: Locale };
 
-// L'anglais est servi à la racine, le français sous /fr.
-const autreLangue = (locale: Locale) => (locale === 'en' ? '/fr' : '/');
 
 function Logo({ className = 'size-7' }: { className?: string }) {
   return <Image src="/icon.png" alt="" width={64} height={64} className={`${className} rounded-[22%]`} />;
@@ -35,6 +33,52 @@ function Logo({ className = 'size-7' }: { className?: string }) {
 
 const LIEN_NAV =
   'hidden rounded-full px-3 py-1.5 text-sm text-ink-soft transition-colors hover:text-ink sm:block';
+
+const SEGMENT_LANGUE = 'rounded-full px-2.5 py-1 text-[13px] font-medium transition-colors';
+const SEGMENT_LU = `${SEGMENT_LANGUE} bg-card text-ink shadow-[0_1px_2px_rgba(11,12,14,.08)] ring-1 ring-line/70`;
+const SEGMENT_AUTRE = `${SEGMENT_LANGUE} text-ink-soft hover:text-ink`;
+
+// Les deux langues restent dans cet ordre quelle que soit la page : c'est la
+// marque qui se déplace, pas les libellés.
+const LANGUES = [
+  { code: 'fr' as const, libelle: 'FR', href: '/fr' },
+  { code: 'en' as const, libelle: 'EN', href: '/' }
+];
+
+/**
+ * Bascule entre les deux langues du site.
+ *
+ * Un « EN » seul dans la barre passait pour une rubrique de plus : on ne voyait
+ * ni qu'il s'agissait de la langue, ni laquelle on était en train de lire. Les
+ * deux tiennent donc côte à côte, celle en cours marquée — la forme dit quoi
+ * faire sans qu'on ait à l'expliquer.
+ */
+function BasculeLangue({ t, locale }: Props) {
+  return (
+    <div
+      className="mx-1 flex items-center gap-0.5 rounded-full bg-canvas p-0.5 ring-1 ring-line/60"
+      role="group"
+      aria-label={t.nav.langue}
+    >
+      {LANGUES.map((langue) =>
+        langue.code === locale ? (
+          <span key={langue.code} className={SEGMENT_LU} aria-current="true">
+            {langue.libelle}
+          </span>
+        ) : (
+          <LangLink
+            key={langue.code}
+            href={langue.href}
+            hrefLang={langue.code}
+            className={SEGMENT_AUTRE}
+          >
+            {langue.libelle}
+          </LangLink>
+        )
+      )}
+    </div>
+  );
+}
 
 const CADRE_IMAGE =
   'reveal overflow-hidden rounded-[20px] bg-card p-2 shadow-[0_2px_4px_rgba(11,12,14,.04),0_24px_64px_-24px_rgba(11,12,14,.28)] ring-1 ring-line/70';
@@ -56,13 +100,7 @@ function Nav({ t, locale }: Props) {
         <a href={REPO} className={LIEN_NAV}>
           GitHub
         </a>
-        <LangLink
-          href={autreLangue(locale)}
-          hrefLang={locale === 'en' ? 'fr' : 'en'}
-          className="rounded-full px-2.5 py-1.5 text-sm font-medium text-ink-soft transition-colors hover:text-ink"
-        >
-          {t.nav.autreLangue}
-        </LangLink>
+        <BasculeLangue t={t} locale={locale} />
         <a
           href="#telecharger"
           className="ml-1 rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition-transform hover:scale-[1.02]"
