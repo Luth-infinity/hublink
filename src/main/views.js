@@ -1,4 +1,4 @@
-const { WebContentsView, dialog, session: electronSession } = require('electron');
+const { WebContentsView, dialog, screen, session: electronSession } = require('electron');
 const path = require('path');
 const store = require('./store');
 const extensions = require('./extensions');
@@ -86,6 +86,10 @@ class ViewManager {
     // du HTML du shell. Une modale React serait donc invisible derrière la page.
     // On masque la vue tant qu'un calque du shell est ouvert.
     this.overlay = false;
+    // Une vidéo passée en plein écran doit occuper l'écran, pas la place que le
+    // shell lui laisse. Retient la vue qui le demande, le temps de lui donner
+    // toute la place.
+    this.pleinEcran = null;
     // Dernier passage au premier plan, par service : sert à endormir ceux
     // qu'on ne consulte plus.
     this.lastActiveAt = new Map();
@@ -382,6 +386,7 @@ class ViewManager {
     wc.on('did-navigate-in-page', nav);
 
     this.wireMedia(wc, tabId);
+    this.wirePleinEcran(wc, tabId);
 
     wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
       if (isMainFrame && code !== -3) this.onEvent('load-error', { serviceId: tabId, code, desc, url });
@@ -470,6 +475,37 @@ class ViewManager {
   }
 
   /**
+   * Donne tout l'écran à une vidéo qui le demande.
+   *
+   * Electron met déjà la fenêtre en plein écran, et la sort de même — inutile
+   * d'y toucher. Mais la vue, elle, garde la place que le shell lui laisse : on
+   * gardait la barre du haut et le panneau autour de la vidéo, et une bande
+   * vide là où la fenêtre avait grandi.
+   */
+  wirePleinEcran(wc, id) {
+    wc.on('enter-html-full-screen', () => this.entrerPleinEcran(id));
+    wc.on('leave-html-full-screen', () => this.quitterPleinEcran(id));
+    // Une vue qui meurt en plein écran ne dira jamais qu'elle en sort : sans
+    // cela, la suivante naîtrait avec la géométrie de l'écran entier.
+    wc.on('destroyed', () => this.quitterPleinEcran(id));
+  }
+
+  entrerPleinEcran(id) {
+    if (!this.window || this.window.isDestroyed()) return;
+    // Une vue en arrière-plan n'a pas à prendre l'écran : un service rechargé
+    // qui relance sa vidéo tout seul le ferait sinon.
+    if (this.currentId !== id || this.pleinEcran === id) return;
+    this.pleinEcran = id;
+    this.appliquerBounds();
+  }
+
+  quitterPleinEcran(id) {
+    if (!id || this.pleinEcran !== id) return;
+    this.pleinEcran = null;
+    this.appliquerBounds();
+  }
+
+  /**
    * Ouvre ou ferme l'incrustation vidéo de la vue courante.
    *
    * L'appel doit passer pour un geste utilisateur, sinon Chromium le refuse —
@@ -519,6 +555,10 @@ class ViewManager {
     if (!this.window) return;
     const view = await this.ensureTabView(tabId);
 
+    // Changer de vue sans quitter le plein écran laisserait la fenêtre pleine
+    // avec le shell dedans.
+    if (this.current !== view) this.quitterPleinEcran(this.pleinEcran);
+
     if (this.current && this.current !== view) {
       this.current.setVisible(false);
       this.window.contentView.removeChildView(this.current);
@@ -529,7 +569,7 @@ class ViewManager {
 
     this.lastActiveAt.set(tabId, Date.now());
     this.window.contentView.addChildView(view);
-    view.setBounds(this.bounds);
+    view.setBounds(this.geometrie());
     view.setVisible(!this.overlay);
     if (!this.overlay) view.webContents.focus();
 
@@ -640,6 +680,7 @@ class ViewManager {
     wc.on('did-navigate-in-page', nav);
 
     this.wireMedia(wc, serviceId);
+    this.wirePleinEcran(wc, serviceId);
 
     wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
       if (isMainFrame && code !== -3) emit('load-error', { code, desc, url });
@@ -669,6 +710,10 @@ class ViewManager {
     if (!this.window) return;
     const view = await this.ensureView(serviceId);
 
+    // Changer de vue sans quitter le plein écran laisserait la fenêtre pleine
+    // avec le shell dedans.
+    if (this.current !== view) this.quitterPleinEcran(this.pleinEcran);
+
     if (this.current && this.current !== view) {
       this.current.setVisible(false);
       this.window.contentView.removeChildView(this.current);
@@ -679,7 +724,7 @@ class ViewManager {
 
     this.lastActiveAt.set(serviceId, Date.now());
     this.window.contentView.addChildView(view);
-    view.setBounds(this.bounds);
+    view.setBounds(this.geometrie());
     view.setVisible(!this.overlay);
     if (!this.overlay) view.webContents.focus();
     this.emitNavState(serviceId);
@@ -694,6 +739,7 @@ class ViewManager {
   }
 
   hide() {
+    this.quitterPleinEcran(this.pleinEcran);
     if (this.current && this.window) this.window.contentView.removeChildView(this.current);
     this.current = null;
     this.currentId = null;
@@ -715,7 +761,35 @@ class ViewManager {
       next.height === this.bounds.height;
     this.bounds = next;
     if (same) return;
-    if (this.current) this.current.setBounds(next);
+    this.appliquerBounds();
+  }
+
+  /**
+   * La place que doit occuper la vue : celle que le shell lui laisse, ou tout
+   * l'écran tant qu'une vidéo est en plein écran.
+   *
+   * L'écran, et non la fenêtre : quand l'événement arrive, la fenêtre n'a pas
+   * fini de grandir (elle annonce 26 px de moins ici) et ne le signalera plus.
+   * On se serait retrouvé avec une bande vide en bas. Une fenêtre en plein
+   * écran occupant l'écran entier, ses bornes sont la mesure sûre.
+   */
+  geometrie() {
+    if (!this.pleinEcran || !this.window || this.window.isDestroyed()) return this.bounds;
+    const { width, height } = screen.getDisplayMatching(this.window.getBounds()).bounds;
+    return { x: 0, y: 0, width, height };
+  }
+
+  /**
+   * Redonne à la vue courante sa géométrie.
+   *
+   * Appelé aussi au redimensionnement de la fenêtre : en plein écran, la
+   * géométrie ne vient plus du shell, dont l'observateur ne rapporte que la
+   * place laissée autour de la barre et du panneau.
+   *
+   * La fenêtre peut aussi changer d'écran en cours de route.
+   */
+  appliquerBounds() {
+    if (this.current) this.current.setBounds(this.geometrie());
   }
 
   /** Le service auquel appartient un `webContents`, ou null. */

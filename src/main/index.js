@@ -246,7 +246,14 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  for (const ev of ['move', 'resize', 'maximize', 'unmaximize', 'restore']) win.on(ev, syncCalque);
+  for (const ev of ['move', 'resize', 'maximize', 'unmaximize', 'restore', 'enter-full-screen', 'leave-full-screen']) {
+    win.on(ev, syncCalque);
+  }
+  // Une vidéo en plein écran fait couvrir tout l'écran à la vue : sa géométrie
+  // ne vient plus du shell, il faut donc la suivre nous-mêmes.
+  for (const ev of ['resize', 'enter-full-screen', 'leave-full-screen']) {
+    win.on(ev, () => views.pleinEcran && views.appliquerBounds());
+  }
   win.on('minimize', () => calque && !calque.isDestroyed() && calque.hide());
   win.on('restore', () => calque && !calque.isDestroyed() && calque.showInactive());
   win.on('closed', () => {
