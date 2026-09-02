@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('hublink', {
     remove: (id) => invoke('service:remove', id),
     restore: () => invoke('service:restore'),
     select: (id) => invoke('service:select', id),
+    sleep: (id) => invoke('service:sleep', id),
+    copyPassword: (id) => invoke('password:copy', id),
     reorder: (orderedIds) => invoke('service:reorder', orderedIds),
     pickIcon: () => invoke('service:pick-icon')
   },

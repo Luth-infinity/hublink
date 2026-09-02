@@ -276,6 +276,7 @@ export default function App() {
     (s: Service) => (s.id === activeId ? api.nav.reload() : api.services.select(s.id)),
     [activeId]
   );
+  const sleepService = React.useCallback((s: Service) => api.services.sleep(s.id), []);
   // L'ordre se calcule toujours sur la liste COMPLÈTE : filtrer sur un compte
   // n'affiche qu'un sous-ensemble, et réordonner ce sous-ensemble seul
   // mélangerait les autres.
@@ -437,7 +438,6 @@ export default function App() {
           )}
           onToggleFavorite={toggleFavorite}
           loadedExtensions={loadedExtensions}
-          update={update}
           onToggleSidebar={toggleSidebar}
           onOpenExtensions={openExtensions}
         />
@@ -458,6 +458,7 @@ export default function App() {
             onEditService={editService}
             onRemoveService={removeService}
             onReloadService={reloadService}
+            onSleepService={sleepService}
             onToggleLinkPolicy={toggleLinkPolicy}
             onReorder={reorder}
             onOpenSettings={openAccounts}
@@ -470,6 +471,7 @@ export default function App() {
             onAddTab={addTab}
             discreet={state.discreet}
             onToggleDiscreet={toggleDiscreet}
+            update={update}
             collapsedAccounts={state.collapsedAccounts}
             onToggleAccountCollapsed={toggleAccountCollapsed}
             onReorderAccounts={reorderAccounts}

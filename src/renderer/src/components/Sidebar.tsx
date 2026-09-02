@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ChevronRight, Compass, EyeOff, Moon, Plus, Settings, Star, X } from 'lucide-react';
-import type { Account, Favorite, MenuItem, Service, Tab } from '@/types';
+import type { Account, Favorite, MenuItem, Service, Tab, Update } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { useFlip } from '@/lib/flip';
 import { useOptimiste } from '@/lib/optimiste';
@@ -11,6 +11,7 @@ import { AccountAvatar } from '@/components/AccountAvatar';
 import { ServiceIcon } from '@/components/ServiceIcon';
 import { AccountSwitch } from '@/components/AccountSwitch';
 import { ModeSwitch } from '@/components/ModeSwitch';
+import { UpdateBadge } from '@/components/UpdateBadge';
 
 type Props = {
   services: Service[];
@@ -29,6 +30,7 @@ type Props = {
   onEditService: (service: Service) => void;
   onRemoveService: (service: Service) => void;
   onReloadService: (service: Service) => void;
+  onSleepService: (service: Service) => void;
   onToggleLinkPolicy: (service: Service) => void;
   /** Déplace `draggedId` à la place de `targetId` dans l'ordre global. */
   onReorder: (draggedId: string, targetId: string) => void;
@@ -44,6 +46,8 @@ type Props = {
   /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
   discreet: boolean;
   onToggleDiscreet: (on: boolean) => void;
+  /** Mise à jour disponible, proposée sous les onglets. */
+  update: Update | null;
   /** Comptes repliés dans la vue « Tous ». */
   collapsedAccounts: string[];
   onToggleAccountCollapsed: (id: string, collapsed: boolean) => void;
@@ -90,6 +94,7 @@ function SidebarImpl({
   onEditService,
   onRemoveService,
   onReloadService,
+  onSleepService,
   onToggleLinkPolicy,
   onReorder,
   onOpenSettings,
@@ -102,6 +107,7 @@ function SidebarImpl({
   onAddTab,
   discreet,
   onToggleDiscreet,
+  update,
   collapsedAccounts,
   onToggleAccountCollapsed,
   onReorderAccounts,
@@ -162,7 +168,10 @@ function SidebarImpl({
         { id: 'down', label: 'Descendre', enabled: index < total - 1 },
         { type: 'separator' },
         { id: 'reload', label: 'Recharger' },
+        // Grisé s'il dort déjà : rien à libérer.
+        { id: 'sleep', label: 'Mettre en sommeil', enabled: !sleeping.includes(service.id) },
         { id: 'external', label: 'Ouvrir cette page dans le navigateur' },
+        { id: 'password', label: 'Copier le mot de passe' },
         { type: 'separator' },
         {
           id: 'links',
@@ -179,7 +188,9 @@ function SidebarImpl({
         up: () => index > 0 && onReorder(service.id, siblings[index - 1].id),
         down: () => index < total - 1 && onReorder(service.id, siblings[index + 1].id),
         reload: () => onReloadService(service),
+        sleep: () => onSleepService(service),
         external: () => window.hublink.openExternal(service.url),
+        password: () => window.hublink.services.copyPassword(service.id),
         links: () => onToggleLinkPolicy(service),
         edit: () => onEditService(service),
         remove: () => onRemoveService(service)
@@ -531,6 +542,7 @@ function SidebarImpl({
         <footer className={cn('flex flex-col', collapsed ? 'items-center gap-1 py-2' : 'gap-0.5 p-2')}>
           <DiscreetToggle />
           <BrowserToggle />
+          {update && <UpdateBadge update={update} collapsed />}
           <Button
             variant="ghost"
             size={collapsed ? 'icon-sm' : 'sm'}
@@ -653,6 +665,7 @@ function SidebarImpl({
         <footer className="flex flex-col items-center gap-1 py-2">
           <DiscreetToggle />
           <BrowserToggle />
+          {update && <UpdateBadge update={update} collapsed={collapsed} />}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -830,6 +843,7 @@ function SidebarImpl({
       <footer className="flex flex-col gap-0.5 p-2">
         <DiscreetToggle />
         <BrowserToggle />
+        {update && <UpdateBadge update={update} collapsed={false} />}
         <Button
           variant="ghost"
           size="sm"

@@ -8,7 +8,8 @@ const {
   nativeImage,
   nativeTheme,
   protocol,
-  screen
+  screen,
+  clipboard
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -17,6 +18,7 @@ const views = require('./views');
 const extensions = require('./extensions');
 const { isExternalUrl } = require('./urls');
 const capture = require('./capture');
+const secrets = require('./secrets');
 const updates = require('./updates');
 const downloadsMod = require('./downloads');
 
@@ -97,7 +99,20 @@ function majReceptiviteCalque() {
 function runToastAction(action) {
   if (!action || typeof action !== 'object') return;
   if (action.kind === 'reveal' && action.path) downloadsMod.reveal(action.path);
+  if (action.kind === 'save-password') {
+    const attente = motsDePasseEnAttente.get(action.jeton);
+    motsDePasseEnAttente.delete(action.jeton);
+    if (!attente) return;
+    const ok = secrets.enregistrer(attente.accountId, attente.origin, attente.username, attente.password);
+    toast(ok ? 'success' : 'error', ok ? 'Mot de passe enregistré' : 'Trousseau indisponible');
+  }
 }
+
+// Mots de passe proposés mais pas encore acceptés. Ils ne vivent qu'ici, en
+// mémoire, le temps que l'utilisateur réponde au message — et jamais dans
+// l'état poussé au rendu, qui traverse l'IPC en clair.
+const motsDePasseEnAttente = new Map();
+let jetonMotDePasse = 0;
 
 function syncCalque() {
   if (!calque || calque.isDestroyed() || !win || win.isDestroyed()) return;
@@ -464,6 +479,35 @@ function registerIpc() {
 
   ipcMain.on('overlay:action', (_e, action) => runToastAction(action));
 
+  // Une page propose un mot de passe : on ne l'enregistre PAS, on demande.
+  ipcMain.on('password:offer', (event, { origin, username, password }) => {
+    if (!password) return;
+    const serviceId = views.idDe(event.sender);
+    const compte = serviceId ? store.accountOf(serviceId) : null;
+    if (!compte) return console.warn('[secrets] proposition ignorée : vue inconnue');
+    // Sans trousseau, on ne peut pas chiffrer — et on ne veut pas écrire en
+    // clair. Le dire, plutôt que de laisser croire que la fonction n'existe pas.
+    if (!secrets.disponible()) {
+      return toast('error', "Trousseau du système indisponible : mot de passe non enregistrable");
+    }
+
+    // Déjà connu et inchangé : inutile de reposer la question à chaque
+    // connexion.
+    const connu = secrets.recuperer(compte.id, origin);
+    if (connu && connu.username === username && connu.password === password) return;
+
+    const jeton = String(++jetonMotDePasse);
+    motsDePasseEnAttente.set(jeton, { accountId: compte.id, origin, username, password });
+    // ponytail: pas d'expiration — la Map se vide au clic ou à la fermeture de
+    // l'app. À revoir si on garde un jour l'application ouverte des semaines.
+    const hote = origin.replace(/^https?:\/\//, '');
+    toast('success', `Enregistrer le mot de passe pour ${hote} ?`, {
+      kind: 'save-password',
+      label: 'Enregistrer',
+      jeton
+    });
+  });
+
   ipcMain.on('app:badge', (_e, { total, overlay }) => {
     if (typeof app.setBadgeCount === 'function') app.setBadgeCount(total > 0 ? total : 0);
 
@@ -604,6 +648,39 @@ function registerIpc() {
     store.save();
     pushState();
     await views.show(id);
+  });
+
+  // Mise en sommeil à la main : même chose que le balayage automatique, sans
+  // attendre le délai ni se soucier de `keepAwake` — c'est un geste explicite.
+  // Relecture : on copie, on ne remplit pas. Décider à quelle page confier un
+  // mot de passe est le vrai risque, et ce n'est pas un bouton « copier » qui
+  // doit le prendre.
+  ipcMain.handle('password:copy', (_e, serviceId) => {
+    const service = store.getService(serviceId);
+    const compte = service && store.accountOf(serviceId);
+    if (!service || !compte) return false;
+    let origin;
+    try {
+      origin = new URL(service.url).origin;
+    } catch {
+      return false;
+    }
+    const trouve = secrets.recuperer(compte.id, origin);
+    if (!trouve) {
+      toast('error', `Aucun mot de passe enregistré pour ${service.name}`);
+      return false;
+    }
+    clipboard.writeText(trouve.password);
+    toast('success', `Mot de passe de ${service.name} copié`);
+    return true;
+  });
+
+  ipcMain.handle('service:sleep', (_e, id) => {
+    if (!store.getService(id) || !views.views.has(id)) return;
+    views.destroyService(id);
+    send('service:slept', { serviceId: id });
+    // La vue courante venait de disparaître : il faut réafficher quelque chose.
+    if (store.load().activeServiceId === id) return restoreActive();
   });
 
   ipcMain.handle('service:reorder', (_e, orderedIds) => {

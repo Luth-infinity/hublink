@@ -184,6 +184,8 @@ declare global {
         remove(id: string): Promise<void>;
         restore(): Promise<Service | null>;
         select(id: string): Promise<void>;
+        sleep(id: string): Promise<void>;
+        copyPassword(id: string): Promise<boolean>;
         reorder(orderedIds: string[]): Promise<void>;
         pickIcon(): Promise<string | null>;
       };

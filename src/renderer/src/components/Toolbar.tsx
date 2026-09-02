@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { ArrowDownToLine, ArrowLeft, ArrowRight, Blocks, Camera, Download as DownloadIcon, ExternalLink, FileDown, FolderOpen, History, Home, PanelLeft, PanelLeftClose, PictureInPicture2, Puzzle, RotateCw, Search, Star, Trash2, X } from 'lucide-react';
-import type { Download, LoadedExtension, MenuItem, NavState, Service, Update } from '@/types';
+import { ArrowLeft, ArrowRight, Blocks, Camera, Download as DownloadIcon, ExternalLink, FileDown, FolderOpen, History, Home, PanelLeft, PanelLeftClose, PictureInPicture2, Puzzle, RotateCw, Search, Star, Trash2, X } from 'lucide-react';
+import type { Download, LoadedExtension, MenuItem, NavState, Service } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -10,7 +10,6 @@ type Props = {
   isMac: boolean;
   sidebarCollapsed: boolean;
   loadedExtensions: LoadedExtension[];
-  update: Update | null;
   onToggleSidebar: () => void;
   onOpenExtensions: () => void;
   /** En mode navigateur, la barre d'adresse devient saisissable. */
@@ -80,56 +79,6 @@ function AddressInput({ url }: { url: string }) {
  * une app signée pour l'installation silencieuse — on ouvre la page de la
  * version, comme avant.
  */
-function UpdateBadge({ update }: { update: Update }) {
-  const api = window.hublink;
-  const [auto, setAuto] = React.useState(false);
-  const [percent, setPercent] = React.useState<number | null>(null);
-  const [pret, setPret] = React.useState(false);
-
-  React.useEffect(() => {
-    api.updater.canInstall().then(setAuto);
-  }, [api]);
-  React.useEffect(() => api.updater.onProgress(({ percent: p }) => setPercent(p)), [api]);
-
-  const libelle = pret
-    ? 'Redémarrer pour installer'
-    : percent !== null
-      ? `${percent} %`
-      : update.version;
-
-  const cliquer = async () => {
-    if (!auto) return api.openExternal(update.url);
-    if (pret) return api.updater.install();
-    if (percent !== null) return;
-    setPercent(0);
-    try {
-      await api.updater.download();
-      setPret(true);
-    } catch {
-      // Le téléchargement interne a échoué : la page de la version reste
-      // toujours accessible, on y renvoie plutôt que de laisser sans issue.
-      setPercent(null);
-      api.openExternal(update.page);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={cliquer}
-      title={
-        pret
-          ? `Hublink ${update.version} est prêt à s'installer`
-          : `Hublink ${update.version} est disponible`
-      }
-      className="mr-1 flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-medium text-emerald-700 transition-all duration-150 hover:bg-emerald-500/25 active:scale-[0.97] motion-reduce:active:scale-100 dark:text-emerald-300"
-    >
-      <ArrowDownToLine className={cn('size-3', percent !== null && !pret && 'animate-pulse')} />
-      {libelle}
-    </button>
-  );
-}
-
 /** Renvoie la position du bouton, pour que le calque dessine juste dessous. */
 function ancreDe(el: HTMLElement | null) {
   if (!el) return { x: 0, y: 0, width: 0, height: 0 };
@@ -237,7 +186,6 @@ export function Toolbar({
   isMac,
   sidebarCollapsed,
   loadedExtensions,
-  update,
   onToggleSidebar,
   onOpenExtensions,
   browserMode,
@@ -489,7 +437,6 @@ export function Toolbar({
         )}
         {browserMode && <HistoryButton open={openPanel === 'history'} />}
         <DownloadsButton downloads={downloads} open={openPanel === 'downloads'} />
-        {update && <UpdateBadge update={update} />}
         <Button
           variant="ghost"
           size="icon-sm"
