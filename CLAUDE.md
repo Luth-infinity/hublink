@@ -8,17 +8,16 @@ Le code et les commits sont **en français**, au présent, décrivant le comport
 plutôt que la modification (« Corrige l'import manquant qui cassait le démarrage »).
 Les commentaires expliquent *pourquoi*, pas *quoi*.
 
-## État au 31 août 2026
+## État au 2 septembre 2026
 
 | | Version |
 |---|---|
-| Windows | **0.5.0** |
-| macOS | **0.5.0** |
+| Windows | **0.5.2** |
+| macOS | **0.5.1** |
 
-Les deux plateformes sont à parité. Elles ne le restent jamais longtemps : les binaires
-Apple ne se construisent que sur un Mac (voir plus bas), donc macOS décroche dès qu'une
-version est publiée depuis un PC. **Si le tableau ci-dessus montre à nouveau un écart et
-que vous lisez ceci depuis un Mac, c'est probablement la tâche à faire.**
+macOS a une version de retard : les binaires Apple ne se construisent que sur un Mac
+(voir plus bas), donc macOS décroche dès qu'une version est publiée depuis un PC.
+**Si vous lisez ceci depuis un Mac, c'est probablement la tâche à faire.**
 
 ## Rattraper macOS — la marche à suivre
 
@@ -31,7 +30,7 @@ npm run dist:mac
 Puis, en une seule opération :
 
 1. Bumper `"version"` dans `package.json` (`npm version --no-git-tag-version <x.y.z>`).
-2. Bumper `VERSION.mac` **et** `VERSION.win` dans `site/app/page.tsx` si les deux
+2. Bumper `VERSION.mac` **et** `VERSION.win` dans `site/app/vitrine.tsx` si les deux
    plateformes sont livrées ensemble ; sinon ne toucher que celle qui avance.
 3. Construire aussi Windows si possible : depuis un Mac, `npm run dist:win` fonctionne
    (electron-builder embarque NSIS). L'inverse est impossible.
@@ -120,19 +119,29 @@ rescanné son code depuis. Ne pas réintroduire de zone « solo » en bas du pan
 Une `WebContentsView` **se peint au-dessus du HTML du shell**, quoi qu'on fasse. Tout ce
 qui doit survoler la page ne peut donc pas être dessiné dans la fenêtre principale.
 
-- Les menus sont **natifs** (`Menu.popup`) pour cette raison.
+- Les menus ont été **natifs** (`Menu.popup`) pour cette raison, jusqu'à ce que la
+  fenêtre de calque permette de les dessiner en HTML (0.5.0).
 - Les modales masquent la vue le temps de s'afficher (`setOverlay`).
 - Les **messages et les panneaux déroulants** vivent dans une fenêtre enfant
   transparente : `src/renderer/src/Overlay.tsx`, créée à la demande dans
   `src/main/index.js`. Elle laisse passer les clics
   (`setIgnoreMouseEvents(true, { forward: true })`) et ne devient réceptive que si un
   panneau est ouvert ou si le pointeur survole un message.
+- Le **plein écran d'une vidéo** n'est traité qu'à moitié : Electron agrandit la
+  fenêtre, et l'en sort, tout seul, mais la vue garde la place que le shell lui
+  laisse. `wirePleinEcran` lui donne l'écran entier le temps de la vidéo
+  (`src/main/views.js`).
 
 Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en aperçoive.
 **Ne jamais ajouter de notification ou de panneau flottant dans la fenêtre principale.**
 
 ## Pièges rencontrés
 
+- **En plein écran, mesurer l'écran, pas la fenêtre.** Quand `enter-html-full-screen`
+  arrive, la fenêtre est déjà agrandie mais `getContentSize()` annonce 26 px de moins
+  que sa taille définitive, et plus aucun `resize` ne suit : la vue gardait une bande
+  vide en bas. Les bornes de son écran (`screen.getDisplayMatching`) sont la mesure
+  sûre, une fenêtre en plein écran occupant tout.
 - `app.requestSingleInstanceLock()` empêche une seconde instance : pour tester sans
   fermer l'app installée, passer `--user-data-dir` (voir `demo.bat`). **Tuer l'ancienne
   instance de test avant d'en relancer une**, sinon on croit tester la nouvelle build
