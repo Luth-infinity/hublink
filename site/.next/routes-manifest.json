@@ -31,6 +31,12 @@
       "regex": "^/_not\\-found(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/fr",
+      "regex": "^/fr(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/fr(?:/)?$"
     }
   ],
   "dataRoutes": [],

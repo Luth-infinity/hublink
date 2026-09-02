@@ -48,7 +48,14 @@ export type Contenu = {
     detail: string;
   };
   soutenir: { titre: string; texte: string; cafe: string; etoile: string };
-  footer: { signature: string; github: string; versions: string; bug: string; soutenir: string };
+  footer: {
+    signature: string;
+    suite: string;
+    github: string;
+    versions: string;
+    bug: string;
+    soutenir: string;
+  };
 };
 
 export const fr: Contenu = {
@@ -210,6 +217,7 @@ export const fr: Contenu = {
   },
   footer: {
     signature: 'Hublink — un outil de Luth',
+    suite: 'Les autres apps',
     github: 'GitHub',
     versions: 'Versions',
     bug: 'Signaler un bug',
@@ -374,6 +382,7 @@ export const en: Contenu = {
   },
   footer: {
     signature: 'Hublink — a tool by Luth',
+    suite: 'The other apps',
     github: 'GitHub',
     versions: 'Releases',
     bug: 'Report a bug',

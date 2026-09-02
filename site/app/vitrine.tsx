@@ -12,6 +12,8 @@ import { LangLink } from './lang-link';
  * fichier que la route `page.tsx`.
  */
 
+// Le sommaire des applications : Hublink n'est pas seul, et rien ne le disait.
+const SUITE = 'https://luth-apps.vercel.app';
 const REPO = 'https://github.com/Luth-infinity/hublink';
 const RELEASE = `${REPO}/releases/latest`;
 // Les deux plateformes n'avancent pas au même rythme : les binaires macOS se
@@ -451,6 +453,9 @@ function Footer({ t }: { t: Contenu }) {
           {t.footer.signature}
         </p>
         <div className="flex items-center gap-5 text-[14px] text-ink-soft">
+          <a href={SUITE} className="hover:text-ink">
+            {t.footer.suite}
+          </a>
           <a href={REPO} className="hover:text-ink">
             {t.footer.github}
           </a>
