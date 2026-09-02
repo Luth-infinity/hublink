@@ -195,7 +195,12 @@ class ViewManager {
      * à payer : la page voit le nom des périphériques avant d'avoir demandé.
      * Le presse-papiers, lui, reste refusé jusqu'à accord explicite.
      */
-    const ASKABLE = new Set(['media', 'display-capture']);
+    // Doit lister TOUT ce qui peut être accordé, y compris le presse-papiers :
+    // le contrôle répond aussi à `navigator.permissions.query()`, et un site
+    // qui s'y voit refusé n'appelle jamais l'API — donc la boîte de
+    // confirmation ne s'ouvre jamais. C'est ce qui empêchait « Replace » de
+    // DeepL de fonctionner.
+    const ASKABLE = new Set(['media', 'display-capture', 'clipboard-read']);
     ses.setPermissionCheckHandler(
       (_wc, permission, requestingOrigin) =>
         AUTO_PERMISSIONS.has(permission) ||
@@ -707,6 +712,12 @@ class ViewManager {
     this.bounds = next;
     if (same) return;
     if (this.current) this.current.setBounds(next);
+  }
+
+  /** Le service auquel appartient un `webContents`, ou null. */
+  idDe(wc) {
+    for (const [id, vue] of this.views) if (vue.webContents === wc) return id;
+    return null;
   }
 
   destroyService(serviceId) {
