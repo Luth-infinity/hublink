@@ -70,6 +70,15 @@ GitHub — ne jamais l'écrire à la main. Le corps d'une release doit respecter
 début de ligne, **4 puces retenues** (donc mettre les plus importantes en premier). Les
 lignes d'installation commençant par `**macOS**` / `**Windows**` sont filtrées exprès.
 
+**Piège du filtre** : dans `/^`|clic droit|Binaires/i`, le `^` ne porte que sur le
+backtick. Toute ligne **contenant** « clic droit » ou « Binaires », n'importe où, est
+donc jetée — le garde-fou visait les consignes d'installation, il avale aussi une phrase
+qui mentionne le clic droit au milieu d'un paragraphe. C'est arrivé en 0.5.1 : les deux
+puces les plus importantes ont disparu du site sans erreur ni avertissement. Écrire
+« menu contextuel », et vérifier le rendu **en ligne** après publication, pas seulement
+avec un vérificateur local — un équivalent Python avec `re.match` ancre tout le motif et
+ne reproduit pas ce comportement.
+
 **Les notes de version s'écrivent dans les deux langues**, le site étant bilingue : le
 français d'abord, puis un titre `## English` et sa traduction, puis les lignes
 d'installation. `section()` découpe sur ce titre. Sans section anglaise, la page anglaise
