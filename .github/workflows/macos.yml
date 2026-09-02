@@ -1,0 +1,70 @@
+# Construit les binaires macOS d'une release et les y joint.
+#
+# Le .dmg ne se construit que sur macOS — hdiutil et codesign sont des binaires
+# Apple non redistribuables. C'est pour cette seule raison que macOS restait des
+# versions en arrière : il fallait attendre d'être devant un Mac. Un runner
+# macOS de GitHub en est un, et il est gratuit pour un dépôt public.
+#
+# Le déclenchement suit la publication d'une release : on publie depuis un PC
+# avec les binaires Windows, et les .dmg arrivent quelques minutes plus tard.
+# `workflow_dispatch` sert à rejouer une version déjà publiée.
+name: Binaires macOS
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de la release à construire (ex. v0.5.2)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - name: Récupérer le code de la release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Pas de certificat Apple sur le runner, et aucune raison d'en chercher un :
+      # la recherche automatique échouerait en erreur au lieu de passer son tour.
+      # L'application reste non notariée, comme celles construites à la main —
+      # le site documente déjà le premier lancement.
+      - name: Construire les binaires macOS
+        run: npm run dist:mac -- --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      # Seuls les .dmg sont joints : les .zip ne serviraient qu'à Squirrel.Mac,
+      # qui exige une application signée et notariée.
+      - name: Joindre les .dmg à la release
+        run: gh release upload "$TAG" release/*.dmg --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+
+      - name: Récapituler
+        run: |
+          {
+            echo "### Binaires joints à $TAG"
+            echo
+            for f in release/*.dmg; do
+              echo "- \`$(basename "$f")\` ($(du -h "$f" | cut -f1))"
+            done
+            echo
+            echo "Pensez à bumper \`VERSION.mac\` dans \`site/app/vitrine.tsx\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
