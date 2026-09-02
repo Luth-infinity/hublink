@@ -13,31 +13,29 @@ Les commentaires expliquent *pourquoi*, pas *quoi*.
 | | Version |
 |---|---|
 | Windows | **0.5.2** |
-| macOS | **0.5.1** |
+| macOS | **0.5.2** |
 
-macOS a une version de retard : les binaires Apple ne se construisent que sur un Mac
-(voir plus bas), donc macOS décroche dès qu'une version est publiée depuis un PC.
-**Si vous lisez ceci depuis un Mac, c'est probablement la tâche à faire.**
+Les deux plateformes sont à parité, et **le restent sans rien faire** depuis la 0.5.2 :
+publier une release déclenche la construction des `.dmg` sur un runner macOS de GitHub
+(voir plus bas). Il n'y a plus de rattrapage à faire depuis un Mac.
 
-## Rattraper macOS — la marche à suivre
+## Les `.dmg` se construisent tout seuls
 
-```bash
-git pull
-npm install
-npm run dist:mac
-```
+`.github/workflows/macos.yml` écoute la publication des releases : il construit les
+deux `.dmg` sur un runner `macos-latest` et les joint à la release, quelques minutes
+après la publication. Le dépôt étant public, ces minutes sont gratuites.
 
-Puis, en une seule opération :
+Il reste une chose à faire à la main : bumper `VERSION.mac` dans `site/app/vitrine.tsx`
+une fois les `.dmg` en ligne. Le site annoncerait sinon une version dont les liens de
+téléchargement n'existent pas encore.
 
-1. Bumper `"version"` dans `package.json` (`npm version --no-git-tag-version <x.y.z>`).
-2. Bumper `VERSION.mac` **et** `VERSION.win` dans `site/app/vitrine.tsx` si les deux
-   plateformes sont livrées ensemble ; sinon ne toucher que celle qui avance.
-3. Construire aussi Windows si possible : depuis un Mac, `npm run dist:win` fonctionne
-   (electron-builder embarque NSIS). L'inverse est impossible.
-4. Suivre la procédure de release ci-dessous.
+`gh workflow run "Binaires macOS" -f tag=vX.Y.Z` rejoue une version déjà publiée.
 
 Les binaires attendus par le site sont nommés `Hublink-<version>-arm64.dmg` et
 `Hublink-<version>-x64.dmg`.
+
+Depuis un Mac, `npm run dist:mac` reste évidemment possible — et `npm run dist:win`
+fonctionne aussi de là (electron-builder embarque NSIS). L'inverse est impossible.
 
 ## Procédure de release
 
@@ -52,6 +50,7 @@ le bump de version avant que les binaires n'existent afficherait des liens morts
 5. Fusionner sur `main`, pousser.
 6. `gh release edit vX.Y.Z --draft=false`.
 7. Vérifier : liens de téléchargement en 200, bandeau du site, changelog.
+8. Attendre les `.dmg` du workflow macOS, puis bumper `VERSION.mac` et pousser.
 
 Course à surveiller entre les étapes 5 et 6 : `releases.ts` écarte les brouillons.
 Si le déploiement déclenché par le push interroge l'API avant la publication, le
@@ -59,7 +58,8 @@ changelog sort sans la nouvelle version et n'y revient qu'à la revalidation, un
 heure plus tard. Publier au plus vite après le push, et vérifier le changelog en
 ligne plutôt que de le supposer.
 
-Il n'y a **pas de CI** : `.github/` ne contient qu'un `FUNDING.yml`.
+La seule CI est `.github/workflows/macos.yml`, décrit plus haut. Rien ne construit
+Windows ni ne joue de tests : le reste passe par la machine de développement.
 
 ## Ce qu'il ne faut pas casser
 
@@ -90,7 +90,8 @@ n'avancent pas ensemble.
 
 **`.dmg` ne se construit que sur macOS.** electron-builder refuse explicitement :
 « Build for macOS is supported only on macOS ». `hdiutil` et `codesign` sont des
-binaires Apple non redistribuables. Aucun contournement.
+binaires Apple non redistribuables. Le contournement n'est pas technique : c'est un
+runner `macos-latest`, qui est un Mac.
 
 **La mise à jour automatique ne vaut que pour Windows.** `electron-updater` est embarqué
 depuis la 0.4.1 ; `latest.yml` doit être joint à chaque release. Sur macOS, Squirrel.Mac
