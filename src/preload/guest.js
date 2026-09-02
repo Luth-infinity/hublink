@@ -121,3 +121,42 @@ if (window.top === window) {
     }
   });
 }
+
+// --- Proposition d'enregistrement d'un mot de passe -------------------------
+//
+// On n'écoute pas seulement `submit` : les connexions modernes interceptent le
+// clic en JavaScript et partent en `fetch`, l'événement ne part jamais. On
+// relève donc aussi le champ au moment où la page s'en va, ce qui couvre les
+// deux familles sans avoir à deviner laquelle on a en face.
+//
+// Rien ne quitte la page tant qu'il n'y a pas un mot de passe saisi, et c'est
+// le processus principal qui demandera confirmation avant d'enregistrer quoi
+// que ce soit.
+if (window.top === window) {
+  let dernierEnvoi = '';
+
+  const releve = () => {
+    const champ = document.querySelector('input[type="password"]');
+    if (!champ || !champ.value) return null;
+    // L'identifiant est le champ texte le plus proche avant le mot de passe :
+    // heuristique, mais la seule qui marche sans connaître chaque site.
+    const champs = [...document.querySelectorAll('input')];
+    const avant = champs.slice(0, champs.indexOf(champ)).reverse();
+    const identifiant = avant.find((c) => ['text', 'email', 'tel', ''].includes(c.type) && c.value);
+    return { username: identifiant ? identifiant.value : '', password: champ.value };
+  };
+
+  const proposer = () => {
+    const trouve = releve();
+    if (!trouve) return;
+    // Une même saisie peut déclencher submit ET pagehide : on ne propose
+    // qu'une fois par valeur.
+    const empreinte = `${location.origin}:${trouve.username}:${trouve.password.length}`;
+    if (empreinte === dernierEnvoi) return;
+    dernierEnvoi = empreinte;
+    ipcRenderer.send('password:offer', { origin: location.origin, ...trouve });
+  };
+
+  window.addEventListener('submit', proposer, true);
+  window.addEventListener('pagehide', proposer);
+}
