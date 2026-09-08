@@ -236,6 +236,7 @@ if (window.top === window) {
   let style = null;
   let veille = null;
   let dernierPasser = null;
+  let bloqueur = null;
 
   const choisirVideo = () => {
     const videos = [...document.querySelectorAll('video')];
@@ -286,13 +287,31 @@ if (window.top === window) {
       muet: video.muted,
       duree: Number.isFinite(video.duration) ? video.duration : 0,
       position: video.currentTime || 0,
-      passer: dernierPasser ? dernierPasser.texte : null
+      passer: dernierPasser ? dernierPasser.texte : null,
+      // Sans le titre, la fenêtre ne dit pas ce qu'elle joue.
+      titre: (document.title || '').replace(/\s+/g, ' ').trim(),
+      // Les proportions de l'image, pour que la fenêtre les épouse : une vidéo
+      // verticale n'a rien à faire dans un cadre en seize neuvièmes.
+      ratio: video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 0
     };
+  };
+
+  // Une vidéo sortie ne se fait pas défiler : la molette ferait glisser la
+  // page derrière une image qui, elle, ne bouge pas. Elle règle le son, comme
+  // dans n'importe quel lecteur.
+  const molette = (e) => {
+    e.preventDefault();
+    if (!video) return;
+    video.volume = Math.min(1, Math.max(0, video.volume - Math.sign(e.deltaY) * 0.05));
+    if (video.volume > 0) video.muted = false;
+    ipcRenderer.send('video:etat', etat());
   };
 
   const arreter = () => {
     clearInterval(veille);
     veille = null;
+    if (bloqueur) window.removeEventListener('wheel', bloqueur, { capture: true });
+    bloqueur = null;
     document.documentElement.classList.remove('hublink-sortie');
     if (video) video.removeAttribute('data-hublink-video');
     document
@@ -321,6 +340,9 @@ if (window.top === window) {
     style.textContent = STYLE;
     document.documentElement.appendChild(style);
     document.documentElement.classList.add('hublink-sortie');
+
+    bloqueur = molette;
+    window.addEventListener('wheel', bloqueur, { capture: true, passive: false });
 
     veille = setInterval(() => {
       const e = etat();

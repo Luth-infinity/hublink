@@ -24,6 +24,10 @@ let fenetre = null;
 let vue = null;
 let idVue = null;
 let reglages = { isDev: false, devServer: '', rendererDist: '' };
+let ratioApplique = 0;
+let ajustement = false;
+let guetteur = null;
+let survole = null;
 
 function configurer(r) {
   reglages = r;
@@ -45,6 +49,61 @@ function placerFenetre(largeur, hauteur) {
     x: Math.round(ecran.x + ecran.width - largeur - 24),
     y: Math.round(ecran.y + ecran.height - hauteur - 24)
   };
+}
+
+/**
+ * Donne à la fenêtre les proportions de l'image.
+ *
+ * Une vidéo verticale enfermée dans un cadre en seize neuvièmes n'occupe qu'un
+ * tiers de la place. Les proportions ne sont connues qu'une fois la vidéo
+ * décodée : on les applique dès qu'elles arrivent, et on garde la largeur.
+ */
+function epouserImage(ratio) {
+  if (!ratio || !fenetre || fenetre.isDestroyed()) return;
+  if (Math.abs(ratio - ratioApplique) < 0.01) return;
+  ratioApplique = ratio;
+  respecterProportions(true);
+}
+
+/**
+ * Garde la hauteur accordée à la largeur.
+ *
+ * `setAspectRatio` d'Electron n'honore pas sa taille supplémentaire sur
+ * Windows : la fenêtre grandissait de la hauteur de la bande à chaque fois. On
+ * calcule donc nous-mêmes, ce qui vaut aussi sur les deux plateformes.
+ */
+function respecterProportions(force = false) {
+  if (!fenetre || fenetre.isDestroyed() || !ratioApplique || (ajustement && !force)) return;
+  const { width, height } = fenetre.getContentBounds();
+  const voulue = Math.round(width / ratioApplique) + BARRE;
+  if (Math.abs(voulue - height) <= 1) return;
+  ajustement = true;
+  fenetre.setContentSize(width, voulue);
+  setTimeout(() => {
+    ajustement = false;
+  }, 60);
+}
+
+/**
+ * Le pointeur est-il sur la fenêtre ?
+ *
+ * La vidéo est une vue native : la bande, en HTML, ne reçoit aucun événement
+ * quand le pointeur passe sur l'image. On regarde donc où est le curseur,
+ * plutôt que d'attendre qu'il se signale.
+ */
+function guetterLePointeur() {
+  clearInterval(guetteur);
+  survole = null;
+  guetteur = setInterval(() => {
+    if (!fenetre || fenetre.isDestroyed()) return;
+    const p = screen.getCursorScreenPoint();
+    const b = fenetre.getBounds();
+    const dedans = p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
+    if (dedans === survole) return;
+    survole = dedans;
+    fenetre.webContents.send('video:survol', dedans);
+  }, 200);
+  if (guetteur.unref) guetteur.unref();
 }
 
 async function ouvrir() {
@@ -86,16 +145,21 @@ async function ouvrir() {
   // « floating » la maintient au-dessus des fenêtres ordinaires sans passer
   // par-dessus les menus du système.
   fenetre.setAlwaysOnTop(true, 'floating');
-  fenetre.setAspectRatio(16 / 9, { width: 0, height: BARRE });
+  // En attendant de connaître les proportions réelles de l'image.
+  ratioApplique = 0;
 
   if (reglages.isDev && !reglages.rendererDist) fenetre.loadURL(`${reglages.devServer}?video=1`);
   else fenetre.loadFile(reglages.rendererDist, { search: 'video=1' });
 
-  fenetre.on('resize', placerVue);
+  fenetre.on('resize', () => {
+    respecterProportions();
+    placerVue();
+  });
   fenetre.on('closed', () => {
     if (fenetre) fermer();
   });
   fenetre.once('ready-to-show', () => fenetre && fenetre.show());
+  guetterLePointeur();
 
   fenetre.contentView.addChildView(vue);
   vue.setVisible(true);
@@ -113,6 +177,8 @@ async function fermer() {
   const cadre = fenetre;
   const partante = vue;
   const id = idVue;
+  clearInterval(guetteur);
+  guetteur = null;
   fenetre = null;
   vue = null;
   idVue = null;
@@ -140,6 +206,7 @@ function brancherIpc() {
   ipcMain.on('video:etat', (_e, etat) => {
     if (!fenetre || fenetre.isDestroyed()) return;
     if (!etat || etat.absente) return void fermer();
+    epouserImage(etat.ratio);
     fenetre.webContents.send('video:barre', etat);
   });
 

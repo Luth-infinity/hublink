@@ -133,6 +133,15 @@ La hauteur de la bande est écrite **deux fois** : `BARRE` dans `videomode.js` e
 `h-[46px]` dans `VideoBar.tsx`. Les désaccorder cache la barre sous la vue native,
 qui se peint par-dessus.
 
+Au repos la bande ne montre que la progression ; les commandes ne paraissent qu'au
+survol. Comme rien ne peut survoler une vue native, le survol se devine en regardant
+où est le curseur (`screen.getCursorScreenPoint`, toutes les 200 ms tant que la
+fenêtre est ouverte) — la bande, en HTML, ne recevrait rien quand le pointeur est sur
+l'image.
+
+La molette ne fait pas défiler la page sortie, elle règle le son : une page qui
+glisserait derrière une image fixe n'aurait aucun sens.
+
 La page n'est pas remaniée : tout devient `visibility: hidden`, la vidéo repasse
 visible et fixée à l'écran. Déplacer l'élément dans le DOM serait plus simple, mais
 les lecteurs le remettent aussitôt en place.

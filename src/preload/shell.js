@@ -112,6 +112,7 @@ contextBridge.exposeInMainWorld('hublink', {
   // les commandes, que le principal transmet à la page.
   video: {
     onEtat: (handler) => on('video:barre', handler),
+    onSurvol: (handler) => on('video:survol', handler),
     commande: (quoi, valeur) => ipcRenderer.send('video:commande', { quoi, valeur }),
     fermer: () => ipcRenderer.send('video:fermer')
   },

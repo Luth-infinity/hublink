@@ -178,6 +178,60 @@ html.video #root {
   -webkit-app-region: drag;
 }
 
+/* Le curseur de volume. Le style natif jure avec le reste, et `accent-color`
+   ne touche ni la hauteur du rail ni la taille de la poignée. */
+.curseur {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 14px;
+}
+
+.curseur::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary) 0 calc(var(--part) * 100%),
+    color-mix(in oklab, var(--shell-foreground) 22%, transparent) calc(var(--part) * 100%) 100%
+  );
+}
+
+.curseur::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -3.5px;
+  border-radius: 999px;
+  background: var(--primary);
+  /* La poignée n'apparaît qu'au survol : au repos, seul le rail se lit. */
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.curseur:hover::-webkit-slider-thumb,
+.curseur:focus-visible::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+/* Le bouton du lecteur ne surgit pas : il monte, comme s'il venait de
+   l'image. */
+@keyframes monte-passer {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.monte-passer {
+  animation: monte-passer 180ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
 .cliquable {
   -webkit-app-region: no-drag;
 }

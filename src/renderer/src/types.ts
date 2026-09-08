@@ -165,6 +165,8 @@ export type EtatVideo = {
   duree: number;
   position: number;
   passer: string | null;
+  titre: string;
+  ratio: number;
 };
 
 declare global {
@@ -278,6 +280,7 @@ declare global {
       overlay: { setInteractive(on: boolean): void };
       video: {
         onEtat(handler: (etat: EtatVideo) => void): () => void;
+        onSurvol(handler: (dedans: boolean) => void): () => void;
         commande(quoi: string, valeur?: number): void;
         fermer(): void;
       };
