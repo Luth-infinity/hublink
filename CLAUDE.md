@@ -115,6 +115,38 @@ est redevenu un service ordinaire, migré dans le premier compte au premier dém
 La session `persist:whatsapp` n'est plus lue : ne pas la recâbler, l'utilisateur a
 rescanné son code depuis. Ne pas réintroduire de zone « solo » en bas du panneau.
 
+## Le mode vidéo déménage la vue
+
+`src/main/videomode.js` sort la page dans une petite fenêtre qui reste au-dessus.
+Elle est composée comme la principale — vue native en haut, HTML en bas — parce que
+**Document Picture-in-Picture ne marche pas dans Electron** : l'API est exposée par
+Chromium mais `requestWindow()` répond « Internal error: no window », faute de
+fenêtre côté navigateur. L'incrustation de Chromium, elle, ne se pilote pas : ni
+volume, ni bouton à nous.
+
+La vue est **déplacée**, pas recréée (`views.detacherPourVideo` / `reprendreDeVideo`) :
+la lecture continue. Tant qu'elle est dehors, elle n'appartient plus à la fenêtre
+principale — le balayage de mise en veille la saute, et `show()` la rappelle en
+refermant la vidéo d'abord.
+
+La hauteur de la bande est écrite **deux fois** : `BARRE` dans `videomode.js` et
+`h-[46px]` dans `VideoBar.tsx`. Les désaccorder cache la barre sous la vue native,
+qui se peint par-dessus.
+
+La page n'est pas remaniée : tout devient `visibility: hidden`, la vidéo repasse
+visible et fixée à l'écran. Déplacer l'élément dans le DOM serait plus simple, mais
+les lecteurs le remettent aussitôt en place.
+
+Le bouton « Passer » n'est pas inventé : on cherche dans le cadre du lecteur un
+bouton visible dont le libellé promet de passer quelque chose, et cliquer le nôtre
+clique le sien. « Passer au contenu principal » est écarté — c'est un lien
+d'accessibilité, pas une commande.
+
+**Les onglets du navigateur ont un preload depuis la 0.5.3** — le même que les
+services, avec `--hublink-onglet`, qui écarte la pastille de non-lus et la
+proposition d'enregistrer un mot de passe. Ni les clés d'accès ni les notifications
+n'y sont neutralisées : un navigateur doit se comporter en navigateur.
+
 ## Contrainte structurante : la vue web est native
 
 Une `WebContentsView` **se peint au-dessus du HTML du shell**, quoi qu'on fasse. Tout ce
