@@ -162,6 +162,26 @@ html.calque #root {
   background: transparent !important;
 }
 
+/* La fenêtre vidéo n'a pas de cadre : sa bande de commandes sert de poignée,
+   sauf là où l'on clique. */
+html.video,
+html.video body,
+html.video #root {
+  /* Noir sous la vidéo : c'est la couleur d'un lecteur, et la vue native ne
+     couvre pas la fenêtre à l'instant précis où on la redimensionne. */
+  background: #000;
+  height: 100%;
+  overflow: hidden;
+}
+
+.deplacable {
+  -webkit-app-region: drag;
+}
+
+.cliquable {
+  -webkit-app-region: no-drag;
+}
+
 /* --- Entrée en cascade du contenu d'une modale ------------------------------
    Une boîte de dialogue qui apparaît d'un bloc paraît surgir ; la même dont le
    titre précède les champs paraît s'ouvrir. Le décalage se pose ici, sur les

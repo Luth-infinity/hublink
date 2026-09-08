@@ -108,6 +108,14 @@ contextBridge.exposeInMainWorld('hublink', {
     setInteractive: (on) => ipcRenderer.send('overlay:interactive', on)
   },
 
+  // La barre de la fenêtre vidéo : elle reçoit l'état de la lecture et renvoie
+  // les commandes, que le principal transmet à la page.
+  video: {
+    onEtat: (handler) => on('video:barre', handler),
+    commande: (quoi, valeur) => ipcRenderer.send('video:commande', { quoi, valeur }),
+    fermer: () => ipcRenderer.send('video:fermer')
+  },
+
   // Les menus vivent dans le calque : le shell demande, le calque affiche, le
   // processus principal fait le lien et rend le choix.
   menu: {

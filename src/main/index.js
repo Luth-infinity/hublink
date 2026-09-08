@@ -21,6 +21,7 @@ const capture = require('./capture');
 const secrets = require('./secrets');
 const updates = require('./updates');
 const downloadsMod = require('./downloads');
+const videomode = require('./videomode');
 
 // Chromium fait passer, depuis quelques versions, tout le son de l'application
 // par son annuleur d'écho : ce qui sort des haut-parleurs sert de référence
@@ -317,6 +318,12 @@ function createWindow() {
   if (isDev && !fs.existsSync(rendererDist)) win.loadURL(DEV_SERVER);
   else win.loadFile(rendererDist);
 
+  videomode.configurer({
+    isDev,
+    devServer: DEV_SERVER,
+    rendererDist: fs.existsSync(rendererDist) ? rendererDist : ''
+  });
+
   let geometryTimer = null;
   const scheduleGeometry = () => {
     clearTimeout(geometryTimer);
@@ -547,6 +554,8 @@ function registerIpc() {
   });
 
   ipcMain.on('overlay:action', (_e, action) => runToastAction(action));
+
+  videomode.brancherIpc();
 
   // Une page propose un mot de passe : on ne l'enregistre PAS, on demande.
   ipcMain.on('password:offer', (event, { origin, username, password }) => {
@@ -913,11 +922,18 @@ function registerIpc() {
     if (url) views.withCurrent((wc) => wc.loadURL(url));
   });
 
+  // Le mode vidéo sort la page dans une fenêtre à part, avec nos commandes.
+  // Les lecteurs enfermés dans un cadre tiers gardent l'incrustation de
+  // Chromium : notre fenêtre ne saurait pas ne montrer que leur vidéo.
   ipcMain.handle('media:pip', async () => {
-    const r = await views.togglePictureInPicture();
-    if (r === 'aucune') toast('error', 'Aucune vidéo sur cette page');
-    else if (typeof r === 'string' && r.startsWith('erreur:')) {
-      toast('error', `Incrustation impossible : ${r.slice(7)}`);
+    const r = await videomode.basculer();
+    if (r === 'aucune' || r === 'aucune-vue') {
+      const secours = await views.togglePictureInPicture();
+      if (secours === 'aucune') toast('error', 'Aucune vidéo sur cette page');
+      else if (typeof secours === 'string' && secours.startsWith('erreur:')) {
+        toast('error', `Sortie impossible : ${secours.slice(7)}`);
+      }
+      return secours;
     }
     return r;
   });

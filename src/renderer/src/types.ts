@@ -158,6 +158,15 @@ export type MenuItem =
   | { type: 'separator' }
   | { id: string; label: string; type?: 'normal'; enabled?: boolean };
 
+export type EtatVideo = {
+  pause: boolean;
+  volume: number;
+  muet: boolean;
+  duree: number;
+  position: number;
+  passer: string | null;
+};
+
 declare global {
   interface Window {
     hublink: {
@@ -267,6 +276,11 @@ declare global {
       checkUpdate(): Promise<Update | null>;
       onUpdateAvailable(handler: (update: Update) => void): () => void;
       overlay: { setInteractive(on: boolean): void };
+      video: {
+        onEtat(handler: (etat: EtatVideo) => void): () => void;
+        commande(quoi: string, valeur?: number): void;
+        fermer(): void;
+      };
 
       /** Panneaux déroulants, dessinés par le calque. */
       panels: {

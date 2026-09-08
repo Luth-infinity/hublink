@@ -3,6 +3,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 const flag = (name) => process.argv.some((arg) => arg === `--hublink-${name}`);
 
+// Les onglets du navigateur reçoivent ce preload pour le mode vidéo et le
+// congé de survol. Le reste — pastille de non-lus, mots de passe — n'a de sens
+// que pour un service, qui a un nom et une place dans le panneau.
+const estOnglet = flag('onglet');
+
 /**
  * Neutralise les clés d'accès (WebAuthn) pour ce service.
  *
@@ -85,7 +90,7 @@ if (flag('mute')) {
  * La fonction d'envoi est passée en argument plutôt qu'exposée en variable
  * globale : la page s'en sert sans qu'un objet Hublink traîne sur `window`.
  */
-try {
+if (!estOnglet) try {
   contextBridge.executeInMainWorld({
     func: (envoyer) => {
       if (typeof envoyer !== 'function') return;
@@ -157,7 +162,7 @@ if (window.top === window) {
 // Rien ne quitte la page tant qu'il n'y a pas un mot de passe saisi, et c'est
 // le processus principal qui demandera confirmation avant d'enregistrer quoi
 // que ce soit.
-if (window.top === window) {
+if (!estOnglet && window.top === window) {
   let dernierEnvoi = '';
 
   const releve = () => {
@@ -184,4 +189,163 @@ if (window.top === window) {
 
   window.addEventListener('submit', proposer, true);
   window.addEventListener('pagehide', proposer);
+}
+
+// --- Mode vidéo --------------------------------------------------------------
+//
+// La vidéo sort dans une petite fenêtre à part. Plutôt que de déplacer
+// l'élément — les lecteurs le remettent en place aussitôt —, on le promeut :
+// tout le reste de la page devient invisible, lui prend tout l'écran. La page
+// continue de tourner sans savoir qu'on l'a réduite à sa vidéo.
+if (window.top === window) {
+  const STYLE = `
+    html.hublink-sortie, html.hublink-sortie body {
+      background: #000 !important;
+      overflow: hidden !important;
+    }
+    html.hublink-sortie body * { visibility: hidden !important; }
+    html.hublink-sortie [data-hublink-chemin] {
+      transform: none !important;
+      filter: none !important;
+      perspective: none !important;
+      contain: none !important;
+    }
+    html.hublink-sortie [data-hublink-video] {
+      visibility: visible !important;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      max-width: none !important;
+      max-height: none !important;
+      margin: 0 !important;
+      object-fit: contain !important;
+      background: #000 !important;
+      z-index: 2147483647 !important;
+    }
+  `;
+
+  // Un libellé de bouton qui promet de sauter un passage, dans les deux
+  // langues. « Passer au contenu principal » est un lien d'accessibilité, pas
+  // une commande du lecteur : il est écarté.
+  const PROMET_DE_PASSER = /^\s*(passer|skip|ignorer)\b/i;
+  const FAUX_AMIS = /(navigation|contenu|content|principal|main menu|to video)/i;
+
+  let video = null;
+  let conteneur = null;
+  let style = null;
+  let veille = null;
+  let dernierPasser = null;
+
+  const choisirVideo = () => {
+    const videos = [...document.querySelectorAll('video')];
+    const jouee = videos.find((v) => !v.paused && !v.ended && v.readyState > 0);
+    if (jouee) return jouee;
+    return (
+      videos.sort((a, b) => b.clientWidth * b.clientHeight - a.clientWidth * a.clientHeight)[0] ||
+      null
+    );
+  };
+
+  // Le cadre du lecteur : c'est là, et nulle part ailleurs dans la page, qu'on
+  // cherchera le bouton à relayer.
+  const cadreDuLecteur = (v) =>
+    v.closest('[class*="player" i], [id*="player" i]') ||
+    v.parentElement?.parentElement ||
+    v.parentElement ||
+    document.body;
+
+  const seVoit = (el) => {
+    if (!el.isConnected) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8) return false;
+    const s = getComputedStyle(el);
+    // La visibilité n'est pas consultée : c'est nous qui l'avons éteinte.
+    return s.display !== 'none' && Number(s.opacity) > 0.05;
+  };
+
+  const trouverPasser = () => {
+    if (!conteneur) return null;
+    const candidats = conteneur.querySelectorAll('button, [role="button"], a');
+    for (const el of candidats) {
+      const texte = (el.getAttribute('aria-label') || el.textContent || '').trim();
+      if (!texte || texte.length > 48) continue;
+      if (!PROMET_DE_PASSER.test(texte) || FAUX_AMIS.test(texte)) continue;
+      if (!seVoit(el)) continue;
+      return { el, texte: texte.replace(/\s+/g, ' ') };
+    }
+    return null;
+  };
+
+  const etat = () => {
+    if (!video || !video.isConnected) return null;
+    dernierPasser = trouverPasser();
+    return {
+      pause: video.paused,
+      volume: video.volume,
+      muet: video.muted,
+      duree: Number.isFinite(video.duration) ? video.duration : 0,
+      position: video.currentTime || 0,
+      passer: dernierPasser ? dernierPasser.texte : null
+    };
+  };
+
+  const arreter = () => {
+    clearInterval(veille);
+    veille = null;
+    document.documentElement.classList.remove('hublink-sortie');
+    if (video) video.removeAttribute('data-hublink-video');
+    document
+      .querySelectorAll('[data-hublink-chemin]')
+      .forEach((n) => n.removeAttribute('data-hublink-chemin'));
+    if (style) style.remove();
+    style = null;
+    video = null;
+    conteneur = null;
+    dernierPasser = null;
+  };
+
+  ipcRenderer.on('video:sortir', () => {
+    arreter();
+    video = choisirVideo();
+    if (!video) return ipcRenderer.send('video:etat', { absente: true });
+    conteneur = cadreDuLecteur(video);
+
+    video.setAttribute('data-hublink-video', '');
+    // Un ancêtre transformé redéfinit ce à quoi « fixé » se rapporte : la
+    // vidéo se retrouverait calée sur lui, pas sur la fenêtre.
+    for (let n = video.parentElement; n && n !== document.documentElement; n = n.parentElement) {
+      n.setAttribute('data-hublink-chemin', '');
+    }
+    style = document.createElement('style');
+    style.textContent = STYLE;
+    document.documentElement.appendChild(style);
+    document.documentElement.classList.add('hublink-sortie');
+
+    veille = setInterval(() => {
+      const e = etat();
+      if (e) ipcRenderer.send('video:etat', e);
+      else ipcRenderer.send('video:etat', { absente: true });
+    }, 500);
+    ipcRenderer.send('video:etat', etat() || { absente: true });
+  });
+
+  ipcRenderer.on('video:rentrer', arreter);
+
+  ipcRenderer.on('video:commande', (_e, { quoi, valeur }) => {
+    if (!video) return;
+    if (quoi === 'lecture') video.paused ? video.play() : video.pause();
+    if (quoi === 'volume') {
+      video.volume = Math.min(1, Math.max(0, Number(valeur) || 0));
+      if (video.volume > 0) video.muted = false;
+    }
+    if (quoi === 'muet') video.muted = !video.muted;
+    if (quoi === 'avancer') video.currentTime += Number(valeur) || 10;
+    if (quoi === 'aller') video.currentTime = Math.max(0, Number(valeur) || 0);
+    if (quoi === 'passer' && dernierPasser && dernierPasser.el.isConnected) {
+      dernierPasser.el.click();
+    }
+    const e = etat();
+    if (e) ipcRenderer.send('video:etat', e);
+  });
 }

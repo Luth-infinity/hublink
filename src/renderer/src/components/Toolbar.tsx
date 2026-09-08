@@ -403,8 +403,8 @@ export function Toolbar({
             size="icon-sm"
             onClick={() => api.media.togglePictureInPicture()}
             className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-            aria-label="Incrustation vidéo"
-            title="Incrustation vidéo — détacher la vidéo dans une fenêtre flottante"
+            aria-label="Mode vidéo"
+            title="Mode vidéo — sortir la vidéo dans une fenêtre qui reste au-dessus"
           >
             <PictureInPicture2 />
           </Button>

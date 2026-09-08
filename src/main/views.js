@@ -111,6 +111,11 @@ class ViewManager {
     // titre pour attirer l'œil : lu tel quel, le compteur s'allumait et
     // s'éteignait au même rythme.
     this.baisseBadge = new Map();
+    // La vue partie dans la fenêtre vidéo. Elle n'appartient plus à la fenêtre
+    // principale : ni le balayage de mise en veille ni l'affichage d'un autre
+    // service ne doivent la lui reprendre.
+    this.sortieVideo = null;
+    this.ramenerVideo = null;
     // Vues dont la page a déjà joué une vidéo : l'incrustation n'a de sens que
     // pour celles-là, on n'encombre pas la barre pour les autres.
     this.avecMedia = new Set();
@@ -139,6 +144,7 @@ class ViewManager {
 
     for (const [serviceId, view] of [...this.views]) {
       if (view === this.current) continue;
+      if (serviceId === this.sortieVideo) continue;
       if ((this.lastActiveAt.get(serviceId) ?? 0) > cutoff) continue;
       // Un service endormi n'a plus de page : il ne peut donc plus signaler
       // ses non-lus. Ceux qu'on a marqués restent chargés pour cette raison.
@@ -328,10 +334,15 @@ class ViewManager {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
-        spellcheck: true
-        // Pas de preload « invité » : on ne neutralise ni les clés d'accès ni
-        // les notifications ici. Le mode navigateur doit se comporter comme un
-        // navigateur, y compris pour WebAuthn.
+        spellcheck: true,
+        preload: path.join(__dirname, '..', 'preload', 'guest.js'),
+        // Le même preload que les services, mais sans aucune de leurs
+        // neutralisations : le mode navigateur doit se comporter comme un
+        // navigateur, y compris pour WebAuthn. Le drapeau écarte ce qui n'a de
+        // sens que pour un service — la pastille de non-lus, la proposition
+        // d'enregistrer un mot de passe. Restent le mode vidéo et le congé de
+        // survol, qui valent ici comme ailleurs.
+        additionalArguments: ['--hublink-onglet']
       }
     });
     view.setBackgroundColor('#ffffff');
@@ -592,6 +603,9 @@ class ViewManager {
   }
 
   async showTab(tabId) {
+    // Le service est parti dans la fenêtre vidéo : le rappeler ici, c'est
+    // vouloir le revoir en entier. On referme donc la vidéo d'abord.
+    if (this.sortieVideo === tabId && this.ramenerVideo) await this.ramenerVideo();
     if (!this.window) return;
     const view = await this.ensureTabView(tabId);
 
@@ -768,6 +782,9 @@ class ViewManager {
   }
 
   async show(serviceId) {
+    // Le service est parti dans la fenêtre vidéo : le rappeler ici, c'est
+    // vouloir le revoir en entier. On referme donc la vidéo d'abord.
+    if (this.sortieVideo === serviceId && this.ramenerVideo) await this.ramenerVideo();
     if (!this.window) return;
     const view = await this.ensureView(serviceId);
 
@@ -792,6 +809,33 @@ class ViewManager {
   }
 
   // Appelé quand une modale ou un menu du shell s'ouvre / se ferme.
+  /** Confie la vue courante à la fenêtre vidéo. */
+  detacherPourVideo() {
+    if (!this.current || !this.window) return null;
+    const view = this.current;
+    const id = this.currentId;
+    this.quitterPleinEcran(this.pleinEcran);
+    this.window.contentView.removeChildView(view);
+    this.current = null;
+    this.currentId = null;
+    this.sortieVideo = id;
+    return { view, id };
+  }
+
+  /**
+   * Reprend la vue que la fenêtre vidéo rend.
+   *
+   * On ne la réaffiche que si la place est libre : quelqu'un qui a ouvert un
+   * autre service pendant la vidéo ne veut pas en être chassé. La vue reste
+   * chargée, et revient telle quelle au prochain clic.
+   */
+  async reprendreDeVideo(id) {
+    this.sortieVideo = null;
+    if (this.currentId) return;
+    if (store.getTab(id)) await this.showTab(id);
+    else if (store.getService(id)) await this.show(id);
+  }
+
   setOverlay(active) {
     this.overlay = Boolean(active);
     if (!this.current) return;
