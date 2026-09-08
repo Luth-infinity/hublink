@@ -463,6 +463,9 @@ function setAccentColor(color) {
 // le fichier de configuration enfle — chaque entrée porte un favicon.
 const MAX_HISTORIQUE = 300;
 
+// En deçà, deux visites de la même page se confondent en une seule ligne.
+const REGROUPEMENT_HISTORIQUE = 10000;
+
 /**
  * Note une page visitée.
  *
@@ -470,6 +473,17 @@ const MAX_HISTORIQUE = 300;
  * que de créer un doublon, sinon l'historique d'une seule session de travail
  * suffirait à noyer celui de la veille.
  */
+// Deux adresses qui ne diffèrent que par leur requête ou leur ancre.
+function memePage(a, b) {
+  try {
+    const x = new URL(a);
+    const y = new URL(b);
+    return x.origin === y.origin && x.pathname === y.pathname && (x.search !== y.search || x.hash !== y.hash);
+  } catch {
+    return false;
+  }
+}
+
 function addHistory({ url, title, favicon }) {
   if (!url || url.startsWith('hublink://') || url === 'about:blank') return null;
   const s = load();
@@ -482,6 +496,21 @@ function addHistory({ url, title, favicon }) {
     save();
     return existant;
   }
+  // Une page qui ne change que par ses paramètres, juste après la précédente,
+  // est la même consultation qui se poursuit : un traducteur qui recopie le
+  // texte saisi dans l'adresse en produirait autant de lignes que de pauses de
+  // frappe. Deux recherches vraiment distinctes sont séparées par plus que ce
+  // délai.
+  const tete = s.history[0];
+  if (tete && Date.now() - tete.at < REGROUPEMENT_HISTORIQUE && memePage(tete.url, url)) {
+    tete.url = url;
+    tete.at = Date.now();
+    if (title) tete.title = title;
+    if (favicon) tete.favicon = favicon;
+    save();
+    return tete;
+  }
+
   const entree = { id: uid('h'), url, title: title || '', favicon: favicon || null, at: Date.now() };
   s.history.unshift(entree);
   if (s.history.length > MAX_HISTORIQUE) s.history.length = MAX_HISTORIQUE;

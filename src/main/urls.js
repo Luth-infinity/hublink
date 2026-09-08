@@ -27,4 +27,9 @@ function isUsableFavicon(rawUrl) {
   }
 }
 
-module.exports = { isExternalUrl, isUsableFavicon };
+// La recherche par défaut, partagée par la barre d'adresse et le clic droit.
+function searchUrl(query) {
+  return `https://www.google.com/search?q=${encodeURIComponent(String(query || '').trim())}`;
+}
+
+module.exports = { isExternalUrl, isUsableFavicon, searchUrl };

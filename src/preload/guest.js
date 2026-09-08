@@ -122,6 +122,31 @@ if (window.top === window) {
   });
 }
 
+// --- Le pointeur entre dans la page ----------------------------------------
+//
+// La page est une vue native, posée au-dessus du HTML du shell. Quand le
+// pointeur passe de la barre latérale à la page, le shell ne reçoit aucun
+// événement : pour lui, le bouton qu'on venait de survoler l'est encore, et
+// le voilà éclairé jusqu'au prochain passage de souris. On le prévient.
+if (window.top === window) {
+  let signale = false;
+  const oublier = () => {
+    signale = false;
+  };
+  window.addEventListener(
+    'mousemove',
+    () => {
+      if (signale) return;
+      signale = true;
+      ipcRenderer.send('guest:pointeur');
+    },
+    true
+  );
+  window.addEventListener('mouseleave', oublier, true);
+  window.addEventListener('blur', oublier);
+  document.addEventListener('visibilitychange', oublier);
+}
+
 // --- Proposition d'enregistrement d'un mot de passe -------------------------
 //
 // On n'écoute pas seulement `submit` : les connexions modernes interceptent le

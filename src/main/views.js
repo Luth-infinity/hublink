@@ -1,13 +1,14 @@
-const { WebContentsView, dialog, screen, session: electronSession } = require('electron');
+const { app, WebContentsView, dialog, screen, session: electronSession } = require('electron');
 const path = require('path');
 const store = require('./store');
 const extensions = require('./extensions');
-const { isExternalUrl, isUsableFavicon } = require('./urls');
+const { isExternalUrl, isUsableFavicon, searchUrl } = require('./urls');
 const { uaFor } = require('./ua');
 const favicon = require('./favicon');
 const startpage = require('./startpage');
 const adblock = require('./adblock');
 const downloads = require('./downloads');
+const menucontextuel = require('./menucontextuel');
 
 // Domaines d'authentification qui exigent une vraie popup : on les ouvre dans
 // une fenêtre enfant partageant la session, sinon le SSO casse.
@@ -62,6 +63,15 @@ function isAuthUrl(rawUrl) {
 
 // Accordées sans question : sans effet sur la vie privée et nécessaires aux
 // webapps métier (Teams, Slack).
+// Combien de temps un titre sans compteur doit tenir avant qu'on éteigne la
+// pastille. Plus long que le clignotement des messageries, assez court pour
+// qu'un fil lu ne reste pas marqué.
+const DELAI_BAISSE_BADGE = 3000;
+
+// Le calme qu'on attend avant de consigner une page dans l'historique.
+// Une frappe le repousse.
+const DELAI_HISTORIQUE = 1500;
+
 const AUTO_PERMISSIONS = new Set(['notifications', 'clipboard-sanitized-write', 'fullscreen', 'pointerLock']);
 
 // Caméra, micro et partage d'écran : jamais en silence, on demande à chaque
@@ -97,6 +107,10 @@ class ViewManager {
     // cesse de lire le titre : les deux sources se contrediraient, et le titre
     // remettrait le compteur à zéro à chaque changement de page.
     this.pastilleParApi = new Set();
+    // Retombées de pastille en attente. Les messageries font clignoter leur
+    // titre pour attirer l'œil : lu tel quel, le compteur s'allumait et
+    // s'éteignait au même rythme.
+    this.baisseBadge = new Map();
     // Vues dont la page a déjà joué une vidéo : l'incrustation n'a de sens que
     // pour celles-là, on n'encombre pas la barre pour les autres.
     this.avecMedia = new Set();
@@ -172,14 +186,19 @@ class ViewManager {
       const key = `${origin}:${permission}`;
       if (granted.has(key)) return callback(true);
 
-      const { response } = await dialog.showMessageBox({
+      // Rattachée à la fenêtre : sans parent, Windows peut la poser derrière
+      // et la question reste sans réponse — la page, elle, attend toujours.
+      const question = {
         type: 'question',
         buttons: ['Refuser', 'Autoriser'],
         defaultId: 0,
         cancelId: 0,
         message: `Autoriser ${origin} à ${PERMISSION_LABELS[permission] || permission} ?`,
         detail: "Cette autorisation ne vaut que pour ce compte, jusqu'à la fermeture de Hublink."
-      });
+      };
+      const { response } = this.window
+        ? await dialog.showMessageBox(this.window, question)
+        : await dialog.showMessageBox(question);
       if (response === 1) granted.add(key);
       callback(response === 1);
     });
@@ -330,10 +349,19 @@ class ViewManager {
 
     // L'historique ne suit que le navigateur : consigner chaque changement de
     // canal dans Slack le noierait sous du bruit.
+    // Les traducteurs en ligne réécrivent l'adresse et le titre à chaque
+    // frappe. Noter aussitôt remplissait l'historique de centaines de lignes
+    // presque identiques, et réécrivait le fichier de configuration à chaque
+    // lettre tapée.
+    let noterTimer = null;
     const noter = () => {
-      const t = store.getTab(tabId);
-      if (t) store.addHistory({ url: wc.getURL(), title: t.title, favicon: t.favicon });
+      clearTimeout(noterTimer);
+      noterTimer = setTimeout(() => {
+        const t = store.getTab(tabId);
+        if (t) store.addHistory({ url: wc.getURL(), title: t.title, favicon: t.favicon });
+      }, DELAI_HISTORIQUE);
     };
+    wc.once('destroyed', () => clearTimeout(noterTimer));
 
     wc.on('page-title-updated', (_e, title) => {
       if (store.updateTabIfChanged(tabId, { title })) emit('tab-meta', { title });
@@ -387,6 +415,7 @@ class ViewManager {
 
     this.wireMedia(wc, tabId);
     this.wirePleinEcran(wc, tabId);
+    this.brancherMenuContextuel(wc);
 
     wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
       if (isMainFrame && code !== -3) this.onEvent('load-error', { serviceId: tabId, code, desc, url });
@@ -461,6 +490,17 @@ class ViewManager {
    * d'injecter un observateur dans chaque page, et il couvre aussi bien les
    * services que les onglets du navigateur, dont les vues n'ont pas de preload.
    */
+  // Le clic droit dans une page. Partagé par les onglets et les services :
+  // coller dans un champ ne doit pas demander de connaître un raccourci.
+  brancherMenuContextuel(wc) {
+    menucontextuel.brancher(wc, {
+      fenetre: this.window,
+      onEvent: (type, payload) => this.onEvent(type, payload),
+      rechercher: searchUrl,
+      dev: !app.isPackaged
+    });
+  }
+
   wireMedia(wc, id) {
     wc.on('media-started-playing', () => {
       if (this.avecMedia.has(id)) return;
@@ -614,13 +654,33 @@ class ViewManager {
     const wc = view.webContents;
     const emit = (type, payload) => this.onEvent(type, { serviceId, ...payload });
 
+    const poserBadge = (badge) => {
+      if (store.updateServiceIfChanged(serviceId, { badge })) emit('service-meta', { badge });
+    };
+
     wc.on('page-title-updated', (_e, title) => {
       // Certaines webapps mettent encore le compteur dans le titre. Celles qui
       // utilisent l'API des pastilles font autorité : on ne lit plus le leur.
       if (this.pastilleParApi.has(serviceId)) return;
       const m = /\((\d+)\)/.exec(title);
       const badge = m ? parseInt(m[1], 10) : 0;
-      if (store.updateServiceIfChanged(serviceId, { badge })) emit('service-meta', { badge });
+
+      clearTimeout(this.baisseBadge.get(serviceId));
+      this.baisseBadge.delete(serviceId);
+
+      // Un message qui arrive s'affiche tout de suite. Sa disparition, elle,
+      // attend : les messageries alternent « (1) » et le titre nu pour se
+      // signaler, ce qui faisait clignoter la pastille sans répit.
+      if (badge > 0) return poserBadge(badge);
+      const actuel = store.getService(serviceId);
+      if (!actuel || !actuel.badge) return;
+      this.baisseBadge.set(
+        serviceId,
+        setTimeout(() => {
+          this.baisseBadge.delete(serviceId);
+          poserBadge(0);
+        }, DELAI_BAISSE_BADGE)
+      );
     });
 
     wc.on('page-favicon-updated', async (_e, favicons) => {
@@ -680,6 +740,7 @@ class ViewManager {
     wc.on('did-navigate-in-page', nav);
 
     this.wireMedia(wc, serviceId);
+    this.brancherMenuContextuel(wc);
     this.wirePleinEcran(wc, serviceId);
 
     wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {

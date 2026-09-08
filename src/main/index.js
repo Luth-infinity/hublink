@@ -22,6 +22,13 @@ const secrets = require('./secrets');
 const updates = require('./updates');
 const downloadsMod = require('./downloads');
 
+// Chromium fait passer, depuis quelques versions, tout le son de l'application
+// par son annuleur d'écho : ce qui sort des haut-parleurs sert de référence
+// pour nettoyer ce qui entre par le micro. Avec une vidéo en cours dans une
+// autre vue, un message vocal enregistré à côté ressortait déformé. On revient
+// au traitement par flux, celui d'avant, qui ignore le son des voisins.
+app.commandLine.appendSwitch('disable-features', 'ChromeWideEchoCancellation');
+
 const isDev = process.argv.includes('--dev') || !app.isPackaged;
 const DEV_SERVER = process.env.HUBLINK_DEV_SERVER || 'http://localhost:5273';
 
@@ -528,6 +535,15 @@ function registerIpc() {
     // rendrait le menu incliquable.
     if (panneau || menuEnCours) return;
     if (calque && !calque.isDestroyed()) calque.setIgnoreMouseEvents(!on, { forward: true });
+  });
+
+  // Le pointeur vient d'entrer dans une page. Le shell et le calque n'ont pas
+  // vu le pointeur les quitter — la vue native le leur cache — et gardent leur
+  // dernier élément survolé allumé. On leur signifie son départ.
+  ipcMain.on('guest:pointeur', () => {
+    const conge = { type: 'mouseLeave', x: 0, y: 0 };
+    if (win && !win.isDestroyed()) win.webContents.sendInputEvent(conge);
+    if (calque && !calque.isDestroyed()) calque.webContents.sendInputEvent(conge);
   });
 
   ipcMain.on('overlay:action', (_e, action) => runToastAction(action));

@@ -24,6 +24,22 @@ type Panneau = { kind: 'downloads' | 'history' | 'accounts'; anchor: Ancre } | n
  * quand un panneau est ouvert ; pour un simple message, on ne bascule que
  * lorsque le pointeur le survole vraiment.
  */
+/**
+ * Le pointeur est-il sur un message ?
+ *
+ * Mesuré sur les rectangles, et non par `elementFromPoint` : le conteneur des
+ * messages laisse passer les clics, et un élément qui les laisse passer est
+ * invisible à ce test de position. La question restait donc sans réponse, le
+ * calque ne devenait jamais réceptif, et le bouton d'un message — « Ouvrir le
+ * dossier » après un téléchargement — ne pouvait pas être cliqué.
+ */
+function surUnMessage(x: number, y: number) {
+  return Array.from(document.querySelectorAll('[data-sonner-toast]')).some((noeud) => {
+    const r = noeud.getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  });
+}
+
 export default function Overlay() {
   useSyncedTheme();
   const receptif = React.useRef(false);
@@ -73,20 +89,35 @@ export default function Overlay() {
     []
   );
 
+  const dernierPoint = React.useRef({ x: -1, y: -1 });
+
   // Le pointeur ne nous est signalé que parce que la fenêtre transmet ses
   // mouvements. Sans panneau ouvert, on ne devient réceptif que sur un message.
   React.useEffect(() => {
-    const bouge = (e: MouseEvent) => {
+    const evaluer = () => {
       if (panneau || menu) return;
-      const sur = Boolean(
-        document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-sonner-toast]')
-      );
+      const { x, y } = dernierPoint.current;
+      const sur = x >= 0 && surUnMessage(x, y);
       if (sur === receptif.current) return;
       receptif.current = sur;
       api.overlay.setInteractive(sur);
     };
+    const bouge = (e: MouseEvent) => {
+      dernierPoint.current = { x: e.clientX, y: e.clientY };
+      evaluer();
+    };
     window.addEventListener('mousemove', bouge);
-    return () => window.removeEventListener('mousemove', bouge);
+    // Un message s'efface de lui-même au bout de quelques secondes. S'il
+    // disparaît sous un pointeur immobile, aucun mouvement ne vient nous
+    // rendre transparents à nouveau : le calque avalait alors le clic suivant,
+    // et la page paraissait ne plus répondre à la souris alors que le clavier,
+    // lui, marchait toujours.
+    const observateur = new MutationObserver(evaluer);
+    observateur.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      window.removeEventListener('mousemove', bouge);
+      observateur.disconnect();
+    };
   }, [panneau, menu]);
 
   // Échap referme, comme n'importe quel menu.
@@ -140,7 +171,13 @@ export default function Overlay() {
         </>
       )}
 
-      <Toaster theme="system" position="bottom-right" richColors closeButton />
+      <Toaster
+        theme="system"
+        position="bottom-right"
+        richColors
+        closeButton
+        toastOptions={{ className: 'pointer-events-auto' }}
+      />
     </div>
   );
 }

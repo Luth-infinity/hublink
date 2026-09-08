@@ -170,6 +170,22 @@ Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en 
 - Le Chrome Web Store passe par une page `consent.google.com` avant d'afficher une
   fiche : détecter l'identifiant d'extension n'importe où dans l'URL décodée, pas
   seulement en tête.
+- **Un élément qui laisse passer les clics est invisible à `elementFromPoint`.** Le
+  calque s'en servait pour savoir si le pointeur était sur un message : la réponse était
+  toujours non, il ne devenait donc jamais réceptif, et le bouton d'un message n'a
+  jamais pu être cliqué. On mesure désormais les rectangles.
+- **Le shell ne voit jamais le pointeur le quitter** quand celui-ci passe sur la page :
+  la vue est native, aucun événement ne lui parvient, et son dernier bouton survolé le
+  reste. `src/preload/guest.js` le prévient, `index.js` répond par un `mouseLeave`.
+- **Un titre de page n'est pas une source stable.** Les messageries le font clignoter
+  pour attirer l'œil, les traducteurs le réécrivent à chaque frappe. La pastille ne
+  redescend donc qu'après un silence, et l'historique ne se consigne qu'au calme.
+- `navigator.clipboard.readText()` exige que la page ait le focus, en plus de la
+  permission : sinon « Document is not focused », sans qu'aucune question ne soit posée.
+- **`dialog.showMessageBox` sans fenêtre parente peut se poser derrière.** La page
+  attend alors une réponse que personne ne voit.
+- Le menu du clic droit est natif (`src/main/menucontextuel.js`), pour la même raison
+  que les autres menus : une vue web se peint au-dessus du HTML du shell.
 - `site/.next/` est versionné à tort (128 fichiers qui changent à chaque build). Le
   retirer du suivi reste à faire. En attendant, ne mettre en scène que les fichiers
   voulus : un `git add -A` après un `next dev` noie le commit sous une centaine
