@@ -129,12 +129,27 @@ la lecture continue. Tant qu'elle est dehors, elle n'appartient plus à la fenê
 principale — le balayage de mise en veille la saute, et `show()` la rappelle en
 refermant la vidéo d'abord.
 
-La hauteur de la bande est écrite **deux fois** : `BARRE` dans `videomode.js` et
-`h-[46px]` dans `VideoBar.tsx`. Les désaccorder cache la barre sous la vue native,
-qui se peint par-dessus.
+Ce sont **deux fenêtres** : celle de l'image, que la vue occupe entièrement, et un
+voile transparent posé dessus qui porte les commandes. Une seule ne suffit pas — la
+vue native se peint au-dessus du HTML de sa fenêtre, et lui réserver une bande en
+dessous bordait la vidéo d'un bandeau noir permanent.
 
-Au repos la bande ne montre que la progression ; les commandes ne paraissent qu'au
-survol. Comme rien ne peut survoler une vue native, le survol se devine en regardant
+**Les deux fenêtres sont indépendantes, surtout pas parent et enfant.** Windows
+impose qu'un propriétaire reste sous ce qu'il possède : marquer le voile « au-dessus
+de tout » faisait perdre ce rang à la fenêtre de l'image, et un jeu en plein écran
+venait s'intercaler entre les deux — commandes flottant sur la partie, vidéo enfouie
+dessous. `rappelerLOrdre()` les repose toutes les 1,2 s, l'image d'abord, le voile
+ensuite : le dernier posé est celui du dessus.
+
+Le voile suit les **bornes de contenu** de l'image, pas ses bornes de fenêtre : une
+fenêtre sans cadre mais redimensionnable garde une bordure invisible de six points,
+qui décalait le voile d'autant.
+
+Le déplacement se fait à la main (`video:deplacer`) : une zone
+`-webkit-app-region: drag` dans le voile déplacerait le voile seul.
+
+Au repos on ne voit que l'image, et le bouton du lecteur s'il y en a un ; les
+commandes ne paraissent qu'au survol, avec un dégradé qui monte du bas. Comme rien ne peut survoler une vue native, le survol se devine en regardant
 où est le curseur (`screen.getCursorScreenPoint`, toutes les 200 ms tant que la
 fenêtre est ouverte) — la bande, en HTML, ne recevrait rien quand le pointeur est sur
 l'image.
@@ -164,6 +179,19 @@ d'accessibilité, pas une commande.
 services, avec `--hublink-onglet`, qui écarte la pastille de non-lus et la
 proposition d'enregistrer un mot de passe. Ni les clés d'accès ni les notifications
 n'y sont neutralisées : un navigateur doit se comporter en navigateur.
+
+## Le partage d'écran est à nous aussi
+
+Chromium demande normalement quoi partager. Electron n'a pas ce sélecteur : sans
+`setDisplayMediaRequestHandler`, `getDisplayMedia` reste sans réponse et **la webapp
+n'affiche même pas son bouton**. Teams se contentait de ne rien proposer, sans dire
+pourquoi. `src/main/partageecran.js` relève les sources avec `desktopCapturer` et
+ouvre `PartageEcran.tsx`, qui les montre avec leur aperçu.
+
+Le gestionnaire vaut **par session** : il est posé dans `ensureSession`, un compte
+branché ne fait rien pour les autres. Et `display-capture` est accordée sans question
+dans le gestionnaire de permissions : le sélecteur est déjà la question, et mieux
+posée puisqu'il montre ce qui sera visible.
 
 ## Contrainte structurante : la vue web est native
 

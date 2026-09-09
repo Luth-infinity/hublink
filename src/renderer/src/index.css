@@ -164,12 +164,22 @@ html.calque #root {
 
 /* La fenêtre vidéo n'a pas de cadre : sa bande de commandes sert de poignée,
    sauf là où l'on clique. */
+/* Le voile des commandes vidéo est posé SUR l'image : rien ne doit peindre
+   son fond, sinon il masquerait la vidéo au lieu de la border. */
 html.video,
 html.video body,
 html.video #root {
-  /* Noir sous la vidéo : c'est la couleur d'un lecteur, et la vue native ne
-     couvre pas la fenêtre à l'instant précis où on la redimensionne. */
-  background: #000;
+  background: transparent;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Le sélecteur de partage a des coins arrondis : sa fenêtre doit donc laisser
+   voir au travers, sinon un carré opaque dépasserait dessous. */
+html.partage,
+html.partage body,
+html.partage #root {
+  background: transparent;
   height: 100%;
   overflow: hidden;
 }
@@ -213,6 +223,21 @@ html.video #root {
 .curseur:hover::-webkit-slider-thumb,
 .curseur:focus-visible::-webkit-slider-thumb {
   opacity: 1;
+}
+
+/* Sur une image, la couleur d'action du shell n'est plus lisible : elle change
+   avec le thème, la vidéo non. Du blanc, et une ombre pour tenir sur un fond
+   clair. */
+.curseur.sur-image::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    #fff 0 calc(var(--part) * 100%),
+    rgb(255 255 255 / 25%) calc(var(--part) * 100%) 100%
+  );
+}
+
+.curseur.sur-image::-webkit-slider-thumb {
+  background: #fff;
 }
 
 /* Le bouton du lecteur ne surgit pas : il monte, comme s'il venait de

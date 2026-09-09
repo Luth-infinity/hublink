@@ -15,34 +15,27 @@ import type { EtatVideo } from '@/types';
 
 const api = window.hublink;
 
-// La hauteur que la fenêtre réserve à cette bande : `BARRE` dans
-// `src/main/videomode.js`. Les désaccorder la cacherait sous la vue native.
-const HAUTEUR = 46;
 const SAUT = 10;
 
 /**
- * La bande de commandes de la fenêtre vidéo.
+ * Les commandes de la fenêtre vidéo.
  *
- * L'image occupe le haut de la fenêtre : c'est une vue native, elle se peint
- * au-dessus du HTML. Rien ne peut donc flotter par-dessus la vidéo — ni
- * commandes qui s'effacent sur l'image, ni voile au survol. Tout tient dans
- * cette bande, sous elle.
+ * Elles vivent dans un voile transparent posé sur l'image, et non sous elle :
+ * une vue web native se peint au-dessus du HTML de sa fenêtre, alors lui
+ * réserver une bande bordait la vidéo d'un bandeau noir permanent.
  *
- * Au repos elle ne montre que la progression, pour ne pas border une vidéo
- * d'une rangée de boutons dont personne n'a besoin pendant qu'il regarde. Les
- * commandes reviennent quand le pointeur approche. Le bouton du lecteur, lui,
- * ne se cache jamais : il ne dure que quelques secondes.
+ * Au repos, rien. Le pointeur approche, un dégradé monte du bas et les
+ * commandes paraissent avec lui. Le bouton du lecteur, lui, ne se cache
+ * jamais : il ne dure que quelques secondes et c'est tout son intérêt.
  *
  * La fenêtre décline le premier plan — un clic sur la pause pendant une partie
  * en sortirait le jeu — donc elle n'a jamais le clavier : pas de raccourcis
  * ici, tout passe par ces boutons.
- *
- * L'état arrive de la page deux fois par seconde.
  */
 export default function VideoBar() {
   const [etat, setEtat] = React.useState<EtatVideo | null>(null);
   // Instant survolé sur la barre de progression, montré à la place du titre :
-  // une bulle au-dessus du rail passerait sous l'image.
+  // une bulle au-dessus du rail sortirait de la zone qui reçoit les clics.
   const [apercu, setApercu] = React.useState<number | null>(null);
   // Le pointeur est-il sur la fenêtre ? La question vient du processus
   // principal : l'image est une vue native, elle ne nous dirait rien.
@@ -51,13 +44,16 @@ export default function VideoBar() {
   React.useEffect(() => api.video.onEtat(setEtat), []);
   React.useEffect(() => api.video.onSurvol(setSurvole), []);
 
-  // La fenêtre descend à 320 points de large. Passé un seuil, quelque chose
-  // doit céder : ce sera l'heure, jamais le bouton du lecteur.
-  const [largeur, setLargeur] = React.useState(() => window.innerWidth);
+  // Le déplacement se fait à la main : une zone `-webkit-app-region: drag`
+  // déplacerait ce voile seul, en le décollant de son image.
   React.useEffect(() => {
-    const mesurer = () => setLargeur(window.innerWidth);
-    window.addEventListener('resize', mesurer);
-    return () => window.removeEventListener('resize', mesurer);
+    const relacher = () => api.video.deplacer(false);
+    window.addEventListener('mouseup', relacher);
+    window.addEventListener('blur', relacher);
+    return () => {
+      window.removeEventListener('mouseup', relacher);
+      window.removeEventListener('blur', relacher);
+    };
   }, []);
 
   const commande = React.useCallback(
@@ -71,10 +67,7 @@ export default function VideoBar() {
 
   // En pause, les commandes restent : il faut bien pouvoir relancer.
   const montre = survole || Boolean(etat?.pause);
-  // L'opacité seule, jamais l'affichage : ce qui s'efface garde sa place, et
-  // rien ne se déplace quand la main s'approche.
   const fondu = montre ? 'opacity-100' : 'pointer-events-none opacity-0';
-  const serre = largeur < 430 && Boolean(etat?.passer);
 
   const surLeRail = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!duree) return null;
@@ -83,50 +76,64 @@ export default function VideoBar() {
   };
 
   return (
-    <div
-      className="deplacable fixed inset-x-0 bottom-0 flex flex-col bg-shell-raised text-shell-foreground"
-      style={{ height: HAUTEUR }}
-    >
-      {/* La progression, seule chose qui ne s'efface pas : elle se lit d'un
-          coup d'œil sans rien réclamer. Le rail s'épaissit sous le pointeur,
-          où il devient une cible. */}
+    <div className="fixed inset-0 select-none text-white">
+      {/* Le voile ne noircit que le bas, et se dissipe vers le haut : assez
+          pour lire des commandes claires, jamais assez pour manger l'image. */}
       <div
-        className="cliquable group relative flex h-2 shrink-0 cursor-pointer items-center"
-        onClick={(e) => {
-          const t = surLeRail(e);
-          if (t !== null) commande('aller', t);
-        }}
-        onMouseMove={(e) => setApercu(surLeRail(e))}
-        onMouseLeave={() => setApercu(null)}
-        role="presentation"
-      >
-        <div className="h-[3px] w-full bg-shell-active transition-[height] duration-150 group-hover:h-[6px]">
-          <div
-            className="h-full bg-primary"
-            style={{ width: `${part * 100}%`, transition: 'width 220ms linear' }}
-          />
-        </div>
-      </div>
+        className={cn(
+          'pointer-events-none absolute inset-x-0 bottom-0 h-32 transition-opacity duration-200',
+          'bg-gradient-to-t from-black/85 via-black/45 to-transparent',
+          montre ? 'opacity-100' : 'opacity-0'
+        )}
+      />
 
-      <div className="flex min-w-0 flex-1 items-center gap-0.5 pl-1.5 pr-1">
-        <div className={cn('flex shrink-0 items-center gap-0.5 transition-opacity duration-200', fondu)}>
-          <Bouton
-            titre={etat?.pause ? 'Lire' : 'Mettre en pause'}
-            onClick={() => commande('lecture')}
-            fort
-          >
+      {/* Le raccourci du lecteur. Il garde sa place, que les commandes soient
+          là ou non, pour ne pas sauter d'un endroit à l'autre. */}
+      {etat?.passer && (
+        <button
+          type="button"
+          onClick={() => commande('passer')}
+          title={etat.passer}
+          className={cn(
+            'monte-passer absolute bottom-[58px] right-3 flex h-8 max-w-[70%] items-center gap-1.5',
+            'rounded-full bg-white pl-2.5 pr-3 text-xs font-medium text-black shadow-lg',
+            'transition-transform hover:scale-[1.04] active:scale-95 motion-reduce:hover:scale-100'
+          )}
+        >
+          <SkipForward className="size-3.5 shrink-0" />
+          <span className="truncate">{etat.passer}</span>
+        </button>
+      )}
+
+      <div className={cn('absolute inset-x-0 bottom-0 transition-opacity duration-200', fondu)}>
+        {/* La progression. Le rail s'épaissit sous le pointeur, où il devient
+            une cible. */}
+        <div
+          className="group relative flex h-2.5 cursor-pointer items-center px-2"
+          onClick={(e) => {
+            const t = surLeRail(e);
+            if (t !== null) commande('aller', t);
+          }}
+          onMouseMove={(e) => setApercu(surLeRail(e))}
+          onMouseLeave={() => setApercu(null)}
+          role="presentation"
+        >
+          <div className="h-[3px] w-full rounded-full bg-white/25 transition-[height] duration-150 group-hover:h-[5px]">
+            <div
+              className="h-full rounded-full bg-white"
+              style={{ width: `${part * 100}%`, transition: 'width 220ms linear' }}
+            />
+          </div>
+        </div>
+
+        <div className="flex h-11 min-w-0 items-center gap-0.5 pb-1 pl-1.5 pr-1">
+          <Bouton titre={etat?.pause ? 'Lire' : 'Mettre en pause'} onClick={() => commande('lecture')} fort>
             {etat?.pause ? <Play className="size-[18px]" /> : <Pause className="size-[18px]" />}
           </Bouton>
-          <Bouton
-            titre="Reculer de 10 secondes"
-            onClick={() => commande('avancer', -SAUT)}
-          >
+          <Bouton titre="Reculer de 10 secondes" onClick={() => commande('avancer', -SAUT)}>
             <RotateCcw className="size-4" />
           </Bouton>
-          <Bouton
-            titre="Avancer de 10 secondes"
-            onClick={() => commande('avancer', SAUT)}
-          >
+          <Bouton titre="Avancer de 10 secondes" onClick={() => commande('avancer', SAUT)}>
             <RotateCw className="size-4" />
           </Bouton>
 
@@ -156,51 +163,36 @@ export default function VideoBar() {
               aria-label="Volume"
               style={{ ['--part' as string]: volume }}
               className={cn(
-                'curseur cliquable w-0 cursor-pointer opacity-0 transition-[width,opacity] duration-200',
+                'curseur sur-image w-0 cursor-pointer opacity-0 transition-[width,opacity] duration-200',
                 'group-hover/son:w-16 group-hover/son:opacity-100',
                 'focus-visible:w-16 focus-visible:opacity-100'
               )}
             />
           </div>
-        </div>
 
-        {/* Ce qui joue — ou, pendant qu'on cherche un passage, l'instant visé.
-            C'est aussi la poignée : on déplace la fenêtre en l'attrapant. */}
-        <div className={cn('min-w-0 flex-1 px-2 transition-opacity duration-200', fondu)}>
-          <p
-            className={cn(
-              'truncate text-center text-[11px] leading-none',
-              apercu !== null ? 'tabular-nums text-shell-foreground' : 'text-shell-muted'
-            )}
-            title={etat?.titre}
+          {/* Ce qui joue — ou, pendant qu'on cherche un passage, l'instant
+              visé. C'est aussi la poignée : on déplace la fenêtre en
+              l'attrapant. */}
+          <div
+            className="min-w-0 flex-1 cursor-move px-2"
+            onMouseDown={() => api.video.deplacer(true)}
+            role="presentation"
           >
-            {apercu !== null ? `→ ${horloge(apercu)}` : etat?.titre}
-          </p>
-        </div>
+            <p
+              className={cn(
+                'truncate text-center text-[11px] leading-none drop-shadow',
+                apercu !== null ? 'tabular-nums text-white' : 'text-white/70'
+              )}
+              title={etat?.titre}
+            >
+              {apercu !== null ? `→ ${horloge(apercu)}` : etat?.titre}
+            </p>
+          </div>
 
-        {etat?.passer && (
-          <button
-            type="button"
-            onClick={() => commande('passer')}
-            title={etat.passer}
-            className={cn(
-              'monte-passer cliquable flex h-7 max-w-[60%] shrink-0 items-center gap-1',
-              'rounded-full bg-primary pl-2 pr-2.5 text-xs font-medium text-primary-foreground',
-              'transition-transform hover:scale-[1.04] active:scale-95 motion-reduce:hover:scale-100'
-            )}
-          >
-            <SkipForward className="size-3.5 shrink-0" />
-            <span className="truncate">{etat.passer}</span>
-          </button>
-        )}
-
-        <div className={cn('flex shrink-0 items-center transition-opacity duration-200', fondu)}>
-          {!serre && (
-            <span className="px-1.5 text-[11px] tabular-nums text-shell-muted">
-              {horloge(etat?.position)}
-              {duree > 0 && <span className="opacity-50"> / {horloge(duree)}</span>}
-            </span>
-          )}
+          <span className="shrink-0 px-1.5 text-[11px] tabular-nums text-white/70 drop-shadow">
+            {horloge(etat?.position)}
+            {duree > 0 && <span className="opacity-60"> / {horloge(duree)}</span>}
+          </span>
           <Bouton titre="Ramener dans Hublink" onClick={() => api.video.fermer()}>
             <Minimize2 className="size-4" />
           </Bouton>
@@ -228,9 +220,9 @@ function Bouton({
       title={titre}
       aria-label={titre}
       className={cn(
-        'cliquable grid size-7 shrink-0 place-items-center rounded-md transition-colors',
-        'hover:bg-shell-hover focus-visible:bg-shell-hover',
-        fort ? 'text-shell-foreground' : 'text-shell-muted hover:text-shell-foreground'
+        'grid size-7 shrink-0 place-items-center rounded-md drop-shadow transition-colors',
+        'hover:bg-white/15 focus-visible:bg-white/15',
+        fort ? 'text-white' : 'text-white/75 hover:text-white'
       )}
     >
       {children}

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Plus } from 'lucide-react';
+import { Minimize2, PictureInPicture2, Plus } from 'lucide-react';
 import type {
   Account,
   AppState,
@@ -199,6 +199,11 @@ export default function App() {
   // `ready` est indispensable : tant que l'état n'est pas chargé on affiche
   // l'écran d'attente, contentRef est vide, et un effet sans dépendance ne
   // repasserait jamais — la vue resterait en 0 × 0.
+  // La vidéo partie dans sa fenêtre : la zone principale se vide, et sans un
+  // mot on croirait la page perdue.
+  const [videoSortie, setVideoSortie] = React.useState<{ titre: string } | null>(null);
+  React.useEffect(() => api.video.onSortie(setVideoSortie), []);
+
   const ready = state !== null;
   React.useEffect(() => {
     const node = contentRef.current;
@@ -496,7 +501,21 @@ export default function App() {
               )}
               {/* En mode navigateur, la vue de l'onglet occupe la zone : cet
                   écran d'accueil n'aurait rien à y faire. */}
-              {!service && !state.browserMode && (
+              {videoSortie && (
+                <div className="grid h-full place-items-center px-8 text-center">
+                  <div className="flex max-w-sm flex-col items-center gap-3">
+                    <PictureInPicture2 className="size-7 text-shell-muted" />
+                    <h2 className="text-base font-semibold">{videoSortie.titre} est dans sa fenêtre</h2>
+                    <p className="text-xs leading-relaxed text-shell-muted">
+                      La page continue de tourner à côté, posée au-dessus des autres applications.
+                    </p>
+                    <Button size="sm" variant="outline" onClick={() => api.video.fermer()} className="mt-1 gap-2">
+                      <Minimize2 /> La ramener ici
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {!service && !state.browserMode && !videoSortie && (
                 <div className="grid h-full place-items-center px-8 text-center">
                   <div className="flex max-w-sm flex-col items-center gap-3">
                     <h2 className="text-base font-semibold">Aucun service</h2>

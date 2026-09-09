@@ -1,4 +1,4 @@
-const { Menu, MenuItem, clipboard } = require('electron');
+const { Menu, MenuItem, clipboard, shell } = require('electron');
 
 /**
  * Le menu du clic droit dans les pages.
@@ -43,6 +43,9 @@ function brancher(wc, { fenetre, onEvent, rechercher, dev = false }) {
 
     if (params.linkURL) {
       ajouter({ label: 'Ouvrir dans un nouvel onglet', click: () => onEvent('tab-requested', { url: params.linkURL }) });
+      // Un lien reçu par courriel mène souvent vers un outil déjà ouvert
+      // ailleurs, avec la bonne session : on laisse le choix de sortir.
+      ajouter({ label: 'Ouvrir dans le navigateur du système', click: () => shell.openExternal(params.linkURL) });
       ajouter({ label: "Copier l'adresse du lien", click: () => clipboard.writeText(params.linkURL) });
       separer();
     }

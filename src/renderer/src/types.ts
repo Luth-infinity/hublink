@@ -158,6 +158,14 @@ export type MenuItem =
   | { type: 'separator' }
   | { id: string; label: string; type?: 'normal'; enabled?: boolean };
 
+export type SourcePartage = {
+  id: string;
+  nom: string;
+  ecran: boolean;
+  apercu: string;
+  icone: string | null;
+};
+
 export type EtatVideo = {
   pause: boolean;
   volume: number;
@@ -278,10 +286,16 @@ declare global {
       checkUpdate(): Promise<Update | null>;
       onUpdateAvailable(handler: (update: Update) => void): () => void;
       overlay: { setInteractive(on: boolean): void };
+      partage: {
+        onSources(handler: (data: { liste: SourcePartage[]; origine: string }) => void): () => void;
+        choisir(id: string | null): void;
+      };
       video: {
         onEtat(handler: (etat: EtatVideo) => void): () => void;
         onSurvol(handler: (dedans: boolean) => void): () => void;
+        onSortie(handler: (sortie: { titre: string } | null) => void): () => void;
         commande(quoi: string, valeur?: number): void;
+        deplacer(encours: boolean): void;
         fermer(): void;
       };
 

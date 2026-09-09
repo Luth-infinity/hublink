@@ -22,6 +22,7 @@ const secrets = require('./secrets');
 const updates = require('./updates');
 const downloadsMod = require('./downloads');
 const videomode = require('./videomode');
+const partageecran = require('./partageecran');
 
 // Chromium fait passer, depuis quelques versions, tout le son de l'application
 // par son annuleur d'écho : ce qui sort des haut-parleurs sert de référence
@@ -318,11 +319,16 @@ function createWindow() {
   if (isDev && !fs.existsSync(rendererDist)) win.loadURL(DEV_SERVER);
   else win.loadFile(rendererDist);
 
-  videomode.configurer({
+  const reglagesFenetres = {
     isDev,
     devServer: DEV_SERVER,
     rendererDist: fs.existsSync(rendererDist) ? rendererDist : ''
+  };
+  videomode.configurer({
+    ...reglagesFenetres,
+    prevenir: (sortie) => send('video:sortie', sortie)
   });
+  partageecran.configurer(reglagesFenetres);
 
   let geometryTimer = null;
   const scheduleGeometry = () => {
@@ -569,6 +575,7 @@ function registerIpc() {
   ipcMain.on('overlay:action', (_e, action) => runToastAction(action));
 
   videomode.brancherIpc();
+  partageecran.brancherIpc();
 
   // Une page propose un mot de passe : on ne l'enregistre PAS, on demande.
   ipcMain.on('password:offer', (event, { origin, username, password }) => {

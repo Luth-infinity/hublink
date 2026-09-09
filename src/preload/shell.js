@@ -108,12 +108,21 @@ contextBridge.exposeInMainWorld('hublink', {
     setInteractive: (on) => ipcRenderer.send('overlay:interactive', on)
   },
 
+  // Le sélecteur de partage d'écran : il reçoit la liste des écrans et des
+  // fenêtres, et rend l'identifiant choisi — ou rien du tout.
+  partage: {
+    onSources: (handler) => on('partage:sources', handler),
+    choisir: (id) => ipcRenderer.send('partage:choix', id)
+  },
+
   // La barre de la fenêtre vidéo : elle reçoit l'état de la lecture et renvoie
   // les commandes, que le principal transmet à la page.
   video: {
     onEtat: (handler) => on('video:barre', handler),
     onSurvol: (handler) => on('video:survol', handler),
+    onSortie: (handler) => on('video:sortie', handler),
     commande: (quoi, valeur) => ipcRenderer.send('video:commande', { quoi, valeur }),
+    deplacer: (encours) => ipcRenderer.send('video:deplacer', encours),
     fermer: () => ipcRenderer.send('video:fermer')
   },
 

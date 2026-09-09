@@ -9,6 +9,7 @@ const startpage = require('./startpage');
 const adblock = require('./adblock');
 const downloads = require('./downloads');
 const menucontextuel = require('./menucontextuel');
+const partageecran = require('./partageecran');
 
 // Domaines d'authentification qui exigent une vraie popup : on les ouvre dans
 // une fenêtre enfant partageant la session, sinon le SSO casse.
@@ -180,6 +181,10 @@ class ViewManager {
 
     ses.setPermissionRequestHandler(async (wc, permission, callback, details) => {
       if (AUTO_PERMISSIONS.has(permission)) return callback(true);
+      // Le partage d'écran pose déjà sa question, et mieux : le sélecteur
+      // montre ce qui sera visible. Une boîte de dialogue avant lui ferait
+      // répondre deux fois à la même chose.
+      if (permission === 'display-capture') return callback(true);
       if (!CONFIRMED_PERMISSIONS.has(permission)) return callback(false);
 
       let origin = '';
@@ -236,6 +241,11 @@ class ViewManager {
         ASKABLE.has(permission) ||
         granted.has(`${requestingOrigin}:${permission}`)
     );
+
+    // Sans ce gestionnaire, `getDisplayMedia` reste sans réponse et la webapp
+    // ne propose même pas son bouton de partage. Il vaut par session : un
+    // compte branché ne fait rien pour les autres.
+    partageecran.brancher(ses, () => this.window);
 
     ses.setSpellCheckerLanguages(['fr', 'en-US']);
 
@@ -832,6 +842,10 @@ class ViewManager {
   async reprendreDeVideo(id) {
     this.sortieVideo = null;
     if (this.currentId) return;
+    // À la fermeture de l'application, la vue part avant qu'on la rende : la
+    // réafficher lèverait « Object has been destroyed ».
+    const gardee = this.views.get(id);
+    if (!gardee || gardee.webContents.isDestroyed()) return void this.views.delete(id);
     if (store.getTab(id)) await this.showTab(id);
     else if (store.getService(id)) await this.show(id);
   }
