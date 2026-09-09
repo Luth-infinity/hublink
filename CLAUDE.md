@@ -146,7 +146,11 @@ fenêtre sans cadre mais redimensionnable garde une bordure invisible de six poi
 qui décalait le voile d'autant.
 
 Le déplacement se fait à la main (`video:deplacer`) : une zone
-`-webkit-app-region: drag` dans le voile déplacerait le voile seul.
+`-webkit-app-region: drag` dans le voile déplacerait le voile seul. **La boucle reporte la
+taille à chaque pas** : `setPosition` seul faisait grandir la fenêtre de deux points
+par appel — sans cadre mais redimensionnable, elle garde une bordure invisible
+qu'Electron rajoutait à chaque fois. Vingt appels aux mêmes coordonnées la faisaient
+passer de 486 à 526 points de large, et un glisser en fait soixante par seconde.
 
 Au repos on ne voit que l'image, et le bouton du lecteur s'il y en a un ; les
 commandes ne paraissent qu'au survol, avec un dégradé qui monte du bas. Comme rien ne peut survoler une vue native, le survol se devine en regardant
@@ -166,14 +170,23 @@ barre**, tout passe par les boutons. Son rang de fenêtre au-dessus des autres e
 réaffirmé toutes les deux secondes, une application passée en plein écran le lui faisant
 perdre sans que Windows le signale.
 
-La page n'est pas remaniée : tout devient `visibility: hidden`, la vidéo repasse
-visible et fixée à l'écran. Déplacer l'élément dans le DOM serait plus simple, mais
-les lecteurs le remettent aussitôt en place.
+La page n'est pas remaniée : tout devient `visibility: hidden`, et la vidéo repasse
+visible. Déplacer l'élément dans le DOM serait plus simple, mais les lecteurs le
+remettent aussitôt en place.
+
+**C'est le cadre du lecteur qu'on fixe à l'écran, pas la vidéo.** Sortir celle-ci du
+flux effondrait le lecteur à zéro de hauteur, et son bouton « Passer » se retrouvait
+posé hors de l'écran — donc écarté par le test de visibilité. Une publicité YouTube
+ne pouvait pas être ignorée. Le lecteur garde ainsi sa mise en page : invisible, mais
+intacte.
 
 Le bouton « Passer » n'est pas inventé : on cherche dans le cadre du lecteur un
 bouton visible dont le libellé promet de passer quelque chose, et cliquer le nôtre
 clique le sien. « Passer au contenu principal » est écarté — c'est un lien
-d'accessibilité, pas une commande.
+d'accessibilité, pas une commande. Les noms de classe connus (`ytp-ad-skip-button…`)
+passent avant le libellé, qui change avec la langue et parfois en cours de décompte.
+Le cadre est recherché à chaque passage : un lecteur qui se redessine pour une
+publicité laisserait sinon une référence morte derrière lui.
 
 **Les onglets du navigateur ont un preload depuis la 0.5.3** — le même que les
 services, avec `--hublink-onglet`, qui écarte la pastille de non-lus et la

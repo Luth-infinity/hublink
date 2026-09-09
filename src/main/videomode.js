@@ -166,10 +166,22 @@ function suivreLeCurseur() {
   deplacement = {
     ecartX: p.x - b.x,
     ecartY: p.y - b.y,
+    // La taille est reportée telle quelle à chaque pas. `setPosition` seul
+    // faisait grandir la fenêtre de deux points par appel : sans cadre, elle
+    // garde une bordure de redimensionnement invisible qu'Electron rajoutait à
+    // chaque fois. Vingt appels aux mêmes coordonnées la faisaient passer de
+    // 486 à 526 points de large — et un glisser en fait soixante par seconde.
+    largeur: b.width,
+    hauteur: b.height,
     timer: setInterval(() => {
       if (!fenetre || fenetre.isDestroyed()) return void poserLaFenetre();
       const c = screen.getCursorScreenPoint();
-      fenetre.setPosition(c.x - deplacement.ecartX, c.y - deplacement.ecartY);
+      fenetre.setBounds({
+        x: c.x - deplacement.ecartX,
+        y: c.y - deplacement.ecartY,
+        width: deplacement.largeur,
+        height: deplacement.hauteur
+      });
       if (voile && !voile.isDestroyed()) voile.setBounds(fenetre.getContentBounds());
     }, 16)
   };

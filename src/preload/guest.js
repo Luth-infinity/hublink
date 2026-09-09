@@ -210,24 +210,49 @@ if (window.top === window) {
       perspective: none !important;
       contain: none !important;
     }
-    html.hublink-sortie [data-hublink-video] {
-      visibility: visible !important;
+    /* C'est le CADRE du lecteur qu'on fixe à l'écran, et non la vidéo :
+       sortir celle-ci du flux effondrait le lecteur à zéro de hauteur, et
+       son bouton « Passer » se retrouvait posé hors de l'écran. Le lecteur
+       garde ainsi sa mise en page — invisible, mais intacte. */
+    html.hublink-sortie [data-hublink-cadre] {
       position: fixed !important;
       inset: 0 !important;
       width: 100vw !important;
       height: 100vh !important;
       max-width: none !important;
       max-height: none !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
       margin: 0 !important;
-      object-fit: contain !important;
+      padding: 0 !important;
       background: #000 !important;
       z-index: 2147483647 !important;
+    }
+    html.hublink-sortie [data-hublink-video] {
+      visibility: visible !important;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
+      margin: 0 !important;
+      object-fit: contain !important;
     }
   `;
 
   // Un libellé de bouton qui promet de sauter un passage, dans les deux
   // langues. « Passer au contenu principal » est un lien d'accessibilité, pas
   // une commande du lecteur : il est écarté.
+  // Les boutons dont on sait déjà le nom. Ils passent avant le libellé, qui
+  // change avec la langue et parfois en cours de décompte.
+  const BOUTONS_CONNUS = [
+    '.ytp-ad-skip-button-modern',
+    '.ytp-ad-skip-button',
+    '.ytp-skip-ad-button',
+    '.videoAdUiSkipButton',
+    '[class*="skip-button" i]',
+    '[class*="skipButton" i]'
+  ].join(', ');
+
   const PROMET_DE_PASSER = /^\s*(passer|skip|ignorer)\b/i;
   const FAUX_AMIS = /(navigation|contenu|content|principal|main menu|to video)/i;
 
@@ -260,20 +285,34 @@ if (window.top === window) {
     if (!el.isConnected) return false;
     const r = el.getBoundingClientRect();
     if (r.width < 8 || r.height < 8) return false;
+    // Dans l'écran, et pas un reste posé au loin.
+    if (r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) return false;
     const s = getComputedStyle(el);
     // La visibilité n'est pas consultée : c'est nous qui l'avons éteinte.
     return s.display !== 'none' && Number(s.opacity) > 0.05;
   };
 
+  const etiquette = (el) =>
+    (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim();
+
   const trouverPasser = () => {
-    if (!conteneur) return null;
-    const candidats = conteneur.querySelectorAll('button, [role="button"], a');
-    for (const el of candidats) {
-      const texte = (el.getAttribute('aria-label') || el.textContent || '').trim();
+    // Le cadre est cherché à chaque passage : un lecteur qui se redessine pour
+    // une publicité laisserait sinon une référence morte derrière lui.
+    const cadre = (video && video.isConnected && cadreDuLecteur(video)) || document.body;
+
+    const connus = [...cadre.querySelectorAll(BOUTONS_CONNUS)].filter(seVoit);
+    const sur = connus.find((e) => e.tagName === 'BUTTON' || e.getAttribute('role') === 'button');
+    if (sur || connus.length) {
+      const el = sur || connus[0];
+      return { el, texte: etiquette(el) || 'Passer' };
+    }
+
+    for (const el of cadre.querySelectorAll('button, [role="button"], a')) {
+      const texte = etiquette(el);
       if (!texte || texte.length > 48) continue;
       if (!PROMET_DE_PASSER.test(texte) || FAUX_AMIS.test(texte)) continue;
       if (!seVoit(el)) continue;
-      return { el, texte: texte.replace(/\s+/g, ' ') };
+      return { el, texte };
     }
     return null;
   };
@@ -315,8 +354,11 @@ if (window.top === window) {
     document.documentElement.classList.remove('hublink-sortie');
     if (video) video.removeAttribute('data-hublink-video');
     document
-      .querySelectorAll('[data-hublink-chemin]')
-      .forEach((n) => n.removeAttribute('data-hublink-chemin'));
+      .querySelectorAll('[data-hublink-chemin], [data-hublink-cadre]')
+      .forEach((n) => {
+        n.removeAttribute('data-hublink-chemin');
+        n.removeAttribute('data-hublink-cadre');
+      });
     if (style) style.remove();
     style = null;
     video = null;
@@ -331,6 +373,7 @@ if (window.top === window) {
     conteneur = cadreDuLecteur(video);
 
     video.setAttribute('data-hublink-video', '');
+    conteneur.setAttribute('data-hublink-cadre', '');
     // Un ancêtre transformé redéfinit ce à quoi « fixé » se rapporte : la
     // vidéo se retrouverait calée sur lui, pas sur la fenêtre.
     for (let n = video.parentElement; n && n !== document.documentElement; n = n.parentElement) {
