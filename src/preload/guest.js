@@ -235,12 +235,13 @@ if (window.top === window) {
     '.ytp-ad-skip-button',
     '.ytp-skip-ad-button',
     '.videoAdUiSkipButton',
-    '[class*="skip-button" i]',
-    '[class*="skipButton" i]'
+    '[class*="skip" i]'
   ].join(', ');
 
   const PROMET_DE_PASSER = /^\s*(passer|skip|ignorer)\b/i;
-  const FAUX_AMIS = /(navigation|contenu|content|principal|main menu|to video)/i;
+  // Un lien d'accessibilité, un raccourci de navigation : ce ne sont pas des
+  // commandes du lecteur, et « skip » y figure souvent.
+  const ECARTES = /(navigation|nav-|skip-nav|contenu|content|principal|main menu|to video)/i;
 
   let video = null;
   let conteneur = null;
@@ -291,24 +292,47 @@ if (window.top === window) {
   const etiquette = (el) =>
     (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim();
 
-  const trouverPasser = () => {
-    // Le cadre est cherché à chaque passage : un lecteur qui se redessine pour
-    // une publicité laisserait sinon une référence morte derrière lui.
-    const cadre = (video && video.isConnected && cadreDuLecteur(video)) || document.body;
-
-    const connus = [...cadre.querySelectorAll(BOUTONS_CONNUS)].filter(seVoit);
+  /** Cherche dans un document donné : la page, ou un cadre publicitaire. */
+  const chercherDans = (racine) => {
+    const connus = [...racine.querySelectorAll(BOUTONS_CONNUS)].filter(
+      (e) => seVoit(e) && !ECARTES.test(e.className + ' ' + etiquette(e))
+    );
     const sur = connus.find((e) => e.tagName === 'BUTTON' || e.getAttribute('role') === 'button');
     if (sur || connus.length) {
       const el = sur || connus[0];
       return { el, texte: etiquette(el) || 'Passer' };
     }
 
-    for (const el of cadre.querySelectorAll('button, [role="button"], a')) {
+    for (const el of racine.querySelectorAll('button, [role="button"], a')) {
       const texte = etiquette(el);
       if (!texte || texte.length > 48) continue;
-      if (!PROMET_DE_PASSER.test(texte) || FAUX_AMIS.test(texte)) continue;
+      if (!PROMET_DE_PASSER.test(texte) || ECARTES.test(texte)) continue;
       if (!seVoit(el)) continue;
       return { el, texte };
+    }
+    return null;
+  };
+
+  const trouverPasser = () => {
+    // Le cadre est cherché à chaque passage : un lecteur qui se redessine pour
+    // une publicité laisserait sinon une référence morte derrière lui.
+    const cadre = (video && video.isConnected && cadreDuLecteur(video)) || document.body;
+    const ici = chercherDans(cadre);
+    if (ici) return ici;
+
+    // Certaines publicités arrivent dans leur propre cadre. On n'y entre que
+    // s'il partage notre origine — sinon le navigateur nous le refuse, et
+    // c'est très bien ainsi.
+    for (const cadreInterne of cadre.querySelectorAll('iframe')) {
+      let doc = null;
+      try {
+        doc = cadreInterne.contentDocument;
+      } catch {
+        continue;
+      }
+      if (!doc || !doc.body) continue;
+      const dedans = chercherDans(doc);
+      if (dedans) return dedans;
     }
     return null;
   };

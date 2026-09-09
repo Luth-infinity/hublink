@@ -187,11 +187,16 @@ empêchait d'ignorer une publicité YouTube.
 
 Le bouton « Passer » n'est pas inventé : on cherche dans le cadre du lecteur un
 bouton visible dont le libellé promet de passer quelque chose, et cliquer le nôtre
-clique le sien. « Passer au contenu principal » est écarté — c'est un lien
-d'accessibilité, pas une commande. Les noms de classe connus (`ytp-ad-skip-button…`)
-passent avant le libellé, qui change avec la langue et parfois en cours de décompte.
-Le cadre est recherché à chaque passage : un lecteur qui se redessine pour une
-publicité laisserait sinon une référence morte derrière lui.
+clique le sien. Un nom de classe parlant de « skip » passe avant le libellé, qui
+change avec la langue et parfois en cours de décompte ; les liens d'accessibilité
+(« Passer au contenu principal », `skip-nav`) sont écartés. Le cadre est recherché à
+chaque passage — un lecteur qui se redessine pour une publicité laisserait sinon une
+référence morte —, et les cadres internes de même origine sont fouillés aussi,
+certaines publicités y vivant.
+
+Éprouvé sur youtube.com avec quatre formes de bouton, dont une au nom de classe
+**et** au libellé inconnus : les quatre sont relayées et le clic parvient au lecteur.
+Sans publicité, rien ne paraît.
 
 **Les onglets du navigateur ont un preload depuis la 0.5.3** — le même que les
 services, avec `--hublink-onglet`, qui écarte la pastille de non-lus et la
