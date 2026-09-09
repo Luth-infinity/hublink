@@ -210,32 +210,18 @@ if (window.top === window) {
       perspective: none !important;
       contain: none !important;
     }
-    /* C'est le CADRE du lecteur qu'on fixe à l'écran, et non la vidéo :
-       sortir celle-ci du flux effondrait le lecteur à zéro de hauteur, et
-       son bouton « Passer » se retrouvait posé hors de l'écran. Le lecteur
-       garde ainsi sa mise en page — invisible, mais intacte. */
-    html.hublink-sortie [data-hublink-cadre] {
+    html.hublink-sortie [data-hublink-video] {
+      visibility: visible !important;
       position: fixed !important;
       inset: 0 !important;
       width: 100vw !important;
       height: 100vh !important;
       max-width: none !important;
       max-height: none !important;
-      min-width: 0 !important;
-      min-height: 0 !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      background: #000 !important;
-      z-index: 2147483647 !important;
-    }
-    html.hublink-sortie [data-hublink-video] {
-      visibility: visible !important;
-      width: 100% !important;
-      height: 100% !important;
-      max-width: none !important;
-      max-height: none !important;
       margin: 0 !important;
       object-fit: contain !important;
+      background: #000 !important;
+      z-index: 2147483647 !important;
     }
   `;
 
@@ -281,14 +267,24 @@ if (window.top === window) {
     v.parentElement ||
     document.body;
 
+  /**
+   * L'élément est-il rendu ?
+   *
+   * Ni sa taille ni sa position ne peuvent en répondre : la vidéo sortie de
+   * son flux effondre le lecteur, et son bouton se retrouve sans dimensions,
+   * posé n'importe où. `checkVisibility` répond sur le rendu lui-même. On lui
+   * fait ignorer `visibility`, que nous avons éteinte pour toute la page.
+   */
   const seVoit = (el) => {
     if (!el.isConnected) return false;
-    const r = el.getBoundingClientRect();
-    if (r.width < 8 || r.height < 8) return false;
-    // Dans l'écran, et pas un reste posé au loin.
-    if (r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) return false;
+    if (typeof el.checkVisibility === 'function') {
+      return el.checkVisibility({
+        opacityProperty: true,
+        visibilityProperty: false,
+        contentVisibilityAuto: true
+      });
+    }
     const s = getComputedStyle(el);
-    // La visibilité n'est pas consultée : c'est nous qui l'avons éteinte.
     return s.display !== 'none' && Number(s.opacity) > 0.05;
   };
 
@@ -373,7 +369,6 @@ if (window.top === window) {
     conteneur = cadreDuLecteur(video);
 
     video.setAttribute('data-hublink-video', '');
-    conteneur.setAttribute('data-hublink-cadre', '');
     // Un ancêtre transformé redéfinit ce à quoi « fixé » se rapporte : la
     // vidéo se retrouverait calée sur lui, pas sur la fenêtre.
     for (let n = video.parentElement; n && n !== document.documentElement; n = n.parentElement) {

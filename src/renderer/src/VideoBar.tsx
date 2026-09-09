@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import {
-  Minimize2,
   Pause,
   Play,
   RotateCcw,
@@ -9,7 +8,8 @@ import {
   SkipForward,
   Volume1,
   Volume2,
-  VolumeX
+  VolumeX,
+  X
 } from 'lucide-react';
 import type { EtatVideo } from '@/types';
 
@@ -193,8 +193,10 @@ export default function VideoBar() {
             {horloge(etat?.position)}
             {duree > 0 && <span className="opacity-60"> / {horloge(duree)}</span>}
           </span>
-          <Bouton titre="Ramener dans Hublink" onClick={() => api.video.fermer()}>
-            <Minimize2 className="size-4" />
+          {/* Une croix, parce que c'est ce qu'on cherche sur une fenêtre. Elle
+              ne jette rien : la page retourne d'où elle vient. */}
+          <Bouton titre="Fermer — la page revient dans Hublink" onClick={() => api.video.fermer()}>
+            <X className="size-4" />
           </Bouton>
         </div>
       </div>

@@ -174,11 +174,16 @@ La page n'est pas remaniée : tout devient `visibility: hidden`, et la vidéo re
 visible. Déplacer l'élément dans le DOM serait plus simple, mais les lecteurs le
 remettent aussitôt en place.
 
-**C'est le cadre du lecteur qu'on fixe à l'écran, pas la vidéo.** Sortir celle-ci du
-flux effondrait le lecteur à zéro de hauteur, et son bouton « Passer » se retrouvait
-posé hors de l'écran — donc écarté par le test de visibilité. Une publicité YouTube
-ne pouvait pas être ignorée. Le lecteur garde ainsi sa mise en page : invisible, mais
-intacte.
+**Fixer le cadre du lecteur plutôt que la vidéo ne marche pas** : les lecteurs
+dimensionnent leurs conteneurs eux-mêmes, et l'image devenait noire. C'est bien la
+vidéo qu'on fixe.
+
+En contrepartie, sortir la vidéo de son flux effondre le lecteur, et son bouton
+« Passer » se retrouve sans dimensions ni position utilisables. **Ne jamais juger de
+sa visibilité sur un rectangle** : `checkVisibility({ visibilityProperty: false })`
+répond sur le rendu lui-même, et ignore le `visibility` que nous avons éteint pour
+toute la page. Un bouton mesuré à 0 × 0 est ainsi relayé correctement — c'est ce qui
+empêchait d'ignorer une publicité YouTube.
 
 Le bouton « Passer » n'est pas inventé : on cherche dans le cadre du lecteur un
 bouton visible dont le libellé promet de passer quelque chose, et cliquer le nôtre
