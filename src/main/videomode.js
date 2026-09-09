@@ -28,6 +28,7 @@ let ratioApplique = 0;
 let ajustement = false;
 let guetteur = null;
 let survole = null;
+let battements = 0;
 
 function configurer(r) {
   reglages = r;
@@ -99,6 +100,12 @@ function guetterLePointeur() {
     const p = screen.getCursorScreenPoint();
     const b = fenetre.getBounds();
     const dedans = p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
+    // Une application passée en plein écran fait perdre son rang à une fenêtre
+    // au-dessus des autres. Windows ne le signale pas : on le réaffirme, assez
+    // rarement pour que ça ne coûte rien.
+    battements = (battements + 1) % 10;
+    if (battements === 0) fenetre.setAlwaysOnTop(true, 'screen-saver');
+
     if (dedans === survole) return;
     survole = dedans;
     fenetre.webContents.send('video:survol', dedans);
@@ -132,6 +139,14 @@ async function ouvrir() {
     maximizable: false,
     fullscreenable: false,
     alwaysOnTop: true,
+    // Elle ne prend jamais le premier plan. Sans cela, un clic sur la pause
+    // pendant une partie sortait le jeu du plein écran, et la vidéo se
+    // retrouvait derrière : il fallait aller la rechercher. Les clics lui
+    // parviennent quand même, c'est le focus qu'elle décline — comme le fait
+    // l'incrustation de Chromium.
+    focusable: false,
+    // Sans focus, une entrée dans la barre des tâches ne mène nulle part.
+    skipTaskbar: true,
     backgroundColor: '#000000',
     show: false,
     title: 'Hublink — vidéo',
@@ -142,9 +157,7 @@ async function ouvrir() {
       sandbox: true
     }
   });
-  // « floating » la maintient au-dessus des fenêtres ordinaires sans passer
-  // par-dessus les menus du système.
-  fenetre.setAlwaysOnTop(true, 'floating');
+  fenetre.setAlwaysOnTop(true, 'screen-saver');
   // En attendant de connaître les proportions réelles de l'image.
   ratioApplique = 0;
 

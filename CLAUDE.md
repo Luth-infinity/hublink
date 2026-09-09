@@ -8,12 +8,12 @@ Le code et les commits sont **en français**, au présent, décrivant le comport
 plutôt que la modification (« Corrige l'import manquant qui cassait le démarrage »).
 Les commentaires expliquent *pourquoi*, pas *quoi*.
 
-## État au 2 septembre 2026
+## État au 9 septembre 2026
 
 | | Version |
 |---|---|
-| Windows | **0.5.2** |
-| macOS | **0.5.2** |
+| Windows | **0.5.3** |
+| macOS | **0.5.3** |
 
 Les deux plateformes sont à parité, et **le restent sans rien faire** depuis la 0.5.2 :
 publier une release déclenche la construction des `.dmg` sur un runner macOS de GitHub
@@ -142,6 +142,15 @@ l'image.
 La molette ne fait pas défiler la page sortie, elle règle le son : une page qui
 glisserait derrière une image fixe n'aurait aucun sens.
 
+**La fenêtre décline le premier plan** (`focusable: false`). Sans cela, cliquer sur la
+pause pendant une partie sortait le jeu du plein écran et la vidéo se retrouvait
+derrière : il fallait aller la rechercher. Les clics lui parviennent quand même — elle
+n'est pas `WS_EX_TRANSPARENT`, seulement `WS_EX_NOACTIVATE`, comme l'incrustation de
+Chromium. En contrepartie elle n'a jamais le clavier : **pas de raccourcis dans la
+barre**, tout passe par les boutons. Son rang de fenêtre au-dessus des autres est
+réaffirmé toutes les deux secondes, une application passée en plein écran le lui faisant
+perdre sans que Windows le signale.
+
 La page n'est pas remaniée : tout devient `visibility: hidden`, la vidéo repasse
 visible et fixée à l'écran. Déplacer l'élément dans le DOM serait plus simple, mais
 les lecteurs le remettent aussitôt en place.
@@ -221,6 +230,12 @@ Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en 
 - **Un titre de page n'est pas une source stable.** Les messageries le font clignoter
   pour attirer l'œil, les traducteurs le réécrivent à chaque frappe. La pastille ne
   redescend donc qu'après un silence, et l'historique ne se consigne qu'au calme.
+- **Une `WebContentsView` ne reprend pas le clavier quand la fenêtre redevient
+  active.** Le curseur clignote encore dans le champ, `document.hasFocus()` répond non,
+  et tout ce qui vient du clavier se perd. C'est ce qui empêchait le « Replace » des
+  outils de traduction : ils prennent le premier plan, le rendent, puis envoient un
+  Ctrl+V qui n'arrivait nulle part. `index.js` rend le focus à la vue sur `win.on('focus')`
+  — sauf si c'est le shell qui écrit, pour ne pas lui arracher son champ.
 - `navigator.clipboard.readText()` exige que la page ait le focus, en plus de la
   permission : sinon « Document is not focused », sans qu'aucune question ne soit posée.
 - **`dialog.showMessageBox` sans fenêtre parente peut se poser derrière.** La page

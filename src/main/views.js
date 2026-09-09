@@ -836,6 +836,20 @@ class ViewManager {
     else if (store.getService(id)) await this.show(id);
   }
 
+  /**
+   * Rend le clavier à la page après un retour au premier plan.
+   *
+   * Une `WebContentsView` ne le reprend pas toute seule : la fenêtre
+   * redevient active, la page reste sourde. Le curseur clignote encore dans le
+   * champ, mais tout ce qui arrive du clavier se perd — le collage d'un outil
+   * de traduction qui rend la main après avoir pris le premier plan, par
+   * exemple.
+   */
+  redonnerLeFocus() {
+    if (this.overlay || !this.current || this.current.webContents.isDestroyed()) return;
+    this.current.webContents.focus();
+  }
+
   setOverlay(active) {
     this.overlay = Boolean(active);
     if (!this.current) return;

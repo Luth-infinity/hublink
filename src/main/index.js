@@ -342,6 +342,19 @@ function createWindow() {
   // signalement, lui, fonctionne sur les deux plateformes sans certificat.
   const checkUpdateOnFocus = updates.watch((update) => send('update:available', update));
   win.on('focus', checkUpdateOnFocus);
+
+  // La page ne reprend pas le clavier toute seule quand la fenêtre redevient
+  // active. On le lui rend — sauf si c'est le shell qui écrit, auquel cas on
+  // ne va pas lui arracher son champ sous les doigts.
+  win.on('focus', async () => {
+    if (!win || win.isDestroyed()) return;
+    const shellEcrit = await win.webContents
+      .executeJavaScript(
+        "(() => { const a = document.activeElement; return Boolean(a && (a.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(a.tagName))); })()"
+      )
+      .catch(() => false);
+    if (!shellEcrit) views.redonnerLeFocus();
+  });
 }
 
 function persistWindow() {

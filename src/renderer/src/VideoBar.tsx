@@ -33,6 +33,10 @@ const SAUT = 10;
  * commandes reviennent quand le pointeur approche. Le bouton du lecteur, lui,
  * ne se cache jamais : il ne dure que quelques secondes.
  *
+ * La fenêtre décline le premier plan — un clic sur la pause pendant une partie
+ * en sortirait le jeu — donc elle n'a jamais le clavier : pas de raccourcis
+ * ici, tout passe par ces boutons.
+ *
  * L'état arrive de la page deux fois par seconde.
  */
 export default function VideoBar() {
@@ -60,28 +64,6 @@ export default function VideoBar() {
     (quoi: string, valeur?: number) => api.video.commande(quoi, valeur),
     []
   );
-
-  // Les raccourcis d'un lecteur, quand la bande a le focus. La page garde les
-  // siens le reste du temps : c'est elle qui a le clavier.
-  React.useEffect(() => {
-    const actions: Record<string, () => void> = {
-      ' ': () => commande('lecture'),
-      k: () => commande('lecture'),
-      arrowleft: () => commande('avancer', -SAUT),
-      arrowright: () => commande('avancer', SAUT),
-      m: () => commande('muet'),
-      s: () => etat?.passer && commande('passer'),
-      escape: () => api.video.fermer()
-    };
-    const touche = (e: KeyboardEvent) => {
-      const faire = actions[e.key === ' ' ? ' ' : e.key.toLowerCase()];
-      if (!faire) return;
-      e.preventDefault();
-      faire();
-    };
-    window.addEventListener('keydown', touche);
-    return () => window.removeEventListener('keydown', touche);
-  }, [commande, etat?.passer]);
 
   const duree = etat?.duree ?? 0;
   const part = duree > 0 ? Math.min(1, (etat?.position ?? 0) / duree) : 0;
@@ -129,20 +111,20 @@ export default function VideoBar() {
       <div className="flex min-w-0 flex-1 items-center gap-0.5 pl-1.5 pr-1">
         <div className={cn('flex shrink-0 items-center gap-0.5 transition-opacity duration-200', fondu)}>
           <Bouton
-            titre={etat?.pause ? 'Lire (espace)' : 'Mettre en pause (espace)'}
+            titre={etat?.pause ? 'Lire' : 'Mettre en pause'}
             onClick={() => commande('lecture')}
             fort
           >
             {etat?.pause ? <Play className="size-[18px]" /> : <Pause className="size-[18px]" />}
           </Bouton>
           <Bouton
-            titre="Reculer de 10 secondes (flèche gauche)"
+            titre="Reculer de 10 secondes"
             onClick={() => commande('avancer', -SAUT)}
           >
             <RotateCcw className="size-4" />
           </Bouton>
           <Bouton
-            titre="Avancer de 10 secondes (flèche droite)"
+            titre="Avancer de 10 secondes"
             onClick={() => commande('avancer', SAUT)}
           >
             <RotateCw className="size-4" />
@@ -153,7 +135,7 @@ export default function VideoBar() {
               l'image règle le son elle aussi. */}
           <div className="group/son flex shrink-0 items-center">
             <Bouton
-              titre={etat?.muet ? 'Rétablir le son (M)' : 'Couper le son (M)'}
+              titre={etat?.muet ? 'Rétablir le son' : 'Couper le son'}
               onClick={() => commande('muet')}
             >
               {etat?.muet ? (
@@ -200,7 +182,7 @@ export default function VideoBar() {
           <button
             type="button"
             onClick={() => commande('passer')}
-            title={`${etat.passer} (S)`}
+            title={etat.passer}
             className={cn(
               'monte-passer cliquable flex h-7 max-w-[60%] shrink-0 items-center gap-1',
               'rounded-full bg-primary pl-2 pr-2.5 text-xs font-medium text-primary-foreground',
@@ -219,7 +201,7 @@ export default function VideoBar() {
               {duree > 0 && <span className="opacity-50"> / {horloge(duree)}</span>}
             </span>
           )}
-          <Bouton titre="Ramener dans Hublink (Échap)" onClick={() => api.video.fermer()}>
+          <Bouton titre="Ramener dans Hublink" onClick={() => api.video.fermer()}>
             <Minimize2 className="size-4" />
           </Bouton>
         </div>
