@@ -163,6 +163,8 @@ export type Suggestion = {
   libelle: string;
   detail: string;
   url: string | null;
+  /** Suggestion d'une frappe précédente, gardée le temps que les nouvelles arrivent. */
+  perime?: boolean;
 };
 
 export type EtatSuggestions = {

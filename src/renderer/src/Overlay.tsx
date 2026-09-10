@@ -176,7 +176,8 @@ export default function Overlay() {
         </>
       )}
 
-      {suggestions && <Suggestions etat={suggestions} />}
+      {/* Toujours monté : la liste doit pouvoir s'effacer en fondu. */}
+      <Suggestions etat={suggestions} />
 
       <Toaster
         theme="system"

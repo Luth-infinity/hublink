@@ -122,7 +122,22 @@ function creer({ diffuser, naviguer }) {
     // Ce qu'on tape vient toujours en tête : Entrée sans rien choisir y mène.
     const tete = { type: RESSEMBLE_A_UNE_ADRESSE.test(brut.trim()) ? 'adresse' : 'recherche', libelle: brut.trim(), detail: '', url: null };
     const connues = locales(brut);
-    etat = { ancre, texte: brut, items: [tete, ...connues], actif: 0 };
+    // Ce que le moteur proposait à la frappe précédente reste tant que ça
+    // concorde avec la saisie. Sans cela la liste perdait ses suggestions à
+    // chaque lettre, puis les retrouvait un instant plus tard : elle battait
+    // comme un cœur, et c'est ce qui la faisait clignoter.
+    //
+    // Même celles qui ne concordent plus restent, estompées, jusqu'à ce que
+    // les nouvelles arrivent : passer de « i » à « ip » écartait presque tout,
+    // et la liste tombait de huit lignes à deux avant de regrandir.
+    const cle = plat(brut.trim());
+    const anciennes = etat ? etat.items.slice(1).filter((i) => i.type === 'recherche') : [];
+    const concordent = (i) => plat(i.libelle) !== cle && plat(i.libelle).startsWith(cle);
+    const restes = [
+      ...anciennes.filter(concordent).map((i) => ({ ...i, perime: false })),
+      ...anciennes.filter((i) => !concordent(i) && plat(i.libelle) !== cle).map((i) => ({ ...i, perime: true }))
+    ];
+    etat = { ancre, texte: brut, items: [tete, ...connues, ...restes].slice(0, MAX_TOTAL), actif: 0 };
     pousser();
 
     const controleur = new AbortController();
@@ -138,9 +153,15 @@ function creer({ diffuser, naviguer }) {
     }
     if (mien !== numero || !etat) return;
 
-    const deja = new Set(etat.items.map((i) => plat(i.libelle)));
+    // Les suggestions fraîches remplacent celles qu'on avait gardées ; la
+    // saisie et ce qu'on connaît déjà ne bougent pas.
+    const gardees = etat.items.filter((i, n) => n === 0 || i.type !== 'recherche');
+    // Sans réponse du moteur (hors ligne, délai dépassé), les lignes estompées
+    // partent quand même : elles ne concernent plus ce qui est tapé.
+    const deja = new Set(gardees.map((i) => plat(i.libelle)));
     const neuves = venues.filter((v) => !deja.has(plat(v.libelle)));
-    etat = { ...etat, items: [...etat.items, ...neuves].slice(0, MAX_TOTAL) };
+    const items = [...gardees, ...neuves].slice(0, MAX_TOTAL);
+    etat = { ...etat, items, actif: Math.min(etat.actif, items.length - 1) };
     pousser();
   };
 

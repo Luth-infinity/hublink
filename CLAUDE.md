@@ -240,6 +240,23 @@ jetée. Ce qui ressemble à une adresse n'est jamais envoyé au moteur.
 **Sans `oe=utf-8`, le service répond en Latin-1** (`charset=ISO-8859-1`) : lu comme de
 l'UTF-8, « météo » devenait « m�t�o ». On décode aussi selon l'en-tête annoncé.
 
+**Ce qui faisait clignoter la liste**, mesuré en relevant le nombre de lignes toutes
+les 25 ms pendant qu'on tape « iphone » :
+
+- les suggestions du moteur étaient jetées à chaque lettre puis rendues un instant
+  plus tard — la liste passait de 8 lignes à 2 puis à 8. Elles restent désormais,
+  **estompées** (`perime`), jusqu'à l'arrivée des nouvelles ;
+- les lignes étaient identifiées par leur position, donc recréées dès qu'une ligne
+  bougeait au-dessus. Les suggestions du moteur sont tenues par leur **rang** et
+  changent de texte sur place ; la saisie garde toujours la même clé.
+
+Après correction, la liste ne descend plus sous 7 lignes et deux lignes seulement sont
+recréées sur toute la frappe. La hauteur est fixée par ligne (`LIGNE = 32`) pour
+pouvoir s'animer — une hauteur automatique ne se transitionne pas —, le surlignage est
+un fond unique qui glisse, et la liste s'efface en fondu avant de disparaître, en
+cessant aussitôt de compter pour le pointeur. Elle prend la largeur de la barre
+entière (`[data-barre-adresse]`), pas celle du champ.
+
 ## Le partage d'écran est à nous aussi
 
 Chromium demande normalement quoi partager. Electron n'a pas ce sélecteur : sans

@@ -50,7 +50,11 @@ function AddressInput({ url }: { url: string }) {
   // par lettre ne servirait à rien, la suivante arrive déjà.
   const suggerer = (texte: string) => {
     if (minuterie.current) clearTimeout(minuterie.current);
-    minuterie.current = setTimeout(() => api.suggestions.demander(texte, ancreDe(ref.current)), 110);
+    minuterie.current = setTimeout(() => api.suggestions.demander(
+        texte,
+        // La liste épouse la barre entière, pas seulement le champ qu'elle contient.
+        ancreDe(ref.current?.closest<HTMLElement>('[data-barre-adresse]') ?? ref.current)
+      ), 110);
   };
   const oublier = () => {
     if (minuterie.current) clearTimeout(minuterie.current);
@@ -376,7 +380,7 @@ export function Toolbar({
         </Button>
       </div>
 
-      <div className="no-drag mx-1 flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md bg-shell-input px-2.5">
+      <div data-barre-adresse className="no-drag mx-1 flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md bg-shell-input px-2.5">
         {browserMode ? (
           <AddressInput url={nav?.url ?? ''} />
         ) : (

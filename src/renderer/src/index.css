@@ -242,6 +242,64 @@ html.partage #root {
 
 /* Le bouton du lecteur ne surgit pas : il monte, comme s'il venait de
    l'image. */
+/* --- La liste des suggestions ----------------------------------------------
+   Elle s'ouvre en glissant depuis la barre, grandit et rétrécit en souplesse,
+   et ses lignes neuves arrivent en fondu. Les lignes déjà là ne bougent pas :
+   c'est ce qui la rend calme pendant qu'on tape. */
+@keyframes ouvre-suggestions {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes apparait-ligne {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.liste-suggestions {
+  animation: ouvre-suggestions 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition:
+    height 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.liste-suggestions.se-ferme {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.ligne-suggestion {
+  animation: apparait-ligne 160ms ease both;
+}
+
+/* La ligne active est un seul fond qui glisse d'une ligne à l'autre : le regard
+   le suit, au lieu d'un surlignage qui saute. */
+.surligne-suggestion {
+  transition: transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liste-suggestions,
+  .ligne-suggestion,
+  .surligne-suggestion {
+    animation: none;
+    transition: none;
+  }
+}
+
 @keyframes monte-passer {
   from {
     opacity: 0;
