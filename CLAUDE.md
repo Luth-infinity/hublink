@@ -8,12 +8,12 @@ Le code et les commits sont **en français**, au présent, décrivant le comport
 plutôt que la modification (« Corrige l'import manquant qui cassait le démarrage »).
 Les commentaires expliquent *pourquoi*, pas *quoi*.
 
-## État au 9 septembre 2026
+## État au 10 septembre 2026
 
 | | Version |
 |---|---|
-| Windows | **0.5.4** |
-| macOS | **0.5.4** |
+| Windows | **0.5.5** |
+| macOS | **0.5.5** |
 
 Les deux plateformes sont à parité, et **le restent sans rien faire** depuis la 0.5.2 :
 publier une release déclenche la construction des `.dmg` sur un runner macOS de GitHub
