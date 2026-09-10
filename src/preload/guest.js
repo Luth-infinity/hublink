@@ -223,6 +223,16 @@ if (window.top === window) {
       background: #000 !important;
       z-index: 2147483647 !important;
     }
+      /* Le temps d'un vrai clic sur le bouton du lecteur : l'image laisse passer
+       le pointeur, et le bouton redevient atteignable. L'image reste peinte
+       par-dessus, rien ne clignote. */
+    html.hublink-clic [data-hublink-video] {
+      pointer-events: none !important;
+    }
+    html.hublink-clic [data-hublink-cible] {
+      visibility: visible !important;
+      pointer-events: auto !important;
+    }
   `;
 
   // Un libellé de bouton qui promet de sauter un passage, dans les deux
@@ -292,18 +302,24 @@ if (window.top === window) {
   const etiquette = (el) =>
     (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim();
 
-  /** Cherche dans un document donné : la page, ou un cadre publicitaire. */
+  const estUnBouton = (e) => e.tagName === 'BUTTON' || e.getAttribute('role') === 'button';
+
+  /**
+   * Cherche dans un document donné : la page, ou un cadre publicitaire.
+   *
+   * Un bouton, et rien d'autre. YouTube empile autour du sien des conteneurs
+   * qui portent le même nom et le même libellé, dont un de la taille du
+   * lecteur : le prendre pour le bouton faisait paraître une pastille qui ne
+   * faisait rien — et un vrai clic en son centre ouvrirait le site de
+   * l'annonceur. Pour la même raison, un lien n'est jamais retenu.
+   */
   const chercherDans = (racine) => {
     const connus = [...racine.querySelectorAll(BOUTONS_CONNUS)].filter(
-      (e) => seVoit(e) && !ECARTES.test(e.className + ' ' + etiquette(e))
+      (e) => estUnBouton(e) && seVoit(e) && !ECARTES.test(String(e.className) + ' ' + etiquette(e))
     );
-    const sur = connus.find((e) => e.tagName === 'BUTTON' || e.getAttribute('role') === 'button');
-    if (sur || connus.length) {
-      const el = sur || connus[0];
-      return { el, texte: etiquette(el) || 'Passer' };
-    }
+    if (connus.length) return { el: connus[0], texte: etiquette(connus[0]) || 'Passer' };
 
-    for (const el of racine.querySelectorAll('button, [role="button"], a')) {
+    for (const el of racine.querySelectorAll('button, [role="button"]')) {
       const texte = etiquette(el);
       if (!texte || texte.length > 48) continue;
       if (!PROMET_DE_PASSER.test(texte) || ECARTES.test(texte)) continue;
@@ -358,15 +374,35 @@ if (window.top === window) {
   // Une vidéo sortie ne se fait pas défiler : la molette ferait glisser la
   // page derrière une image qui, elle, ne bouge pas. Elle règle le son, comme
   // dans n'importe quel lecteur.
+  // Une molette à roue libre — la MX Master et ses cousines — envoie des
+  // dizaines de crans minuscules par geste, et continue sur sa lancée une fois
+  // lâchée. Compter cinq pour cent par événement vidait le son d'un seul
+  // lancer, et le faisait « tout seul » pendant que la roue finissait de
+  // tourner. On mesure donc la distance parcourue, et un même geste ne peut
+  // déplacer le volume que d'un cinquième.
+  const VOLUME_PAR_PIXEL = 0.0005;
+  const MAX_PAR_GESTE = 0.2;
+  const PAUSE_ENTRE_GESTES = 350;
+  let geste = { depart: 0, cumul: 0, dernier: 0 };
+
   const molette = (e) => {
     e.preventDefault();
     if (!video) return;
-    video.volume = Math.min(1, Math.max(0, video.volume - Math.sign(e.deltaY) * 0.05));
+    const pixels = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    const maintenant = performance.now();
+    if (maintenant - geste.dernier > PAUSE_ENTRE_GESTES) {
+      geste = { depart: video.muted ? 0 : video.volume, cumul: 0, dernier: maintenant };
+    }
+    geste.dernier = maintenant;
+    geste.cumul += pixels;
+    const ecart = Math.max(-MAX_PAR_GESTE, Math.min(MAX_PAR_GESTE, -geste.cumul * VOLUME_PAR_PIXEL));
+    video.volume = Math.min(1, Math.max(0, geste.depart + ecart));
     if (video.volume > 0) video.muted = false;
     ipcRenderer.send('video:etat', etat());
   };
 
   const arreter = () => {
+    finirLeClic();
     clearInterval(veille);
     veille = null;
     if (bloqueur) window.removeEventListener('wheel', bloqueur, { capture: true });
@@ -385,6 +421,37 @@ if (window.top === window) {
     conteneur = null;
     dernierPasser = null;
   };
+
+  // YouTube ignore un clic fabriqué par script sur son bouton : il n'accepte
+  // que celui dont le moteur garantit qu'il vient de l'utilisateur. On prépare
+  // donc l'endroit, et le processus principal y envoie un vrai clic.
+  let clicEnCours = null;
+
+  const finirLeClic = () => {
+    if (!clicEnCours) return;
+    clearTimeout(clicEnCours.garde);
+    clicEnCours.bouton.removeAttribute('data-hublink-cible');
+    document.documentElement.classList.remove('hublink-clic');
+    scrollTo(clicEnCours.defilement.x, clicEnCours.defilement.y);
+    clicEnCours = null;
+  };
+
+  const preparerLeClic = (bouton) => {
+    finirLeClic();
+    clicEnCours = { bouton, defilement: { x: scrollX, y: scrollY }, garde: setTimeout(finirLeClic, 900) };
+    bouton.setAttribute('data-hublink-cible', '');
+    document.documentElement.classList.add('hublink-clic');
+    // La vidéo est fixée à l'écran : faire défiler la page ne se voit pas, et
+    // amène le bouton là où un clic peut l'atteindre.
+    bouton.scrollIntoView({ block: 'center', inline: 'center' });
+    const r = bouton.getBoundingClientRect();
+    const x = Math.round(r.left + r.width / 2);
+    const y = Math.round(r.top + r.height / 2);
+    if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return void finirLeClic();
+    ipcRenderer.send('video:cliquer-ici', { x, y });
+  };
+
+  ipcRenderer.on('video:clic-fait', finirLeClic);
 
   ipcRenderer.on('video:sortir', () => {
     arreter();
@@ -426,9 +493,7 @@ if (window.top === window) {
     if (quoi === 'muet') video.muted = !video.muted;
     if (quoi === 'avancer') video.currentTime += Number(valeur) || 10;
     if (quoi === 'aller') video.currentTime = Math.max(0, Number(valeur) || 0);
-    if (quoi === 'passer' && dernierPasser && dernierPasser.el.isConnected) {
-      dernierPasser.el.click();
-    }
+    if (quoi === 'passer' && dernierPasser && dernierPasser.el.isConnected) preparerLeClic(dernierPasser.el);
     const e = etat();
     if (e) ipcRenderer.send('video:etat', e);
   });

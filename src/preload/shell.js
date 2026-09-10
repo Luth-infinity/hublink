@@ -108,6 +108,17 @@ contextBridge.exposeInMainWorld('hublink', {
     setInteractive: (on) => ipcRenderer.send('overlay:interactive', on)
   },
 
+  // Les suggestions de la barre d'adresse : le champ envoie ce qu'on tape et
+  // les flèches, le principal tient la liste, le calque la dessine.
+  suggestions: {
+    demander: (texte, ancre) => ipcRenderer.send('suggestions:demander', { texte, ancre }),
+    deplacer: (delta) => ipcRenderer.send('suggestions:deplacer', delta),
+    survoler: (index) => ipcRenderer.send('suggestions:survoler', index),
+    choisir: (index, texte) => ipcRenderer.send('suggestions:choisir', { index, texte }),
+    fermer: () => ipcRenderer.send('suggestions:fermer'),
+    onEtat: (handler) => on('suggestions:etat', handler)
+  },
+
   // Le sélecteur de partage d'écran : il reçoit la liste des écrans et des
   // fenêtres, et rend l'identifiant choisi — ou rien du tout.
   partage: {

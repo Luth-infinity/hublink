@@ -39,33 +39,66 @@ function AddressInput({ url }: { url: string }) {
   const shown = url.startsWith('hublink://') ? '' : url;
   const [value, setValue] = React.useState(shown);
   const [editing, setEditing] = React.useState(false);
+  const ref = React.useRef<HTMLInputElement>(null);
+  const minuterie = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     if (!editing) setValue(shown);
   }, [shown, editing]);
 
+  // Les suggestions suivent la frappe avec un léger temps mort : une demande
+  // par lettre ne servirait à rien, la suivante arrive déjà.
+  const suggerer = (texte: string) => {
+    if (minuterie.current) clearTimeout(minuterie.current);
+    minuterie.current = setTimeout(() => api.suggestions.demander(texte, ancreDe(ref.current)), 110);
+  };
+  const oublier = () => {
+    if (minuterie.current) clearTimeout(minuterie.current);
+    minuterie.current = null;
+  };
+  React.useEffect(() => oublier, []);
+
   return (
     <input
+      ref={ref}
       value={value}
-      onChange={(e) => setValue(e.target.value)}
+      onChange={(e) => {
+        setValue(e.target.value);
+        suggerer(e.target.value);
+      }}
       onFocus={(e) => {
         setEditing(true);
         e.currentTarget.select();
       }}
-      onBlur={() => setEditing(false)}
+      onBlur={() => {
+        setEditing(false);
+        oublier();
+        api.suggestions.fermer();
+      }}
       onKeyDown={(e) => {
+        // Les flèches parcourent la liste, qui vit dans une autre fenêtre : le
+        // principal tient la ligne désignée, le calque la montre.
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          api.suggestions.deplacer(e.key === 'ArrowDown' ? 1 : -1);
+        }
         if (e.key === 'Enter') {
-          api.nav.go(value);
+          oublier();
+          api.suggestions.choisir(undefined, value);
           e.currentTarget.blur();
         }
         if (e.key === 'Escape') {
+          oublier();
+          api.suggestions.fermer();
           setValue(url);
           e.currentTarget.blur();
         }
       }}
       spellCheck={false}
+      autoComplete="off"
       placeholder="Rechercher ou saisir une adresse"
       aria-label="Adresse"
+      aria-autocomplete="list"
       className="min-w-0 flex-1 bg-transparent text-[11px] text-shell-foreground outline-none placeholder:text-shell-muted"
     />
   );

@@ -362,6 +362,24 @@ function brancherIpc() {
 
   ipcMain.on('video:deplacer', (_e, encours) => (encours ? suivreLeCurseur() : poserLaFenetre()));
 
+  // Le bouton du lecteur n'accepte qu'un vrai clic. La page a préparé
+  // l'endroit ; on y envoie un clic que le moteur tient pour authentique, puis
+  // on la laisse tout remettre en place. Seule la vue vidéo peut le demander :
+  // une autre page n'a pas à faire cliquer à sa place.
+  ipcMain.on('video:cliquer-ici', (e, lieu) => {
+    if (!vue || vue.webContents.isDestroyed() || e.sender !== vue.webContents) return;
+    const x = Math.round(Number(lieu && lieu.x));
+    const y = Math.round(Number(lieu && lieu.y));
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const wc = vue.webContents;
+    wc.sendInputEvent({ type: 'mouseMove', x, y });
+    wc.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
+    wc.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
+    setTimeout(() => {
+      if (vue && !vue.webContents.isDestroyed()) vue.webContents.send('video:clic-fait');
+    }, 80);
+  });
+
   ipcMain.on('video:fermer', () => fermer());
 }
 

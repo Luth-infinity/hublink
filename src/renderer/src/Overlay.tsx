@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { Toaster, toast } from 'sonner';
-import type { AppState, Download } from '@/types';
+import type { AppState, Download, EtatSuggestions } from '@/types';
 import { useSyncedTheme } from '@/lib/theme';
 import { AccountsPanel, DownloadsPanel, HistoryPanel } from '@/components/panels';
 import { MenuFlottant, type DemandeMenu } from '@/components/MenuFlottant';
+import { Suggestions } from '@/components/Suggestions';
 
 const api = window.hublink;
 
@@ -34,7 +35,7 @@ type Panneau = { kind: 'downloads' | 'history' | 'accounts'; anchor: Ancre } | n
  * dossier » après un téléchargement — ne pouvait pas être cliqué.
  */
 function surUnMessage(x: number, y: number) {
-  return Array.from(document.querySelectorAll('[data-sonner-toast]')).some((noeud) => {
+  return Array.from(document.querySelectorAll('[data-sonner-toast], [data-suggestions]')).some((noeud) => {
     const r = noeud.getBoundingClientRect();
     return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
   });
@@ -74,6 +75,10 @@ export default function Overlay() {
   );
 
   React.useEffect(() => api.downloadsList.onList(setDownloads), []);
+  // La liste de la barre d'adresse. Elle n'est pas un panneau : le champ garde
+  // le clavier et reste cliquable, le calque ne reçoit la souris que sur elle.
+  const [suggestions, setSuggestions] = React.useState<EtatSuggestions | null>(null);
+  React.useEffect(() => api.suggestions.onEtat(setSuggestions), []);
   React.useEffect(() => api.panels.onState(setPanneau), []);
   React.useEffect(() => api.menu.onOpen(setMenu), []);
 
@@ -170,6 +175,8 @@ export default function Overlay() {
           </div>
         </>
       )}
+
+      {suggestions && <Suggestions etat={suggestions} />}
 
       <Toaster
         theme="system"

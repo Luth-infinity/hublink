@@ -159,7 +159,11 @@ fenêtre est ouverte) — la bande, en HTML, ne recevrait rien quand le pointeur
 l'image.
 
 La molette ne fait pas défiler la page sortie, elle règle le son : une page qui
-glisserait derrière une image fixe n'aurait aucun sens.
+glisserait derrière une image fixe n'aurait aucun sens. Elle compte la **distance**, pas
+les événements : une molette à roue libre (MX Master) envoie des dizaines de crans
+minuscules par geste et continue sur sa lancée ; à cinq pour cent par événement, un
+seul lancer vidait le son, « tout seul » pendant que la roue finissait de tourner. Un
+même geste ne déplace le volume que d'un cinquième.
 
 **La fenêtre décline le premier plan** (`focusable: false`). Sans cela, cliquer sur la
 pause pendant une partie sortait le jeu du plein écran et la vidéo se retrouvait
@@ -186,22 +190,55 @@ toute la page. Un bouton mesuré à 0 × 0 est ainsi relayé correctement — c'
 empêchait d'ignorer une publicité YouTube.
 
 Le bouton « Passer » n'est pas inventé : on cherche dans le cadre du lecteur un
-bouton visible dont le libellé promet de passer quelque chose, et cliquer le nôtre
-clique le sien. Un nom de classe parlant de « skip » passe avant le libellé, qui
-change avec la langue et parfois en cours de décompte ; les liens d'accessibilité
-(« Passer au contenu principal », `skip-nav`) sont écartés. Le cadre est recherché à
-chaque passage — un lecteur qui se redessine pour une publicité laisserait sinon une
-référence morte —, et les cadres internes de même origine sont fouillés aussi,
-certaines publicités y vivant.
+bouton visible qui promet de passer quelque chose, et on le relaie.
 
-Éprouvé sur youtube.com avec quatre formes de bouton, dont une au nom de classe
-**et** au libellé inconnus : les quatre sont relayées et le clic parvient au lecteur.
-Sans publicité, rien ne paraît.
+**YouTube ignore un clic fabriqué par script sur son bouton.** Mesuré pendant une
+vraie publicité : `element.click()` laisse la publicité en place, un clic envoyé par
+`webContents.sendInputEvent` à l'endroit du bouton la fait disparaître. Le relais
+passe donc par un vrai clic : la page marque le bouton, rend l'image transparente au
+pointeur (`html.hublink-clic`, l'image reste peinte — rien ne clignote), fait défiler
+le bouton dans la vue, et envoie ses coordonnées (`video:cliquer-ici`) ; le principal
+clique, puis la page remet tout en place. Seule la vue vidéo peut demander ce clic.
+
+**Un bouton, jamais un conteneur ni un lien.** En français le bouton dit « Ignorer »
+(`button.ytp-skip-ad-button`), et YouTube l'entoure de conteneurs qui portent le même
+nom et le même texte — dont `…__skip-or-preview-container`, de la taille du lecteur.
+Le retenir faisait paraître une pastille inerte ; un vrai clic en son centre ouvrirait
+le site de l'annonceur. La recherche exige `button` ou `[role="button"]`.
+
+Mes premiers essais « éprouvés sur youtube.com » posaient de **faux** boutons munis
+d'un simple écouteur : ils acceptaient le clic synthétique, le vrai non. Un faux bouton
+ne prouve rien s'il ne refuse pas, comme YouTube, les clics où `event.isTrusted` est
+faux.
+
+La chaîne est éprouvée sur un lecteur calqué sur la structure réelle (bouton dans un
+`ytp-skip-ad` de hauteur nulle, lui-même dans le conteneur de la taille du lecteur),
+posé sous un bandeau pour que le bouton tombe hors de la petite fenêtre, et dont le
+bouton ne compte que les clics authentiques : un vrai clic lui parvient, aucun ne
+tombe sur le conteneur, et le défilement est rendu. Obtenir une publicité désactivable
+à la demande est une loterie — YouTube les espace pour un visiteur qui en a déjà vu,
+et beaucoup ne sont pas désactivables.
 
 **Les onglets du navigateur ont un preload depuis la 0.5.3** — le même que les
 services, avec `--hublink-onglet`, qui écarte la pastille de non-lus et la
 proposition d'enregistrer un mot de passe. Ni les clés d'accès ni les notifications
 n'y sont neutralisées : un navigateur doit se comporter en navigateur.
+
+## Les suggestions de la barre d'adresse
+
+La liste vit dans le calque (elle doit passer par-dessus la page), le clavier reste
+dans le champ, et **le principal tient la liste et la ligne active**
+(`src/main/suggestions.js`) : le champ et la liste sont dans deux fenêtres, il faut
+qu'elles désignent toujours la même ligne. Le champ n'envoie que le texte, les flèches
+et Entrée ; le calque ne reçoit la souris que sur la liste, pour que le champ reste
+cliquable.
+
+Favoris et historique d'abord, instantanés et sans rien envoyer ; les suggestions du
+moteur complètent ensuite, et une réponse arrivée après une frappe plus récente est
+jetée. Ce qui ressemble à une adresse n'est jamais envoyé au moteur.
+
+**Sans `oe=utf-8`, le service répond en Latin-1** (`charset=ISO-8859-1`) : lu comme de
+l'UTF-8, « météo » devenait « m�t�o ». On décode aussi selon l'en-tête annoncé.
 
 ## Le partage d'écran est à nous aussi
 

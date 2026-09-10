@@ -158,6 +158,20 @@ export type MenuItem =
   | { type: 'separator' }
   | { id: string; label: string; type?: 'normal'; enabled?: boolean };
 
+export type Suggestion = {
+  type: 'recherche' | 'adresse' | 'historique' | 'favori';
+  libelle: string;
+  detail: string;
+  url: string | null;
+};
+
+export type EtatSuggestions = {
+  ancre: { x: number; y: number; width: number; height: number };
+  texte: string;
+  items: Suggestion[];
+  actif: number;
+};
+
 export type SourcePartage = {
   id: string;
   nom: string;
@@ -286,6 +300,14 @@ declare global {
       checkUpdate(): Promise<Update | null>;
       onUpdateAvailable(handler: (update: Update) => void): () => void;
       overlay: { setInteractive(on: boolean): void };
+      suggestions: {
+        demander(texte: string, ancre: { x: number; y: number; width: number; height: number }): void;
+        deplacer(delta: number): void;
+        survoler(index: number): void;
+        choisir(index?: number, texte?: string): void;
+        fermer(): void;
+        onEtat(handler: (etat: EtatSuggestions | null) => void): () => void;
+      };
       partage: {
         onSources(handler: (data: { liste: SourcePartage[]; origine: string }) => void): () => void;
         choisir(id: string | null): void;

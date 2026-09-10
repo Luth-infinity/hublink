@@ -23,6 +23,7 @@ const updates = require('./updates');
 const downloadsMod = require('./downloads');
 const videomode = require('./videomode');
 const partageecran = require('./partageecran');
+const suggestions = require('./suggestions');
 
 // Chromium fait passer, depuis quelques versions, tout le son de l'application
 // par son annuleur d'écho : ce qui sort des haut-parleurs sert de référence
@@ -80,6 +81,10 @@ function pousserTelechargements() {
 // barre d'outils, dont les coordonnées sont celles du calque : les deux
 // fenêtres partagent la même origine.
 let panneau = null;
+
+// Dernière liste de suggestions montrée : le calque qui naît pour l'afficher
+// n'a pas encore chargé sa page quand elle part, il la reçoit à son arrivée.
+let dernieresSuggestions = null;
 
 // Menus ouverts dans le calque : un identifiant par appel, et la promesse à
 // tenir quand le choix revient. Plusieurs peuvent se succéder très vite (un
@@ -166,6 +171,7 @@ function ensureCalque() {
   calque.webContents.on('did-finish-load', () => {
     calque.webContents.send('downloads:list', telechargements);
     calque.webContents.send('panel:state', panneau);
+    calque.webContents.send('suggestions:etat', dernieresSuggestions);
     majReceptiviteCalque();
   });
   calque.once('ready-to-show', () => {
@@ -190,7 +196,7 @@ function planifierFermetureCalque() {
     // Un panneau ou un menu ouvert vit dans cette fenêtre : la refermer le
     // ferait disparaître sous le doigt de l'utilisateur — et, pour un menu,
     // laisserait l'appelant attendre un choix qui ne viendrait jamais.
-    if (panneau || menuEnCours) return planifierFermetureCalque();
+    if (panneau || menuEnCours || dernieresSuggestions) return planifierFermetureCalque();
     if (calque && !calque.isDestroyed()) calque.close();
   }, 15000);
   if (calqueTimer.unref) calqueTimer.unref();
@@ -941,6 +947,30 @@ function registerIpc() {
     const url = toNavigableUrl(input);
     if (url) views.withCurrent((wc) => wc.loadURL(url));
   });
+
+  // Les suggestions de la barre d'adresse. Le principal tient la liste : le
+  // champ vit dans une fenêtre et la liste dans une autre, et il faut que les
+  // deux désignent toujours la même ligne.
+  const suggestionsBarre = suggestions.creer({
+    diffuser: (etat) => {
+      dernieresSuggestions = etat;
+      if (etat) {
+        ensureCalque();
+        planifierFermetureCalque();
+      }
+      send('suggestions:etat', etat);
+    },
+    naviguer: (saisie) => {
+      if (!store.load().browserMode) return;
+      const url = toNavigableUrl(saisie);
+      if (url) views.withCurrent((wc) => wc.loadURL(url));
+    }
+  });
+  ipcMain.on('suggestions:demander', (_e, demande) => suggestionsBarre.demander(demande || {}));
+  ipcMain.on('suggestions:deplacer', (_e, delta) => suggestionsBarre.deplacer(Number(delta) || 0));
+  ipcMain.on('suggestions:survoler', (_e, index) => suggestionsBarre.survoler(Number(index)));
+  ipcMain.on('suggestions:choisir', (_e, choix) => suggestionsBarre.choisir(choix || {}));
+  ipcMain.on('suggestions:fermer', () => suggestionsBarre.fermer());
 
   // Le mode vidéo sort la page dans une fenêtre à part, avec nos commandes.
   // Les lecteurs enfermés dans un cadre tiers gardent l'incrustation de
