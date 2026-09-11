@@ -18,6 +18,15 @@ const api = window.hublink;
 
 const SAUT = 10;
 
+// Une molette à roue libre — la MX Master et ses cousines — envoie des dizaines
+// de crans minuscules par geste, et continue sur sa lancée une fois lâchée.
+// Compter cinq pour cent par événement vidait le son d'un seul lancer. On
+// mesure donc la distance parcourue, et un même geste ne déplace le volume que
+// d'un cinquième.
+const VOLUME_PAR_PIXEL = 0.0005;
+const MAX_PAR_GESTE = 0.2;
+const PAUSE_ENTRE_GESTES = 350;
+
 /**
  * Les commandes de la fenêtre vidéo.
  *
@@ -65,6 +74,22 @@ export default function VideoBar() {
   const duree = etat?.duree ?? 0;
   const part = duree > 0 ? Math.min(1, (etat?.position ?? 0) / duree) : 0;
   const volume = etat?.muet ? 0 : (etat?.volume ?? 1);
+
+  // Sur le haut-parleur seulement : c'est là qu'on la tourne exprès. L'état
+  // de la page n'arrive que toutes les demi-secondes, le geste part donc du
+  // volume connu à son début et ne relit pas l'état en chemin.
+  const geste = React.useRef({ depart: 0, cumul: 0, dernier: 0 });
+  const molette = (e: React.WheelEvent) => {
+    const pixels = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    const maintenant = performance.now();
+    if (maintenant - geste.current.dernier > PAUSE_ENTRE_GESTES) {
+      geste.current = { depart: volume, cumul: 0, dernier: maintenant };
+    }
+    geste.current.dernier = maintenant;
+    geste.current.cumul += pixels;
+    const ecart = Math.max(-MAX_PAR_GESTE, Math.min(MAX_PAR_GESTE, -geste.current.cumul * VOLUME_PAR_PIXEL));
+    commande('volume', Math.min(1, Math.max(0, geste.current.depart + ecart)));
+  };
 
   // En pause, les commandes restent : il faut bien pouvoir relancer.
   const montre = survole || Boolean(etat?.pause);
@@ -160,9 +185,9 @@ export default function VideoBar() {
           </Bouton>
 
           {/* Le curseur ne se déplie qu'au besoin : dans 480 points de large,
-              chaque élément permanent est pris sur le titre. La molette sur
-              l'image règle le son elle aussi. */}
-          <div className="group/son flex shrink-0 items-center">
+              chaque élément permanent est pris sur le titre. La molette y
+              règle le son — ici, et nulle part ailleurs sur la fenêtre. */}
+          <div className="group/son flex shrink-0 items-center" onWheel={molette}>
             <Bouton
               titre={etat?.muet ? 'Rétablir le son' : 'Couper le son'}
               onClick={() => commande('muet')}

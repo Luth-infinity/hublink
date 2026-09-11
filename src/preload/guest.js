@@ -530,33 +530,15 @@ if (window.top === window) {
   };
 
   // Une vidéo sortie ne se fait pas défiler : la molette ferait glisser la
-  // page derrière une image qui, elle, ne bouge pas. Elle règle le son, comme
-  // dans n'importe quel lecteur.
-  // Une molette à roue libre — la MX Master et ses cousines — envoie des
-  // dizaines de crans minuscules par geste, et continue sur sa lancée une fois
-  // lâchée. Compter cinq pour cent par événement vidait le son d'un seul
-  // lancer, et le faisait « tout seul » pendant que la roue finissait de
-  // tourner. On mesure donc la distance parcourue, et un même geste ne peut
-  // déplacer le volume que d'un cinquième.
-  const VOLUME_PAR_PIXEL = 0.0005;
-  const MAX_PAR_GESTE = 0.2;
-  const PAUSE_ENTRE_GESTES = 350;
-  let geste = { depart: 0, cumul: 0, dernier: 0 };
-
+  // page derrière une image qui, elle, ne bouge pas.
+  //
+  // Elle ne règle pas non plus le son. Windows envoie la molette à la fenêtre
+  // qui est sous le curseur, même quand on est ailleurs : la vidéo posée au
+  // bord d'un jeu recevait chaque coup de molette de la partie dès que le
+  // curseur passait dessus, et le son baissait « tout seul », petit à petit.
+  // La molette ne règle le son que sur le haut-parleur de la barre.
   const molette = (e) => {
     e.preventDefault();
-    if (!video) return;
-    const pixels = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
-    const maintenant = performance.now();
-    if (maintenant - geste.dernier > PAUSE_ENTRE_GESTES) {
-      geste = { depart: video.muted ? 0 : video.volume, cumul: 0, dernier: maintenant };
-    }
-    geste.dernier = maintenant;
-    geste.cumul += pixels;
-    const ecart = Math.max(-MAX_PAR_GESTE, Math.min(MAX_PAR_GESTE, -geste.cumul * VOLUME_PAR_PIXEL));
-    video.volume = Math.min(1, Math.max(0, geste.depart + ecart));
-    if (video.volume > 0) video.muted = false;
-    ipcRenderer.send('video:etat', etat());
   };
 
   const arreter = () => {

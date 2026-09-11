@@ -158,12 +158,26 @@ où est le curseur (`screen.getCursorScreenPoint`, toutes les 200 ms tant que la
 fenêtre est ouverte) — la bande, en HTML, ne recevrait rien quand le pointeur est sur
 l'image.
 
-La molette ne fait pas défiler la page sortie, elle règle le son : une page qui
-glisserait derrière une image fixe n'aurait aucun sens. Elle compte la **distance**, pas
-les événements : une molette à roue libre (MX Master) envoie des dizaines de crans
-minuscules par geste et continue sur sa lancée ; à cinq pour cent par événement, un
-seul lancer vidait le son, « tout seul » pendant que la roue finissait de tourner. Un
-même geste ne déplace le volume que d'un cinquième.
+La molette ne fait pas défiler la page sortie : une page qui glisserait derrière une
+image fixe n'aurait aucun sens. **Sur l'image, elle ne règle pas non plus le son** —
+seulement sur le haut-parleur de la barre (`VideoBar.tsx`). Windows envoie la molette à
+la fenêtre qui est sous le curseur, même quand on est dans une autre
+(`MouseWheelRouting = 2`, le réglage par défaut) : posée au bord d'un jeu, la vidéo
+recevait chaque coup de molette de la partie dès que le curseur passait dessus, et le
+son baissait « tout seul, petit à petit ». Ce fut la deuxième plainte sur le même
+symptôme.
+
+La première venait du comptage : une molette à roue libre (MX Master) envoie des
+dizaines de crans minuscules par geste et continue sur sa lancée ; à cinq pour cent par
+événement, un seul lancer vidait le son. La molette compte donc la **distance**, et un
+même geste ne déplace le volume que d'un cinquième. Mesuré : vingt crans sur l'image
+parviennent à la page sans toucher au volume ; sur le haut-parleur, trois crans
+retirent 18 points, un lancer de quarante n'en retire que 20.
+
+Si le son baisse encore, regarder s'il **revient** : Windows baisse les autres sons de
+80 % pendant un appel (onglet Communications, valeur par défaut), et Discord a son
+propre réglage d'atténuation. Ceux-là coupent d'un coup et remontent ensuite ; ils ne
+se corrigent pas dans Hublink.
 
 **La fenêtre décline le premier plan** (`focusable: false`). Sans cela, cliquer sur la
 pause pendant une partie sortait le jeu du plein écran et la vidéo se retrouvait
