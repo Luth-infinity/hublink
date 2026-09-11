@@ -6,6 +6,7 @@ import {
   RotateCcw,
   RotateCw,
   SkipForward,
+  Undo2,
   Volume1,
   Volume2,
   VolumeX,
@@ -102,6 +103,27 @@ export default function VideoBar() {
         >
           <SkipForward className="size-3.5 shrink-0" />
           <span className="truncate">{etat.passer}</span>
+        </button>
+      )}
+
+      {/* Un sponsor vient d'être sauté. Même place que le bouton du lecteur,
+          mais sombre : ce n'est pas une invitation, c'est un compte rendu
+          qu'on peut annuler. */}
+      {!etat?.passer && etat?.sponsorPasse && (
+        <button
+          type="button"
+          onClick={() => commande('revenir')}
+          title="Revenir au début du passage"
+          className={cn(
+            'monte-passer absolute bottom-[58px] right-3 flex h-8 max-w-[70%] items-center gap-2',
+            'rounded-full bg-black/70 pl-3 pr-1 text-xs text-white shadow-lg ring-1 ring-white/15 backdrop-blur',
+            'transition-transform hover:scale-[1.04] active:scale-95 motion-reduce:hover:scale-100'
+          )}
+        >
+          <span className="truncate text-white/80">{etat.sponsorPasse}</span>
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-2 py-1 font-medium">
+            <Undo2 className="size-3.5" /> Revenir
+          </span>
         </button>
       )}
 

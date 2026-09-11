@@ -9,7 +9,8 @@ const {
   nativeTheme,
   protocol,
   screen,
-  clipboard
+  clipboard,
+  webContents
 } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -24,6 +25,7 @@ const downloadsMod = require('./downloads');
 const videomode = require('./videomode');
 const partageecran = require('./partageecran');
 const suggestions = require('./suggestions');
+const sponsors = require('./sponsors');
 
 // Chromium fait passer, depuis quelques versions, tout le son de l'application
 // par son annuleur d'écho : ce qui sort des haut-parleurs sert de référence
@@ -120,7 +122,19 @@ function runToastAction(action) {
     const ok = secrets.enregistrer(attente.accountId, attente.origin, attente.username, attente.password);
     toast(ok ? 'success' : 'error', ok ? 'Mot de passe enregistré' : 'Trousseau indisponible');
   }
+  if (action.kind === 'revenir-sponsor') {
+    const saut = sautsEnAttente.get(action.jeton);
+    sautsEnAttente.delete(action.jeton);
+    if (saut && !saut.page.isDestroyed()) saut.page.send('sponsors:revenir', saut.debut);
+  }
 }
+
+// Les sauts de sponsor qu'un message propose d'annuler : la page à rembobiner
+// et l'instant où elle doit reprendre. On n'en garde que les derniers, un
+// message oublié ne sert plus à rien.
+const sautsEnAttente = new Map();
+let jetonSaut = 0;
+const MAX_SAUTS_EN_ATTENTE = 20;
 
 // Mots de passe proposés mais pas encore acceptés. Ils ne vivent qu'ici, en
 // mémoire, le temps que l'utilisateur réponde au message — et jamais dans
@@ -819,6 +833,41 @@ function registerIpc() {
     store.load().blockAds = Boolean(on);
     store.save();
     pushState();
+  });
+
+  // --- séquences sponsorisées ----------------------------------------------
+
+  ipcMain.handle('sponsors:passages', (_e, idVideo) =>
+    store.load().skipSponsors ? sponsors.passages(idVideo) : []
+  );
+
+  // Un message pour chaque saut, sans quoi une vidéo qui avance d'un coup
+  // ressemble à un bug. Seulement pour la page qu'on regarde : un sponsor sauté
+  // dans un service laissé en fond n'a pas à s'afficher par-dessus un autre.
+  ipcMain.on('sponsors:passe', (e, saut) => {
+    if (!views.current || views.current.webContents !== e.sender) return;
+    const debut = Number(saut && saut.debut);
+    if (!Number.isFinite(debut)) return;
+    const jeton = String(++jetonSaut);
+    sautsEnAttente.set(jeton, { page: e.sender, debut });
+    if (sautsEnAttente.size > MAX_SAUTS_EN_ATTENTE) sautsEnAttente.delete(sautsEnAttente.keys().next().value);
+    toast('success', saut.categorie === 'selfpromo' ? 'Autopromotion passée' : 'Sponsor passé', {
+      kind: 'revenir-sponsor',
+      label: 'Revenir',
+      jeton
+    });
+  });
+
+  ipcMain.handle('app:set-skip-sponsors', (_e, on) => {
+    const state = store.load();
+    state.skipSponsors = Boolean(on);
+    store.save();
+    pushState();
+    // Les pages déjà ouvertes l'apprennent tout de suite : sans cela, une vidéo
+    // en cours continuerait de sauter jusqu'à la suivante.
+    for (const page of webContents.getAllWebContents()) {
+      if (!page.isDestroyed()) page.send('sponsors:reglage', state.skipSponsors);
+    }
   });
 
   ipcMain.handle('tab:select', async (_e, id) => {

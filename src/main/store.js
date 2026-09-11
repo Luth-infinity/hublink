@@ -39,6 +39,9 @@ function seed() {
     // Bloqueur de pub du mode navigateur : actif par défaut, sans réglage à
     // faire. Il ne touche jamais les sessions des comptes.
     blockAds: true,
+    // Saute les séquences sponsorisées des vidéos YouTube, dans toutes les
+    // pages. Actif par défaut : un message permet de revenir sur chaque saut.
+    skipSponsors: true,
     // Favoris du mode navigateur, et teinte choisie pour ce mode : sans compte
     // actif, le shell n'a aucune couleur d'où se teinter.
     favorites: [],
@@ -98,6 +101,7 @@ function normalize(state) {
   if (!Array.isArray(state.tabs)) state.tabs = [];
   if (typeof state.browserMode !== 'boolean') state.browserMode = false;
   if (typeof state.blockAds !== 'boolean') state.blockAds = true;
+  if (typeof state.skipSponsors !== 'boolean') state.skipSponsors = true;
   if (!Array.isArray(state.favorites)) state.favorites = [];
   if (!Array.isArray(state.history)) state.history = [];
   if (typeof state.discreet !== 'boolean') state.discreet = false;
@@ -548,6 +552,7 @@ function exportConfig() {
     sleepAfterMinutes: s.sleepAfterMinutes,
     accentColor: s.accentColor,
     blockAds: s.blockAds,
+    skipSponsors: s.skipSponsors,
     accounts: s.accounts.map((a) => ({
       id: a.id,
       name: a.name,
@@ -636,6 +641,7 @@ function importConfig(data) {
     s.accentColor = data.accentColor;
   }
   if (typeof data.blockAds === 'boolean') s.blockAds = data.blockAds;
+  if (typeof data.skipSponsors === 'boolean') s.skipSponsors = data.skipSponsors;
 
   s.activeAccountId = null;
   s.activeServiceId = s.services[0] ? s.services[0].id : null;

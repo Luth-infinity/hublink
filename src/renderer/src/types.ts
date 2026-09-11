@@ -108,6 +108,8 @@ export type AppState = {
   activeTabId: string | null;
   /** Bloqueur de pub du mode navigateur. Sans effet sur les comptes. */
   blockAds: boolean;
+  /** Saute les séquences sponsorisées de YouTube, d'après SponsorBlock. */
+  skipSponsors: boolean;
   favorites: Favorite[];
   history: HistoryEntry[];
   /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
@@ -146,7 +148,10 @@ export type Shortcut = { type: string; index?: number };
 export type Update = { version: string; url: string; page: string; notes: string };
 
 /** Une action ne peut pas traverser l'IPC : on décrit, le principal exécute. */
-export type ToastAction = { kind: 'reveal'; label: string; path: string };
+export type ToastAction =
+  | { kind: 'reveal'; label: string; path: string }
+  | { kind: 'save-password'; label: string; jeton: string }
+  | { kind: 'revenir-sponsor'; label: string; jeton: string };
 
 export type Toast = {
   variant: 'success' | 'error';
@@ -189,6 +194,8 @@ export type EtatVideo = {
   duree: number;
   position: number;
   passer: string | null;
+  /** Un sponsor vient d'être sauté : de quoi y revenir, quelques secondes. */
+  sponsorPasse: string | null;
   titre: string;
   ratio: number;
 };
@@ -350,6 +357,7 @@ declare global {
       setTheme(theme: Theme): Promise<void>;
       setAccent(color: string | null): Promise<void>;
       setDiscreet(on?: boolean): Promise<boolean>;
+      setSkipSponsors(on: boolean): Promise<void>;
       exportConfig(): Promise<string | null>;
       importConfig(): Promise<boolean>;
       /** 0 = jamais mettre en veille. */

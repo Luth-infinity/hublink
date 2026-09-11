@@ -266,6 +266,25 @@ export function SettingsDialog({
                 />
               </div>
 
+              <Separator />
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="grid gap-1">
+                  <h3 className="text-sm font-medium">Passer les sponsors sur YouTube</h3>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Les passages sponsorisés sont sautés tout seuls, dans toutes vos pages YouTube. Un
+                    message permet d'y revenir. Les passages sont signalés par les utilisateurs de
+                    SponsorBlock, qui ne reçoit pas le nom de la vidéo regardée.
+                  </p>
+                </div>
+                <Switch
+                  checked={state.skipSponsors}
+                  onCheckedChange={(on) => window.hublink.setSkipSponsors(on)}
+                  aria-label="Passer les sponsors sur YouTube"
+                  className="mt-0.5 shrink-0"
+                />
+              </div>
+
               {state.sleepAfterMinutes === 0 && services.length > 4 && (
                 <p className="flex items-start gap-2 rounded-md border border-border p-2 text-xs text-muted-foreground">
                   <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />

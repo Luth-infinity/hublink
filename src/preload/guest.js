@@ -353,9 +353,165 @@ if (window.top === window) {
     return null;
   };
 
+  /**
+   * Les passages que YouTube propose de sauter — « Passer rapidement », sur
+   * une séquence sponsorisée que la plupart des spectateurs sautent.
+   *
+   * Chercher le bouton ne suffit pas : YouTube ne le dessine qu'après un geste
+   * sur son lecteur (survol avec les commandes affichées, avance au clavier),
+   * et il disparaît quelques secondes plus tard. Dans la fenêtre vidéo, ce
+   * geste n'arrive jamais sur son lecteur, et le bouton n'existait donc pas.
+   * On lit plutôt ce que la page a reçu : chaque passage, son début, sa fin, et
+   * l'instant où le bouton mène.
+   *
+   * La réponse vit dans le monde de la page, hors de portée du preload isolé.
+   */
+  const INTERVALLE_MOMENTS = 2000;
+  let moments = { lus: 0, liste: [] };
+
+  const lireLesMoments = () => {
+    try {
+      return contextBridge.executeInMainWorld({
+        func: () => {
+          const lecteur = document.getElementById('movie_player');
+          if (!lecteur || typeof lecteur.getWatchNextResponse !== 'function') return [];
+          const idVideo = lecteur.getVideoData?.()?.video_id;
+          const actions =
+            lecteur.getWatchNextResponse()?.playerOverlays?.playerOverlayRenderer
+              ?.timelyActionsOverlayViewModel?.timelyActionsOverlayViewModel?.timelyActions;
+          if (!Array.isArray(actions)) return [];
+
+          // Le bouton exécute une commande qui peut en envelopper d'autres :
+          // on descend jusqu'au saut dans la vidéo.
+          const saut = (noeud, profondeur) => {
+            if (!noeud || typeof noeud !== 'object' || profondeur > 8) return null;
+            const s = noeud.seekToVideoTimestampCommand;
+            if (s && (!s.videoId || !idVideo || s.videoId === idVideo)) {
+              const ms = Number(s.offsetFromVideoStartMilliseconds);
+              if (Number.isFinite(ms) && ms >= 0) return ms;
+            }
+            for (const v of Object.values(noeud)) {
+              const trouve = saut(v, profondeur + 1);
+              if (trouve !== null) return trouve;
+            }
+            return null;
+          };
+
+          return actions
+            .map((a) => a && a.timelyActionViewModel)
+            .filter((vm) => vm && !vm.smartSkipMetadata?.loggingData?.isCounterfactual)
+            .map((vm) => ({
+              debut: Number(vm.startTimeMilliseconds),
+              fin: Number(vm.endTimeMilliseconds),
+              cible: saut(vm.rendererContext, 0) ?? Number(vm.smartSkipMetadata?.loggingData?.endMilliseconds),
+              texte: String(vm.content?.buttonViewModel?.title || 'Passer rapidement')
+            }))
+            .filter((m) => [m.debut, m.fin, m.cible].every(Number.isFinite) && m.cible > m.debut);
+        }
+      });
+    } catch {
+      return [];
+    }
+  };
+
+  const momentAPasser = () => {
+    // Pendant une publicité, l'image est celle de l'annonce et son temps n'a
+    // rien à voir avec celui de la vidéo : ses dix secondes tomberaient dans un
+    // passage, et le bouton proposerait de sauter dans la publicité.
+    if (document.querySelector('#movie_player.ad-showing')) return null;
+    const maintenant = performance.now();
+    if (maintenant - moments.lus > INTERVALLE_MOMENTS) {
+      const liste = lireLesMoments();
+      moments = { lus: maintenant, liste: Array.isArray(liste) ? liste : [] };
+    }
+    const t = video.currentTime * 1000;
+    // Une seconde de marge : un saut qui ne ferait gagner qu'un instant
+    // montrerait un bouton sans effet.
+    const m = moments.liste.find((x) => t >= x.debut && t < x.fin && x.cible > t + 1000);
+    return m ? { texte: m.texte, cible: m.cible } : null;
+  };
+
+  // --- Séquences sponsorisées ------------------------------------------------
+  //
+  // Sur YouTube, les passages sponsorisés que signale SponsorBlock sont sautés
+  // d'eux-mêmes — dans la page comme dans la fenêtre vidéo, puisque c'est la
+  // même page. Le processus principal interroge le service ; ici on regarde le
+  // temps passer.
+  const SUR_YOUTUBE = /^(www\.|m\.)?youtube\.com$/.test(location.hostname);
+  // Le temps de lire « Sponsor passé » et de changer d'avis.
+  const DUREE_REVENIR = 8000;
+  let sponsorsActifs = true;
+  let passages = { id: null, liste: [], faits: new Set() };
+  let dernierSaut = null;
+
+  const videoDeLaPage = () => new URLSearchParams(location.search).get('v') || null;
+
+  const chargerPassages = async (id) => {
+    passages = { id, liste: [], faits: new Set() };
+    dernierSaut = null;
+    if (!id || !sponsorsActifs) return;
+    try {
+      const liste = await ipcRenderer.invoke('sponsors:passages', id);
+      // YouTube change de vidéo sans recharger la page : une réponse arrivée
+      // après la suivante ne la concerne pas.
+      if (passages.id === id && Array.isArray(liste)) passages.liste = liste;
+    } catch {
+      // Sans réponse, on regarde la vidéo en entier.
+    }
+  };
+
+  const libelleDuSaut = (saut) => (saut.categorie === 'selfpromo' ? 'Autopromotion passée' : 'Sponsor passé');
+
+  /**
+   * Chaque passage n'est sauté qu'une fois : revenir en arrière pour le voir,
+   * c'est l'avoir choisi. Jamais pendant une publicité, dont le temps n'est pas
+   * celui de la vidéo, ni pendant la pause, où l'on cherche un instant à la main.
+   */
+  const surLeTemps = (e) => {
+    const v = e.target;
+    if (!sponsorsActifs || !passages.liste.length || !v || v.tagName !== 'VIDEO') return;
+    if (v.paused || !v.closest('#movie_player')) return;
+    if (document.querySelector('#movie_player.ad-showing')) return;
+    const t = v.currentTime;
+    // Une demi-seconde avant la fin, il ne reste rien à sauter.
+    const saut = passages.liste.find((p) => !passages.faits.has(p.id) && t >= p.debut && t < p.fin - 0.5);
+    if (!saut) return;
+    passages.faits.add(saut.id);
+    v.currentTime = Number.isFinite(v.duration) ? Math.min(saut.fin, v.duration) : saut.fin;
+    dernierSaut = { ...saut, quand: performance.now() };
+    // Dans la fenêtre vidéo, c'est sa barre qui le dit ; dans Hublink, un
+    // message.
+    if (video) ipcRenderer.send('video:etat', etat());
+    else ipcRenderer.send('sponsors:passe', { debut: saut.debut, categorie: saut.categorie });
+  };
+
+  const revenir = (debut) => {
+    const v = document.querySelector('#movie_player video');
+    if (!v || !Number.isFinite(debut)) return;
+    dernierSaut = null;
+    v.currentTime = debut;
+  };
+
+  if (SUR_YOUTUBE) {
+    // `timeupdate` ne remonte pas, mais se capture : on n'a pas à suivre les
+    // lecteurs que YouTube remplace d'une vidéo à l'autre.
+    window.addEventListener('timeupdate', surLeTemps, true);
+    setInterval(() => {
+      const id = videoDeLaPage();
+      if (id !== passages.id) chargerPassages(id);
+    }, 1000);
+    ipcRenderer.on('sponsors:revenir', (_e, debut) => revenir(Number(debut)));
+    ipcRenderer.on('sponsors:reglage', (_e, actif) => {
+      sponsorsActifs = Boolean(actif);
+      // Rallumé en cours de vidéo : on redemande ses passages.
+      passages = { id: null, liste: [], faits: new Set() };
+    });
+  }
+
   const etat = () => {
     if (!video || !video.isConnected) return null;
-    dernierPasser = trouverPasser();
+    // Un bouton affiché passe en premier : c'est lui qui ignore une publicité.
+    dernierPasser = trouverPasser() || momentAPasser();
     return {
       pause: video.paused,
       volume: video.volume,
@@ -363,6 +519,8 @@ if (window.top === window) {
       duree: Number.isFinite(video.duration) ? video.duration : 0,
       position: video.currentTime || 0,
       passer: dernierPasser ? dernierPasser.texte : null,
+      sponsorPasse:
+        dernierSaut && performance.now() - dernierSaut.quand < DUREE_REVENIR ? libelleDuSaut(dernierSaut) : null,
       // Sans le titre, la fenêtre ne dit pas ce qu'elle joue.
       titre: (document.title || '').replace(/\s+/g, ' ').trim(),
       // Les proportions de l'image, pour que la fenêtre les épouse : une vidéo
@@ -420,6 +578,7 @@ if (window.top === window) {
     video = null;
     conteneur = null;
     dernierPasser = null;
+    moments = { lus: 0, liste: [] };
   };
 
   // YouTube ignore un clic fabriqué par script sur son bouton : il n'accepte
@@ -493,7 +652,14 @@ if (window.top === window) {
     if (quoi === 'muet') video.muted = !video.muted;
     if (quoi === 'avancer') video.currentTime += Number(valeur) || 10;
     if (quoi === 'aller') video.currentTime = Math.max(0, Number(valeur) || 0);
-    if (quoi === 'passer' && dernierPasser && dernierPasser.el.isConnected) preparerLeClic(dernierPasser.el);
+    if (quoi === 'passer' && dernierPasser) {
+      if (dernierPasser.el) {
+        if (dernierPasser.el.isConnected) preparerLeClic(dernierPasser.el);
+      } else {
+        video.currentTime = dernierPasser.cible / 1000;
+      }
+    }
+    if (quoi === 'revenir' && dernierSaut) revenir(dernierSaut.debut);
     const e = etat();
     if (e) ipcRenderer.send('video:etat', e);
   });

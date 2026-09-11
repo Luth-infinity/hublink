@@ -219,6 +219,74 @@ tombe sur le conteneur, et le défilement est rendu. Obtenir une publicité dés
 à la demande est une loterie — YouTube les espace pour un visiteur qui en a déjà vu,
 et beaucoup ne sont pas désactivables.
 
+**« Passer rapidement » ne se cherche pas dans la page, il se lit.** Sur une séquence
+sponsorisée que les spectateurs sautent, YouTube (Premium) propose ce bouton — le
+« smart skip ». Son lecteur ne le dessine qu'après un geste : commandes affichées *et*
+survol du lecteur, avance au clavier, appui long. Dans la fenêtre vidéo, aucun de ces
+gestes n'arrive à son lecteur, et le bouton n'existe jamais dans le DOM — mesuré. On
+lit donc la réponse de la page, dans le monde de la page (`executeInMainWorld`) :
+`movie_player.getWatchNextResponse().playerOverlays.playerOverlayRenderer
+.timelyActionsOverlayViewModel.timelyActionsOverlayViewModel.timelyActions[].timelyActionViewModel`
+— le même chemin que lit le lecteur de YouTube. Chaque passage a son début, sa fin, et
+une commande `seekToVideoTimestampCommand` (`offsetFromVideoStartMilliseconds`), parfois
+enveloppée, qui dit où mène le bouton. La fenêtre vidéo le montre pendant tout le
+passage, et « passer » y fait sauter la vidéo.
+
+Deux gardes : un bouton présent dans le DOM passe avant (c'est lui qui ignore une
+publicité), et **rien n'est proposé pendant une publicité** (`#movie_player.ad-showing`)
+— l'image est alors celle de l'annonce, dont les secondes tombaient dans le passage.
+Les données de YouTube marquées `isCounterfactual` (groupe témoin) sont écartées, comme
+le fait YouTube.
+
+Ces données ne sont servies qu'aux comptes Premium. Relevées sur un vrai compte : la
+commande du bouton est un `serialCommand` de cinq commandes (masquer le repère,
+bandeau « Avance rapide », sondage, **le saut**, masquer le bouton) ; le passage court
+de 35,9 à 70,4 s et le bouton mène à 80,4 s — plus loin que la fin du passage, d'où
+l'intérêt de lire la cible plutôt que la fin. Sur cette vidéo, en mode vidéo : rien à
+24 s, « Passer rapidement » à 47 s, aucun bouton de YouTube dans la page, saut à 80,4 s,
+plus rien ensuite. La garde des publicités a été éprouvée à part, en injectant un
+passage dans `ytInitialData` (interception CDP `Fetch` de la page `watch`) : sans elle,
+la pastille s'affichait pendant l'annonce.
+
+## Les sponsors YouTube se sautent tout seuls
+
+Réglage « Passer les sponsors sur YouTube » (`skipSponsors`, actif par défaut). Les
+passages viennent de **SponsorBlock** (`src/main/sponsors.js`), pas du « Passer
+rapidement » de YouTube : celui-ci est réservé aux abonnés Premium, et désigne le
+passage *le plus sauté*, choisi par un algorithme (`algorithmId: llm_duplo…`) — une
+intro ou un récapitulatif aussi bien qu'une publicité. Sauter sans demander exige de
+savoir ce qu'on saute. Seules les catégories `sponsor` et `selfpromo` sont retenues.
+
+Le service ne reçoit que les **quatre premiers caractères du SHA-256** de l'identifiant
+de la vidéo, et répond pour toutes celles qui partagent ce préfixe. Données sous
+licence CC BY-NC-SA 4.0 : SponsorBlock est nommé dans le réglage.
+
+Le saut vit dans `src/preload/guest.js`, dans toutes les pages `youtube.com` (services
+et onglets) : un `timeupdate` capturé sur `window` — il ne remonte pas, mais se capture,
+ce qui évite de suivre les lecteurs que YouTube remplace. La vidéo est repérée par
+`?v=` : YouTube change de vidéo sans recharger la page. Règles :
+
+- chaque passage n'est sauté **qu'une fois** par vidéo — revenir en arrière, c'est
+  l'avoir choisi ;
+- jamais pendant une publicité (`#movie_player.ad-showing`) ni en pause ;
+- un message « Sponsor passé · Revenir » dans Hublink, seulement si la page est celle
+  qu'on regarde (`views.current`) ; dans la fenêtre vidéo, c'est sa barre qui le dit ;
+- couper le réglage prévient aussitôt les pages ouvertes (`sponsors:reglage`).
+
+Éprouvé sur une vraie vidéo (sponsor marqué de 35,5 à 82,8 s) : saut de 35,7 à 82,8 s,
+message affiché, « Revenir » ramène à 35,5 s sans second saut ; dans la fenêtre vidéo,
+saut et « Sponsor passé » dans la barre, aucun message dans Hublink, « Revenir » fait
+reparaître le « Passer rapidement » de YouTube pour qui voudrait sauter à la main ;
+réglage coupé, la lecture traverse le passage.
+
+**Tester la lecture YouTube en automatique est capricieux.** Une fenêtre réduite ou
+masquée rend `document.hidden` vrai, et YouTube ne charge plus rien : lancer Electron
+avec `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding` et
+afficher la fenêtre (`showInactive`). Des profils vierges rechargés à la chaîne finissent
+par ne plus démarrer du tout (lecteur « non lancé », pas de flux) ; un profil connecté
+à un compte Premium, sans publicité, lit sans histoire. Piloter la lecture par l'API du
+lecteur (`movie_player.seekTo`, `playVideo`, `mute`) plutôt que par l'élément `video`.
+
 **Les onglets du navigateur ont un preload depuis la 0.5.3** — le même que les
 services, avec `--hublink-onglet`, qui écarte la pastille de non-lus et la
 proposition d'enregistrer un mot de passe. Ni les clés d'accès ni les notifications
