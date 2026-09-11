@@ -12,8 +12,8 @@ Les commentaires expliquent *pourquoi*, pas *quoi*.
 
 | | Version |
 |---|---|
-| Windows | **0.5.6** |
-| macOS | **0.5.6** |
+| Windows | **0.5.7** |
+| macOS | **0.5.7** |
 
 Les deux plateformes sont à parité, et **le restent sans rien faire** depuis la 0.5.2 :
 publier une release déclenche la construction des `.dmg` sur un runner macOS de GitHub
