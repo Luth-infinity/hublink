@@ -508,14 +508,52 @@ if (window.top === window) {
     });
   }
 
+  /**
+   * Sur YouTube, le son passe par le lecteur et non par l'élément vidéo.
+   *
+   * Le lecteur tient son propre niveau, et le réapplique à chaque publicité et
+   * à chaque vidéo suivante. Réglé sur l'élément seul, le son montait dans la
+   * fenêtre vidéo puis retombait à la première annonce. Mesuré : élément monté
+   * à 100 %, lecteur resté à 50, 28 % pendant la publicité et 23 % sur la vidéo
+   * d'après. C'était le son qui « baisse tout seul ».
+   *
+   * On lit aussi le niveau du lecteur, pas celui de l'élément : YouTube y
+   * applique sa normalisation, et 100 % devient 0,46 sur un clip très fort.
+   * Relire l'élément puis renvoyer sa valeur au lecteur ferait baisser le son
+   * d'autant à chaque geste.
+   *
+   * `null` hors du lecteur de YouTube : l'élément reste alors la seule prise.
+   */
+  const sonYouTube = (quoi, valeur) => {
+    if (!video || !video.closest('#movie_player')) return null;
+    try {
+      return contextBridge.executeInMainWorld({
+        func: (quoi, valeur) => {
+          const lecteur = document.getElementById('movie_player');
+          if (!lecteur || typeof lecteur.setVolume !== 'function') return null;
+          if (quoi === 'volume') {
+            lecteur.setVolume(Math.round(valeur * 100));
+            if (valeur > 0) lecteur.unMute();
+          }
+          if (quoi === 'muet') lecteur.isMuted() ? lecteur.unMute() : lecteur.mute();
+          return { volume: lecteur.getVolume() / 100, muet: lecteur.isMuted() };
+        },
+        args: [quoi, valeur]
+      });
+    } catch {
+      return null;
+    }
+  };
+
   const etat = () => {
     if (!video || !video.isConnected) return null;
     // Un bouton affiché passe en premier : c'est lui qui ignore une publicité.
     dernierPasser = trouverPasser() || momentAPasser();
+    const son = sonYouTube('lire') || { volume: video.volume, muet: video.muted };
     return {
       pause: video.paused,
-      volume: video.volume,
-      muet: video.muted,
+      volume: son.volume,
+      muet: son.muet,
       duree: Number.isFinite(video.duration) ? video.duration : 0,
       position: video.currentTime || 0,
       passer: dernierPasser ? dernierPasser.texte : null,
@@ -536,7 +574,7 @@ if (window.top === window) {
   // qui est sous le curseur, même quand on est ailleurs : la vidéo posée au
   // bord d'un jeu recevait chaque coup de molette de la partie dès que le
   // curseur passait dessus, et le son baissait « tout seul », petit à petit.
-  // La molette ne règle le son que sur le haut-parleur de la barre.
+  // Le son ne se règle qu'au curseur et au clic, dans la barre.
   const molette = (e) => {
     e.preventDefault();
   };
@@ -628,10 +666,13 @@ if (window.top === window) {
     if (!video) return;
     if (quoi === 'lecture') video.paused ? video.play() : video.pause();
     if (quoi === 'volume') {
-      video.volume = Math.min(1, Math.max(0, Number(valeur) || 0));
-      if (video.volume > 0) video.muted = false;
+      const niveau = Math.min(1, Math.max(0, Number(valeur) || 0));
+      if (!sonYouTube('volume', niveau)) {
+        video.volume = niveau;
+        if (niveau > 0) video.muted = false;
+      }
     }
-    if (quoi === 'muet') video.muted = !video.muted;
+    if (quoi === 'muet' && !sonYouTube('muet')) video.muted = !video.muted;
     if (quoi === 'avancer') video.currentTime += Number(valeur) || 10;
     if (quoi === 'aller') video.currentTime = Math.max(0, Number(valeur) || 0);
     if (quoi === 'passer' && dernierPasser) {

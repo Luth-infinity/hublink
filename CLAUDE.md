@@ -175,20 +175,23 @@ fenêtre est ouverte) — la bande, en HTML, ne recevrait rien quand le pointeur
 l'image.
 
 La molette ne fait pas défiler la page sortie : une page qui glisserait derrière une
-image fixe n'aurait aucun sens. **Sur l'image, elle ne règle pas non plus le son** —
-seulement sur le haut-parleur de la barre (`VideoBar.tsx`). Windows envoie la molette à
-la fenêtre qui est sous le curseur, même quand on est dans une autre
-(`MouseWheelRouting = 2`, le réglage par défaut) : posée au bord d'un jeu, la vidéo
-recevait chaque coup de molette de la partie dès que le curseur passait dessus, et le
-son baissait « tout seul, petit à petit ». Ce fut la deuxième plainte sur le même
-symptôme.
+image fixe n'aurait aucun sens. **Elle ne règle le son nulle part**, pas même sur le
+haut-parleur : le son ne se change qu'au curseur et au clic. Windows envoie la molette
+à la fenêtre qui est sous le curseur, même quand on est dans une autre
+(`MouseWheelRouting = 2`, le réglage par défaut), et la fenêtre vidéo ne prend jamais
+le premier plan : chaque coup de molette qui lui parvient vient d'ailleurs. Posée au
+bord d'un jeu, elle recevait ceux de la partie dès que le curseur passait dessus. La
+molette a d'abord compté la distance (une MX Master vidait le son d'un lancer), puis a
+été retirée de l'image, puis du haut-parleur : ne pas la remettre.
 
-La première venait du comptage : une molette à roue libre (MX Master) envoie des
-dizaines de crans minuscules par geste et continue sur sa lancée ; à cinq pour cent par
-événement, un seul lancer vidait le son. La molette compte donc la **distance**, et un
-même geste ne déplace le volume que d'un cinquième. Mesuré : vingt crans sur l'image
-parviennent à la page sans toucher au volume ; sur le haut-parleur, trois crans
-retirent 18 points, un lancer de quarante n'en retire que 20.
+**Sur YouTube, le son passe par le lecteur** (`sonYouTube` dans `guest.js` :
+`setVolume`, `mute`, `getVolume` dans le monde de la page), jamais par l'élément. Le
+lecteur réapplique son propre niveau à chaque publicité et à chaque vidéo suivante.
+Mesuré avec l'élément monté à 100 % et le lecteur resté à 50 : 28 % pendant la
+publicité, 23 % sur la vidéo d'après. C'était le son qui « baisse tout seul ». La barre
+lit aussi le niveau **du lecteur** : YouTube normalise l'élément (100 % devient 0,46
+sur un clip très fort), et renvoyer cette valeur au lecteur baisserait le son d'autant
+à chaque geste.
 
 Si le son baisse encore, regarder s'il **revient** : Windows baisse les autres sons de
 80 % pendant un appel (onglet Communications, valeur par défaut), et Discord a son
