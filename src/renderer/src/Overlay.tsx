@@ -167,7 +167,8 @@ export default function Overlay() {
             {panneau.kind === 'accounts' && etat && (
               <AccountsPanel
                 accounts={etat.accounts}
-                activeAccountId={etat.activeAccountId}
+                activeAccountIds={etat.activeAccountIds}
+                views={etat.views}
                 unreadByAccount={nonLusParCompte}
                 discreet={etat.discreet}
               />

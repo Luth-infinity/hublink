@@ -523,13 +523,12 @@ function registerIpc() {
     return image.resize({ width: side, height: side, quality: 'best' }).toDataURL();
   });
 
-  // Le filtre porte sur le compte : « tous », ou un seul. Si le service affiché
-  // sort du filtre, on bascule sur le premier du compte plutôt que de laisser
-  // une page hors contexte.
-  ipcMain.handle('account:filter', async (_e, id) => {
+  // Le filtre porte sur une sélection de comptes : tous, un seul, ou plusieurs.
+  // Si le service affiché en sort, on bascule sur le premier de la sélection
+  // plutôt que de laisser une page hors contexte.
+  ipcMain.handle('account:filter', async (_e, ids) => {
     const state = store.load();
-    state.activeAccountId = store.getAccount(id) ? id : null;
-    store.save();
+    store.setAccountFilter(Array.isArray(ids) ? ids : []);
     pushState();
 
     const visibles = store.visibleServices();
@@ -561,6 +560,21 @@ function registerIpc() {
   // Le calque ne peut pas ouvrir une modale de la fenêtre principale : il lui
   // demande de le faire.
   ipcMain.on('settings:accounts', () => send('app:shortcut', { type: 'accounts' }));
+
+  // Le calque ne prend jamais le clavier (`focusable: false`) : le nom d'une
+  // vue se tape dans une modale de la fenêtre principale.
+  ipcMain.on('view:nommer', () => send('app:shortcut', { type: 'save-view' }));
+
+  ipcMain.handle('view:save', (_e, data) => {
+    const vue = store.addView(data || {});
+    pushState();
+    return vue;
+  });
+
+  ipcMain.handle('view:remove', (_e, id) => {
+    store.removeView(id);
+    pushState();
+  });
 
   ipcMain.on('panel:close', () => {
     if (!panneau) return;

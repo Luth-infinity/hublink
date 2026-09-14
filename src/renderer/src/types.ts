@@ -7,6 +7,13 @@ export type Account = {
   partition?: string;
 };
 
+/** Une sélection de comptes gardée sous un nom. */
+export type AccountView = {
+  id: string;
+  name: string;
+  accountIds: string[];
+};
+
 export type Service = {
   id: string;
   name: string;
@@ -97,8 +104,9 @@ export type AppState = {
   theme: Theme;
   sidebarCollapsed: boolean;
   sleepAfterMinutes: number;
-  /** Filtre : null = tous les comptes, sinon un seul. */
-  activeAccountId: string | null;
+  /** Comptes affichés : vide = tous, un seul = filtre sur ce compte, plusieurs = vue sur mesure. */
+  activeAccountIds: string[];
+  views: AccountView[];
   accounts: Account[];
   services: Service[];
   activeServiceId: string | null;
@@ -210,7 +218,8 @@ declare global {
       onServiceSlept(handler: (ref: { serviceId: string }) => void): () => void;
 
       accounts: {
-        filter(id: string | null): Promise<void>;
+        /** Liste vide = tous les comptes. */
+        filter(ids: string[]): Promise<void>;
         add(data: { name: string; color: string; avatar?: string | null }): Promise<Account>;
         update(id: string, patch: Partial<Account>): Promise<void>;
         remove(id: string): Promise<void>;
@@ -218,6 +227,13 @@ declare global {
         reorder(orderedIds: string[]): Promise<void>;
         setCollapsed(id: string, collapsed?: boolean): Promise<void>;
         pickAvatar(): Promise<string | null>;
+      };
+
+      views: {
+        save(data: { name: string; accountIds: string[] }): Promise<AccountView | null>;
+        remove(id: string): Promise<void>;
+        /** Depuis le calque, qui ne prend pas le clavier : ouvre la modale de nommage. */
+        nommer(): void;
       };
 
       services: {

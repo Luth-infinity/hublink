@@ -17,6 +17,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { Toolbar } from '@/components/Toolbar';
 import { ServiceDialog } from '@/components/ServiceDialog';
 import { AccountDialog } from '@/components/AccountDialog';
+import { ViewDialog } from '@/components/ViewDialog';
 import { SettingsDialog } from '@/components/SettingsDialog';
 
 const api = window.hublink;
@@ -35,6 +36,8 @@ export default function App() {
     open: false,
     account: null
   });
+  // Nommer la sélection de comptes affichée, demandé depuis le panneau des comptes.
+  const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
   // Un seul point d'entrée pour tous les réglages, plutôt que trois entrées
   // séparées en pied de panneau.
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -64,8 +67,11 @@ export default function App() {
 
   // La teinte du compte filtré habille le shell. Elle doit être posée sur
   // <html> : `--shell` est calculée sur `:root`, donc une variable définie sur
-  // un descendant ne la ferait pas recalculer.
-  const filteredAccount = state?.accounts.find((a) => a.id === state.activeAccountId) ?? null;
+  // un descendant ne la ferait pas recalculer. Plusieurs comptes affichés n'ont
+  // pas de couleur commune : le shell reste neutre, comme pour « Tous ».
+  const selection = state?.activeAccountIds ?? [];
+  const filteredAccount =
+    selection.length === 1 ? (state?.accounts.find((a) => a.id === selection[0]) ?? null) : null;
   // En mode navigateur il n'y a pas de compte d'où tirer une couleur : c'est
   // la teinte choisie dans les réglages qui habille le shell.
   const filteredColor = state?.browserMode
@@ -160,7 +166,7 @@ export default function App() {
   // Sans ce masquage, une modale s'ouvre derrière la page — on ne voit que
   // l'overlay sombre et plus aucun clic n'aboutit.
   const overlayOpen =
-    serviceDialog.open || accountDialog.open || settingsOpen;
+    serviceDialog.open || accountDialog.open || settingsOpen || viewDialogOpen;
   // Image figée de la page, posée derrière la modale le temps qu'elle vit.
   const [fond, setFond] = React.useState<string | null>(null);
 
@@ -313,7 +319,7 @@ export default function App() {
   );
   const toggleSidebar = React.useCallback(() => api.toggleSidebar(), []);
 
-  const filterAccount = React.useCallback((id: string | null) => api.accounts.filter(id), []);
+  const filterAccount = React.useCallback((ids: string[]) => api.accounts.filter(ids), []);
 
   const toggleBrowser = React.useCallback((on: boolean) => api.browser.toggle(on), []);
   const toggleDiscreet = React.useCallback((on: boolean) => api.setDiscreet(on), []);
@@ -352,8 +358,8 @@ export default function App() {
 
   const services = React.useMemo(() => {
     const all = state?.services ?? [];
-    const filter = state?.activeAccountId;
-    return filter ? all.filter((s) => s.accountId === filter) : all;
+    const affiches = state?.activeAccountIds ?? [];
+    return affiches.length ? all.filter((s) => affiches.includes(s.accountId)) : all;
   }, [state]);
 
   // Non-lus par compte : un compte masqué ne doit pas faire rater un message.
@@ -388,6 +394,7 @@ export default function App() {
         else if (shortcut.type === 'new-account') openNewAccount();
         else if (shortcut.type === 'extensions') openExtensions();
         else if (shortcut.type === 'accounts') openAccounts();
+        else if (shortcut.type === 'save-view') setViewDialogOpen(true);
         else if (shortcut.type === 'toggle-sidebar') toggleSidebar();
         else if (shortcut.type === 'capture-full') captureFull();
         else if (shortcut.type === 'capture-visible') captureVisible();
@@ -452,7 +459,8 @@ export default function App() {
             services={services}
             accounts={state.accounts}
             activeServiceId={serviceMarque}
-            activeAccountId={state.activeAccountId}
+            activeAccountIds={state.activeAccountIds}
+            views={state.views}
             unreadByAccount={unreadByAccount}
             onFilterAccount={filterAccount}
             collapsed={state.sidebarCollapsed}
@@ -538,13 +546,20 @@ export default function App() {
         open={serviceDialog.open}
         service={serviceDialog.service}
         accounts={state.accounts}
-        defaultAccountId={state.activeAccountId ?? service?.accountId ?? null}
+        defaultAccountId={filteredAccount?.id ?? service?.accountId ?? null}
         onOpenChange={(open) => setServiceDialog((prev) => ({ ...prev, open }))}
         onSubmit={(data) => {
           if (serviceDialog.service) api.services.update(serviceDialog.service.id, data);
           else api.services.add(data);
         }}
         onCreateAccount={openNewAccount}
+      />
+
+      <ViewDialog
+        open={viewDialogOpen}
+        comptes={state.accounts.filter((a) => state.activeAccountIds.includes(a.id))}
+        onOpenChange={setViewDialogOpen}
+        onSubmit={(name) => api.views.save({ name, accountIds: state.activeAccountIds })}
       />
 
       <AccountDialog

@@ -18,13 +18,19 @@ contextBridge.exposeInMainWorld('hublink', {
   onServiceSlept: (handler) => on('service:slept', handler),
 
   accounts: {
-    filter: (id) => invoke('account:filter', id),
+    filter: (ids) => invoke('account:filter', ids),
     add: (data) => invoke('account:add', data),
     update: (id, patch) => invoke('account:update', { id, patch }),
     remove: (id) => invoke('account:remove', id),
     reorder: (orderedIds) => invoke('account:reorder', orderedIds),
     setCollapsed: (id, collapsed) => invoke('account:collapse', { id, collapsed }),
     pickAvatar: () => invoke('account:pick-avatar')
+  },
+
+  views: {
+    save: (data) => invoke('view:save', data),
+    remove: (id) => invoke('view:remove', id),
+    nommer: () => ipcRenderer.send('view:nommer')
   },
 
   services: {

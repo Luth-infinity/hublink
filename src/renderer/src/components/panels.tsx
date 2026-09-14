@@ -1,7 +1,20 @@
 import * as React from 'react';
-import { Check, FileDown, FolderOpen, Search, Settings, Trash2, Users, X } from 'lucide-react';
-import type { Account, Download, HistoryEntry } from '@/types';
+import {
+  BookmarkPlus,
+  Check,
+  FileDown,
+  FolderOpen,
+  Layers2,
+  Search,
+  Settings,
+  Trash2,
+  Users,
+  X
+} from 'lucide-react';
+import type { Account, AccountView, Download, HistoryEntry } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
+import { useOptimiste } from '@/lib/optimiste';
+import { normaliser, vueCourante } from '@/lib/selection';
 import { ListeSurlignee } from '@/components/ListeSurlignee';
 import { AccountAvatar } from '@/components/AccountAvatar';
 
@@ -239,7 +252,13 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
 }
 
 /**
- * Sélecteur de compte.
+ * Sélecteur de comptes.
+ *
+ * En haut, ce qui se choisit d'un clic : « Tous » et les vues enregistrées.
+ * Dessous, les comptes, avec deux gestes par ligne : cliquer le nom n'affiche
+ * que ce compte et referme ; cocher la case l'ajoute à ce qu'on voit ou l'en
+ * retire, et laisse le panneau ouvert pour continuer. Une sélection de
+ * plusieurs comptes peut ensuite se garder sous un nom.
  *
  * Il passait par un menu natif, faute de pouvoir dessiner au-dessus de la
  * page. Le calque lève cette contrainte : le menu suit désormais l'habillage
@@ -247,107 +266,185 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
  */
 export function AccountsPanel({
   accounts,
-  activeAccountId,
+  activeAccountIds,
+  views,
   unreadByAccount,
   discreet
 }: {
   accounts: Account[];
-  activeAccountId: string | null;
+  activeAccountIds: string[];
+  views: AccountView[];
   unreadByAccount: Record<string, number>;
   discreet: boolean;
 }) {
-  const total = accounts.reduce((n, a) => n + (unreadByAccount[a.id] || 0), 0);
-
-  const Ligne = ({
-    actif,
-    children,
-    onClick
-  }: {
-    actif: boolean;
-    children: React.ReactNode;
-    onClick: () => void;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      data-surlignable
-      className={cn(
-        'relative z-10 flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] transition-colors',
-        actif && 'bg-shell-active'
-      )}
-    >
-      {children}
-      {actif && <Check className="size-3.5 shrink-0 text-shell-foreground" aria-hidden />}
-    </button>
+  // La case bascule dès le clic, sans attendre l'aller-retour par le processus
+  // principal. La valeur suivie est une chaîne : le tableau reçu est neuf à
+  // chaque état poussé, et s'y réaligner à chaque fois ferait sauter une case
+  // qu'on vient de cocher.
+  const appliquer = React.useCallback(
+    (cle: string) => api.accounts.filter(cle ? cle.split(',') : []),
+    []
   );
+  const [cle, changer] = useOptimiste(activeAccountIds.join(','), appliquer);
+  const selection = cle ? cle.split(',') : [];
+  const tous = selection.length === 0;
+  const seul = selection.length === 1 ? selection[0] : null;
+  const vue = vueCourante(accounts, views, selection);
+
+  const basculer = (id: string) => {
+    const base = tous ? accounts.map((a) => a.id) : selection;
+    const suivante = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+    // Tout décocher n'afficherait plus rien.
+    if (suivante.length > 0) changer(normaliser(accounts, suivante).join(','));
+  };
+  const montrer = (ids: string[]) => {
+    api.accounts.filter(ids);
+    api.panels.close();
+  };
+  const nonLus = (ids: string[]) => ids.reduce((n, id) => n + (unreadByAccount[id] || 0), 0);
 
   return (
-    <div role="dialog" aria-label="Comptes" className={cn(CADRE, 'max-h-[420px] w-[260px]')}>
+    <div role="dialog" aria-label="Comptes" className={cn(CADRE, 'max-h-[460px] w-[260px]')}>
       <ListeSurlignee className="min-h-0 flex-1 overflow-y-auto py-1">
         <ul>
-        <li>
-          <Ligne
-            actif={activeAccountId === null}
-            onClick={() => {
-              api.accounts.filter(null);
-              api.panels.close();
-            }}
-          >
-            <Users className="size-4 shrink-0 text-shell-muted" aria-hidden />
-            <span className="min-w-0 flex-1 truncate text-shell-foreground">Tous les comptes</span>
-            {total > 0 && <Pastille n={total} />}
-          </Ligne>
-        </li>
+          <li data-surlignable className={cn(LIGNE, tous && 'bg-shell-active')}>
+            <button type="button" onClick={() => montrer([])} className={ZONE}>
+              <Users className="size-4 shrink-0 text-shell-muted" aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-shell-foreground">Tous les comptes</span>
+              {nonLus(accounts.map((a) => a.id)) > 0 && <Pastille n={nonLus(accounts.map((a) => a.id))} />}
+            </button>
+            <span className="grid w-[38px] shrink-0 place-items-center" aria-hidden>
+              {tous && <Check className="size-3.5 text-shell-foreground" />}
+            </span>
+          </li>
 
-        <li aria-hidden className="my-1 border-t border-shell-border" />
-
-        {accounts.map((compte) => {
-          // En mode discrétion, les comptes autres que celui affiché sont
-          // floutés ici aussi : les révéler dans le sélecteur viderait la
-          // fonction de son sens.
-          const masque = discreet && compte.id !== activeAccountId;
-          const nonLus = unreadByAccount[compte.id] || 0;
-          return (
-            <li key={compte.id}>
-              <Ligne
-                actif={compte.id === activeAccountId}
-                onClick={() => {
-                  api.accounts.filter(compte.id);
-                  api.panels.close();
-                }}
-              >
-                <AccountAvatar
-                  account={compte}
-                  className={cn('size-4 rounded', masque && 'blur-[4px]')}
-                  textClassName="text-[7px]"
-                />
-                <span
-                  className={cn(
-                    'min-w-0 flex-1 truncate text-shell-foreground',
-                    masque && 'blur-[5px] tracking-tight select-none'
-                  )}
+          {views.map((v) => {
+            const actif = vue?.id === v.id;
+            // Le nom d'une vue dit quels clients elle regroupe : flouté comme
+            // eux en mode discrétion, sauf celle qu'on affiche.
+            const masquee = discreet && !actif;
+            const n = nonLus(v.accountIds);
+            const noms = v.accountIds
+              .map((id) => accounts.find((a) => a.id === id)?.name)
+              .filter(Boolean)
+              .join(', ');
+            return (
+              <li key={v.id} data-surlignable className={cn('group', LIGNE, actif && 'bg-shell-active')}>
+                <button
+                  type="button"
+                  onClick={() => montrer(v.accountIds)}
+                  title={masquee ? undefined : noms}
+                  className={ZONE}
                 >
-                  {compte.name}
-                </span>
-                {nonLus > 0 && <Pastille n={nonLus} />}
-              </Ligne>
-            </li>
-          );
-        })}
+                  <Layers2 className="size-4 shrink-0 text-shell-muted" aria-hidden />
+                  <span className={cn('min-w-0 flex-1 truncate text-shell-foreground', masquee && FLOU)}>
+                    {v.name}
+                  </span>
+                  {n > 0 && <Pastille n={n} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => api.views.remove(v.id)}
+                  aria-label={masquee ? 'Supprimer cette vue' : `Supprimer la vue ${v.name}`}
+                  title="Supprimer cette vue"
+                  className="grid w-[38px] shrink-0 place-items-center self-stretch text-shell-muted transition-colors hover:text-shell-foreground"
+                >
+                  {actif && <Check className="size-3.5 text-shell-foreground group-hover:hidden" aria-hidden />}
+                  <X
+                    className={cn(
+                      'size-3.5 transition-opacity',
+                      actif ? 'hidden group-hover:block' : 'opacity-0 group-hover:opacity-100'
+                    )}
+                  />
+                </button>
+              </li>
+            );
+          })}
+
+          <li aria-hidden className="my-1 border-t border-shell-border" />
+
+          {accounts.map((compte) => {
+            // En mode discrétion, les comptes autres que celui affiché sont
+            // floutés ici aussi : les révéler dans le sélecteur viderait la
+            // fonction de son sens.
+            const masque = discreet && compte.id !== seul;
+            const coche = tous || selection.includes(compte.id);
+            // La dernière case cochée ne se décoche pas : il faut bien afficher
+            // quelque chose.
+            const derniere = seul === compte.id || accounts.length === 1;
+            const n = unreadByAccount[compte.id] || 0;
+            return (
+              <li key={compte.id} data-surlignable className={cn(LIGNE, seul === compte.id && 'bg-shell-active')}>
+                <button
+                  type="button"
+                  onClick={() => montrer([compte.id])}
+                  title={masque ? undefined : `N'afficher que ${compte.name}`}
+                  className={ZONE}
+                >
+                  <AccountAvatar
+                    account={compte}
+                    className={cn('size-4 rounded', masque && 'blur-[4px]')}
+                    textClassName="text-[7px]"
+                  />
+                  <span className={cn('min-w-0 flex-1 truncate text-shell-foreground', masque && FLOU)}>
+                    {compte.name}
+                  </span>
+                  {n > 0 && <Pastille n={n} />}
+                </button>
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={coche}
+                  aria-label={masque ? 'Afficher ce compte' : `Afficher ${compte.name}`}
+                  disabled={derniere}
+                  onClick={() => basculer(compte.id)}
+                  title={
+                    derniere ? 'Au moins un compte reste affiché' : coche ? 'Retirer de l’affichage' : 'Ajouter à l’affichage'
+                  }
+                  className="grid w-[38px] shrink-0 place-items-center self-stretch disabled:cursor-default"
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'grid size-3.5 place-items-center rounded-[4px] border transition-colors duration-150',
+                      coche
+                        ? 'border-shell-foreground bg-shell-foreground text-shell-raised'
+                        : 'border-shell-muted/60 hover:border-shell-foreground'
+                    )}
+                  >
+                    {coche && <Check className="size-2.5" strokeWidth={3.5} />}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </ListeSurlignee>
 
+      {/* Hors de la liste surlignée — le pied du panneau, que la pastille ne
+          peut pas atteindre. Ses boutons gardent donc leur propre fond, sans
+          quoi ils seraient les seuls items du panneau sans retour au survol. */}
       <div className="border-t border-shell-border">
+        {selection.length >= 2 && !vue && (
+          <button
+            type="button"
+            onClick={() => {
+              api.views.nommer();
+              api.panels.close();
+            }}
+            className={cn(PIED, 'animate-in fade-in duration-150')}
+          >
+            <BookmarkPlus className="size-4 shrink-0" aria-hidden />
+            Enregistrer cette vue…
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {
             api.openAccountsSettings();
             api.panels.close();
           }}
-          /* Hors de la liste surlignée — il est dans le pied du panneau, que la
-             pastille ne peut pas atteindre. Il garde donc son propre fond, sans
-             quoi il serait le seul item du panneau sans retour au survol. */
-          className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] text-shell-muted transition-colors hover:bg-shell-hover hover:text-shell-foreground"
+          className={PIED}
         >
           <Settings className="size-4 shrink-0" aria-hidden />
           Gérer les comptes…
@@ -356,6 +453,14 @@ export function AccountsPanel({
     </div>
   );
 }
+
+const LIGNE = 'relative z-10 flex items-center';
+const ZONE = 'flex min-w-0 flex-1 items-center gap-2.5 py-2 pl-3 text-left text-[12px]';
+const PIED =
+  'flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] text-shell-muted transition-colors hover:bg-shell-hover hover:text-shell-foreground';
+// Le flou seul laisserait deviner la longueur d'un nom : on le double d'un
+// léger resserrement des lettres.
+const FLOU = 'blur-[5px] tracking-tight select-none';
 
 function Pastille({ n }: { n: number }) {
   return (

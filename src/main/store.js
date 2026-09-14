@@ -24,8 +24,11 @@ function seed() {
     theme: 'system',
     sidebarCollapsed: false,
     sleepAfterMinutes: 20,
-    // null = tous les comptes ; sinon on ne voit que celui-ci.
-    activeAccountId: null,
+    // Comptes affichés. Vide = tous ; un seul = filtre sur ce compte ;
+    // plusieurs = une vue sur mesure.
+    activeAccountIds: [],
+    // Sélections de comptes gardées sous un nom, proposées dans le sélecteur.
+    views: [],
     accounts: DEFAULT_ACCOUNTS.map((a) => {
       const id = uid('a');
       return { id, name: a.name, color: a.color, avatar: null, partition: `persist:account-${id}` };
@@ -118,7 +121,21 @@ function normalize(state) {
     if (!account.partition) account.partition = `persist:account-${account.id}`;
     delete account.spaceId;
   }
-  if (!state.accounts.some((a) => a.id === state.activeAccountId)) state.activeAccountId = null;
+  // Le filtre ne portait que sur un compte avant les vues : il devient une liste.
+  if (!Array.isArray(state.activeAccountIds)) {
+    state.activeAccountIds = typeof state.activeAccountId === 'string' ? [state.activeAccountId] : [];
+  }
+  delete state.activeAccountId;
+  state.activeAccountIds = normaliserSelection(state, state.activeAccountIds);
+  if (!Array.isArray(state.views)) state.views = [];
+  state.views = state.views
+    .filter((vue) => vue && typeof vue.id === 'string')
+    .map((vue) => ({
+      id: vue.id,
+      name: String(vue.name || 'Vue'),
+      accountIds: comptesConnus(state, vue.accountIds)
+    }))
+    .filter((vue) => vue.accountIds.length > 0);
   // Un compte supprimé ne doit pas rester replié dans un coin de la config.
   state.collapsedAccounts = state.collapsedAccounts.filter((id) =>
     state.accounts.some((a) => a.id === id)
@@ -222,11 +239,54 @@ const accountOf = (serviceId) => {
   return service ? getAccount(service.accountId) : null;
 };
 
-// Services visibles selon le filtre de compte. `activeAccountId` à null = tout.
+/** Identifiants de comptes existants, sans doublon, dans l'ordre des comptes. */
+function comptesConnus(s, ids) {
+  const voulus = new Set(Array.isArray(ids) ? ids : []);
+  return s.accounts.filter((a) => voulus.has(a.id)).map((a) => a.id);
+}
+
+/**
+ * Forme unique d'une sélection de comptes. Tout cocher s'écrit liste vide,
+ * comme « Tous » : sinon un compte créé ensuite resterait hors de la vue de
+ * quelqu'un qui voulait simplement tout voir. `lib/selection.ts` applique la
+ * même règle côté interface, pour que les deux comparent la même chose.
+ */
+function normaliserSelection(s, ids) {
+  const retenus = comptesConnus(s, ids);
+  return retenus.length === s.accounts.length ? [] : retenus;
+}
+
+// Services visibles selon la sélection de comptes. Liste vide = tout.
 function visibleServices() {
   const s = load();
-  if (!s.activeAccountId) return s.services;
-  return s.services.filter((service) => service.accountId === s.activeAccountId);
+  if (s.activeAccountIds.length === 0) return s.services;
+  const affiches = new Set(s.activeAccountIds);
+  return s.services.filter((service) => affiches.has(service.accountId));
+}
+
+function setAccountFilter(ids) {
+  const s = load();
+  s.activeAccountIds = normaliserSelection(s, ids);
+  save();
+  return s.activeAccountIds;
+}
+
+// --- vues ------------------------------------------------------------------
+
+function addView({ name, accountIds }) {
+  const s = load();
+  const ids = comptesConnus(s, accountIds);
+  if (ids.length === 0) return null;
+  const vue = { id: uid('v'), name: String(name || '').trim() || 'Vue', accountIds: ids };
+  s.views.push(vue);
+  save();
+  return vue;
+}
+
+function removeView(id) {
+  const s = load();
+  s.views = s.views.filter((vue) => vue.id !== id);
+  save();
 }
 
 // --- comptes ---------------------------------------------------------------
@@ -284,8 +344,13 @@ function removeAccount(id) {
   const s = load();
   if (s.accounts.length <= 1) return [];
   const orphans = s.services.filter((service) => service.accountId === id).map((service) => service.id);
-  if (s.activeAccountId === id) s.activeAccountId = null;
   s.accounts = s.accounts.filter((a) => a.id !== id);
+  // Après le retrait : les comptes restants peuvent former « Tous » à eux seuls.
+  s.activeAccountIds = normaliserSelection(s, s.activeAccountIds);
+  // Une vue qui perd tous ses comptes n'afficherait plus rien.
+  s.views = s.views
+    .map((vue) => ({ ...vue, accountIds: vue.accountIds.filter((x) => x !== id) }))
+    .filter((vue) => vue.accountIds.length > 0);
   s.collapsedAccounts = s.collapsedAccounts.filter((x) => x !== id);
   s.services = s.services.filter((service) => service.accountId !== id);
   if (!s.services.some((service) => service.id === s.activeServiceId)) {
@@ -573,6 +638,7 @@ function exportConfig() {
       notifications: x.notifications,
       keepAwake: x.keepAwake
     })),
+    views: s.views,
     favorites: s.favorites
   };
 }
@@ -634,6 +700,15 @@ function importConfig(data) {
       notifications: x.notifications !== false,
       keepAwake: x.keepAwake === true
     }));
+  // Une sauvegarde d'avant les vues n'en a pas : on garde alors une liste vide.
+  s.views = (Array.isArray(data.views) ? data.views : [])
+    .filter((vue) => vue && vue.name)
+    .map((vue) => ({
+      id: vue.id || uid('v'),
+      name: String(vue.name),
+      accountIds: comptesConnus(s, vue.accountIds)
+    }))
+    .filter((vue) => vue.accountIds.length > 0);
   s.favorites = Array.isArray(data.favorites) ? data.favorites : [];
   if (typeof data.theme === 'string') s.theme = data.theme;
   if (typeof data.sleepAfterMinutes === 'number') s.sleepAfterMinutes = data.sleepAfterMinutes;
@@ -643,7 +718,7 @@ function importConfig(data) {
   if (typeof data.blockAds === 'boolean') s.blockAds = data.blockAds;
   if (typeof data.skipSponsors === 'boolean') s.skipSponsors = data.skipSponsors;
 
-  s.activeAccountId = null;
+  s.activeAccountIds = [];
   s.activeServiceId = s.services[0] ? s.services[0].id : null;
   saveNow();
   return { ok: true, comptes: s.accounts.length, services: s.services.length };
@@ -684,6 +759,9 @@ module.exports = {
   getAccount,
   getService,
   visibleServices,
+  setAccountFilter,
+  addView,
+  removeView,
   accountOf,
   addAccount,
   updateAccount,

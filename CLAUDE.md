@@ -115,6 +115,22 @@ est redevenu un service ordinaire, migré dans le premier compte au premier dém
 La session `persist:whatsapp` n'est plus lue : ne pas la recâbler, l'utilisateur a
 rescanné son code depuis. Ne pas réintroduire de zone « solo » en bas du panneau.
 
+## Le filtre de comptes est une sélection
+
+`activeAccountIds` (une liste) remplace `activeAccountId` depuis les vues sur mesure ;
+`normalize()` migre l'ancien champ. Liste vide = tous ; un compte = liste plate et
+teinte du shell ; plusieurs = liste regroupée par compte, shell neutre.
+
+**Tout cocher s'écrit liste vide**, des deux côtés (`normaliserSelection` dans le
+store, `normaliser` dans `src/renderer/src/lib/selection.ts`). Sinon un compte créé
+plus tard resterait hors de la vue de qui voulait tout voir, et une vue enregistrée
+ne se reconnaîtrait plus une fois appliquée.
+
+Les vues (`views`) sont des sélections nommées : dans le panneau sous « Tous », et
+dans le cycle des flèches entre « Tous » et les comptes. Leur nom se tape dans une
+modale de la fenêtre principale (`ViewDialog`) : **le calque est `focusable: false`,
+il ne reçoit jamais le clavier**.
+
 ## Le mode vidéo déménage la vue
 
 `src/main/videomode.js` sort la page dans une petite fenêtre qui reste au-dessus.

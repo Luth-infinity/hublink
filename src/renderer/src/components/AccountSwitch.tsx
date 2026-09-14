@@ -1,50 +1,49 @@
 import * as React from 'react';
-import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
-import type { Account } from '@/types';
+import { ChevronLeft, ChevronRight, Layers2, Users } from 'lucide-react';
+import type { Account, AccountView } from '@/types';
 import { Button } from '@/components/ui/button';
 import { AccountAvatar } from '@/components/AccountAvatar';
+import { memeSelection, normaliser, vueCourante } from '@/lib/selection';
 
 type Props = {
   accounts: Account[];
-  activeAccountId: string | null;
+  /** Comptes affichés : vide = tous. */
+  activeAccountIds: string[];
+  views: AccountView[];
   /** Non-lus par compte, pour ne rien manquer d'un compte masqué. */
   unreadByAccount: Record<string, number>;
   collapsed: boolean;
   /** Mode discrétion : les comptes autres que l'affiché sont floutés. */
   discreet: boolean;
-  onSelect: (id: string | null) => void;
+  onSelect: (ids: string[]) => void;
   onManage: () => void;
 };
 
 /**
  * Carrousel de comptes : les flèches font défiler, le libellé central ouvre la
  * liste complète. Une barre d'onglets déborderait dès quelques comptes.
- *
- * La liste est un menu natif : un menu HTML serait masqué par la vue web, qui
- * est une vue native peinte au-dessus du shell.
  */
 export function AccountSwitch({
   accounts,
-  activeAccountId,
+  activeAccountIds,
+  views,
   unreadByAccount,
   collapsed,
   discreet,
-  onSelect,
-  onManage
+  onSelect
 }: Props) {
-  if (accounts.length === 0) return null;
-
-  // « Tous » fait partie du cycle, en première position.
-  const cycle = React.useMemo<(string | null)[]>(() => [null, ...accounts.map((a) => a.id)], [accounts]);
-  const index = cycle.indexOf(activeAccountId);
-  const active = accounts.find((a) => a.id === activeAccountId) ?? null;
-
-  const step = (delta: number) => onSelect(cycle[(index + delta + cycle.length) % cycle.length]);
-
-  const hiddenUnread = accounts.reduce(
-    (sum, account) => (account.id === activeAccountId ? sum : sum + (unreadByAccount[account.id] || 0)),
-    0
-  );
+  // Le cycle suit l'ordre du panneau : « Tous », les vues enregistrées, puis
+  // chaque compte. Une vue qui ne recouvre qu'un compte, ou tous, y ferait
+  // doublon.
+  const cycle = React.useMemo(() => {
+    const etapes: string[][] = [[]];
+    for (const vue of views) {
+      const ids = normaliser(accounts, vue.accountIds);
+      if (ids.length >= 2 && !etapes.some((e) => memeSelection(e, ids))) etapes.push(ids);
+    }
+    for (const account of accounts) etapes.push([account.id]);
+    return etapes;
+  }, [accounts, views]);
 
   // Le sélecteur passait par un menu natif, faute de pouvoir dessiner au-dessus
   // de la page. Le calque lève cette contrainte : on ouvre désormais un panneau
@@ -58,6 +57,35 @@ export function AccountSwitch({
     );
   };
 
+  if (accounts.length === 0) return null;
+
+  const index = cycle.findIndex((etape) => memeSelection(etape, activeAccountIds));
+  // Une sélection cochée à la main n'a pas de place dans le cycle : les flèches
+  // repartent de « Tous ».
+  const step = (delta: number) => {
+    const depart = Math.max(0, index);
+    onSelect(cycle[(depart + delta + cycle.length) % cycle.length]);
+  };
+
+  const seul =
+    activeAccountIds.length === 1 ? (accounts.find((a) => a.id === activeAccountIds[0]) ?? null) : null;
+  const plusieurs = activeAccountIds.length > 1;
+  const vue = vueCourante(accounts, views, activeAccountIds);
+  // En mode discrétion, le nom d'une vue dirait quels clients elle regroupe.
+  const libelle = seul
+    ? seul.name
+    : plusieurs
+      ? vue && !discreet
+        ? vue.name
+        : `${activeAccountIds.length} comptes`
+      : 'Tous';
+
+  const hiddenUnread = accounts.reduce(
+    (sum, account) =>
+      activeAccountIds.includes(account.id) ? sum : sum + (unreadByAccount[account.id] || 0),
+    0
+  );
+
   if (collapsed) {
     return (
       <div className="flex justify-center pt-1 pb-2">
@@ -66,12 +94,14 @@ export function AccountSwitch({
           variant="ghost"
           size="icon-sm"
           onClick={openMenu}
-          title={active ? `Compte : ${active.name}` : 'Tous les comptes'}
+          title={seul ? `Compte : ${seul.name}` : plusieurs ? libelle : 'Tous les comptes'}
           aria-label="Changer de compte"
           className="relative text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
         >
-          {active ? (
-            <AccountAvatar account={active} className="size-[18px] rounded" textClassName="text-[8px]" />
+          {seul ? (
+            <AccountAvatar account={seul} className="size-[18px] rounded" textClassName="text-[8px]" />
+          ) : plusieurs ? (
+            <Layers2 />
           ) : (
             <Users />
           )}
@@ -101,15 +131,12 @@ export function AccountSwitch({
         type="button"
         onClick={openMenu}
         aria-haspopup="menu"
-        title="Choisir un compte"
+        title="Choisir les comptes affichés"
         className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-shell-hover px-2.5 py-1 transition-colors hover:bg-shell-active"
       >
-        {active && (
-          <AccountAvatar account={active} className="size-4 rounded" textClassName="text-[7px]" />
-        )}
-        <span className="truncate text-[12px] font-medium text-shell-foreground">
-          {active ? active.name : 'Tous'}
-        </span>
+        {seul && <AccountAvatar account={seul} className="size-4 rounded" textClassName="text-[7px]" />}
+        {plusieurs && <Layers2 className="size-3.5 shrink-0 text-shell-muted" aria-hidden />}
+        <span className="truncate text-[12px] font-medium text-shell-foreground">{libelle}</span>
         {hiddenUnread > 0 && (
           <span
             className="shrink-0 rounded-full bg-red-500 px-1.5 text-[9px] leading-[15px] font-bold text-white"

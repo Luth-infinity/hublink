@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ChevronRight, Compass, EyeOff, Moon, Plus, Settings, Star, X } from 'lucide-react';
-import type { Account, Favorite, MenuItem, Service, Tab, Update } from '@/types';
+import type { Account, AccountView, Favorite, MenuItem, Service, Tab, Update } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { useFlip } from '@/lib/flip';
 import { useOptimiste } from '@/lib/optimiste';
@@ -17,9 +17,11 @@ type Props = {
   services: Service[];
   accounts: Account[];
   activeServiceId: string | null;
-  activeAccountId: string | null;
+  /** Comptes affichés : vide = tous. */
+  activeAccountIds: string[];
+  views: AccountView[];
   unreadByAccount: Record<string, number>;
-  onFilterAccount: (id: string | null) => void;
+  onFilterAccount: (ids: string[]) => void;
   /** Mode rail : icônes seules, pour rendre de la largeur à la page web. */
   collapsed: boolean;
   /** Identifiants des services libérés de la mémoire. */
@@ -83,7 +85,8 @@ function SidebarImpl({
   services,
   accounts,
   activeServiceId,
-  activeAccountId,
+  activeAccountIds,
+  views,
   unreadByAccount,
   onFilterAccount,
   collapsed,
@@ -117,12 +120,15 @@ function SidebarImpl({
 }: Props) {
   const accountById = React.useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   const [discret, changerDiscret] = useOptimiste(discreet, onToggleDiscreet);
+  // Un seul compte affiché : la liste est plate. Tous, ou plusieurs : elle est
+  // regroupée par compte.
+  const seul = activeAccountIds.length === 1 ? activeAccountIds[0] : null;
 
   // Le compte qu'on est en train de montrer reste lisible, tous les autres sont
   // floutés. Le mode navigateur n'affiche aucun compte : l'interrupteur n'y est
   // donc pas proposé.
   const compteMontre =
-    activeAccountId ??
+    seul ??
     accountById.get(services.find((x) => x.id === activeServiceId)?.accountId ?? '')?.id ??
     null;
 
@@ -152,14 +158,16 @@ function SidebarImpl({
   const ordre = `${accounts.map((a) => a.id).join(',')}|${services.map((x) => x.id).join(',')}`;
   const flip = useFlip(ordre);
 
-  // En vue « Tous », les services sont regroupés par compte : l'en-tête dit à
-  // qui ils appartiennent, ce qui rend inutile de le répéter sous chacun.
+  // Dès que plusieurs comptes sont affichés, les services sont regroupés par
+  // compte : l'en-tête dit à qui ils appartiennent, ce qui rend inutile de le
+  // répéter sous chacun. `services` arrive déjà filtré : un compte hors de la
+  // sélection n'a aucun service, donc aucune section.
   const groups = React.useMemo(() => {
-    if (activeAccountId) return null;
+    if (seul) return null;
     return accounts
       .map((account) => ({ account, items: services.filter((s) => s.accountId === account.id) }))
       .filter((g) => g.items.length > 0);
-  }, [accounts, services, activeAccountId]);
+  }, [accounts, services, seul]);
 
   const serviceMenu = (service: Service, index: number, total: number, siblings: Service[]) =>
     popup(
@@ -204,6 +212,10 @@ function SidebarImpl({
    */
   const accountMenu = (account: Account, index: number, voisins: Account[]) => {
     const replie = estPlie(account.id);
+    // Retirer un compte de ce qu'on voit part de la sélection, pas des sections
+    // visibles : un compte sans service n'a pas de section, mais reste affiché.
+    const affiches = activeAccountIds.length ? activeAccountIds : accounts.map((a) => a.id);
+    const reste = affiches.filter((id) => id !== account.id);
     return popup(
       [
         { id: 'fold', label: replie ? 'Déplier' : 'Replier' },
@@ -211,14 +223,16 @@ function SidebarImpl({
         { id: 'up', label: 'Monter', enabled: index > 0 },
         { id: 'down', label: 'Descendre', enabled: index < voisins.length - 1 },
         { type: 'separator' },
-        { id: 'only', label: `N'afficher que ${account.name}` }
+        { id: 'only', label: `N'afficher que ${account.name}` },
+        { id: 'hide', label: `Ne plus afficher ${account.name}`, enabled: reste.length > 0 }
       ],
       {
         fold: () => onToggleAccountCollapsed(account.id, !replie),
         up: () => index > 0 && onReorderAccounts(account.id, voisins[index - 1].id),
         down: () =>
           index < voisins.length - 1 && onReorderAccounts(account.id, voisins[index + 1].id),
-        only: () => onFilterAccount(account.id)
+        only: () => onFilterAccount([account.id]),
+        hide: () => onFilterAccount(reste)
       }
     );
   };
@@ -606,7 +620,8 @@ function SidebarImpl({
       <aside className="flex w-14 shrink-0 flex-col border-r border-shell-border bg-shell">
         <AccountSwitch
           accounts={accounts}
-          activeAccountId={activeAccountId}
+          activeAccountIds={activeAccountIds}
+          views={views}
           unreadByAccount={unreadByAccount}
           collapsed
           onSelect={onFilterAccount}
@@ -625,7 +640,7 @@ function SidebarImpl({
                   {index > 0 && <Separator className="my-1 w-7 bg-shell-border" />}
                   <button
                     type="button"
-                    onClick={() => onFilterAccount(account.id)}
+                    onClick={() => onFilterAccount([account.id])}
                     title={
                       masque(account.id)
                         ? 'Compte masqué'
@@ -689,12 +704,13 @@ function SidebarImpl({
         <div className="p-2 pb-0">
           <AccountSwitch
             accounts={accounts}
-            activeAccountId={activeAccountId}
+            activeAccountIds={activeAccountIds}
+            views={views}
             unreadByAccount={unreadByAccount}
             collapsed={false}
             onSelect={onFilterAccount}
             discreet={discreet}
-          onManage={onOpenSettings}
+            onManage={onOpenSettings}
           />
         </div>
       )}
@@ -703,7 +719,7 @@ function SidebarImpl({
           une liste entièrement différente, qui gagne à apparaître plutôt qu'à
           se substituer d'un coup. */}
       <div
-        key={activeAccountId ?? 'tous'}
+        key={activeAccountIds.join(',') || 'tous'}
         className="flex-1 animate-in fade-in overflow-y-auto p-2 duration-200 ease-out motion-reduce:animate-none"
       >
         {groups
@@ -771,7 +787,7 @@ function SidebarImpl({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onFilterAccount(account.id)}
+                      onClick={() => onFilterAccount([account.id])}
                       title={
                         masque(account.id) ? 'Afficher ce compte' : `N'afficher que ${account.name}`
                       }
@@ -834,7 +850,11 @@ function SidebarImpl({
 
         {services.length === 0 && (
           <p className="px-2 py-4 text-center text-xs leading-relaxed text-shell-muted/70">
-            {activeAccountId ? 'Aucun service pour ce compte.' : "Aucun service pour l'instant."}
+            {seul
+              ? 'Aucun service pour ce compte.'
+              : activeAccountIds.length
+                ? 'Aucun service pour ces comptes.'
+                : "Aucun service pour l'instant."}
           </p>
         )}
       </div>

@@ -139,6 +139,11 @@ export const fr: Contenu = {
         titre: 'Thème teinté',
         texte:
           "Clair, sombre ou système. Quand vous filtrez sur un compte, sa couleur voile légèrement l'interface — de quoi savoir chez qui vous êtes sans lire une étiquette."
+      },
+      {
+        titre: 'Vues sur mesure',
+        texte:
+          "Cochez les comptes à afficher : deux clients sur trois, ou tous sauf le perso. Une sélection utile s'enregistre sous un nom et revient d'un clic, ou avec les flèches du sélecteur."
       }
     ]
   },
@@ -306,6 +311,11 @@ export const en: Contenu = {
         titre: 'Tinted theme',
         texte:
           'Light, dark or system. When you filter on an account, its colour lightly washes over the interface — enough to know whose desk you are at without reading a label.'
+      },
+      {
+        titre: 'Custom views',
+        texte:
+          'Tick the accounts you want on screen: two clients out of three, or everything but your personal one. A selection worth keeping gets a name and comes back in one click, or with the switcher arrows.'
       }
     ]
   },
