@@ -8,11 +8,11 @@ Le code et les commits sont **en français**, au présent, décrivant le comport
 plutôt que la modification (« Corrige l'import manquant qui cassait le démarrage »).
 Les commentaires expliquent *pourquoi*, pas *quoi*.
 
-## État au 14 septembre 2026
+## État au 16 septembre 2026
 
 | | Version |
 |---|---|
-| Windows | **0.5.8** |
+| Windows | **0.5.9** |
 | macOS | **0.5.8** |
 
 Les deux plateformes sont à parité, et **le restent sans rien faire** depuis la 0.5.2 :
@@ -370,6 +370,25 @@ Le gestionnaire vaut **par session** : il est posé dans `ensureSession`, un com
 branché ne fait rien pour les autres. Et `display-capture` est accordée sans question
 dans le gestionnaire de permissions : le sélecteur est déjà la question, et mieux
 posée puisqu'il montre ce qui sera visible.
+
+**Rien n'est présélectionné, et le son est une case décochée** (0.5.9). Le sélecteur
+choisissait d'office le premier écran : Entrée ou « Partager » envoyait tout le bureau
+à la réunion alors qu'on voulait une fenêtre. Sur deux moniteurs, une appli en plein
+écran a la même vignette que l'écran qui la porte — rien ne le signalait. Et
+`audio: 'loopback'` partait dès que la page demandait du son (Teams le demande
+toujours) : il capte **tout** le son de l'ordinateur, la musique de fond comprise.
+La doc d'Electron le dit réservé à Windows ; mesuré sur macOS 26, il rend bien une
+piste « System audio ».
+
+- **`useSystemPicker: true` ne marche pas** (macOS 26.6.2, Electron 41, mesuré) : aucun
+  sélecteur natif sur aucun écran, gestionnaire jamais appelé, la page reçoit
+  `AbortError: Timeout starting video source`. Ne pas y revenir sans le re-mesurer.
+- **Le cadrage sur une fenêtre fonctionne**, son joint ou non : fenêtre de 640 × 400
+  visée, image de 640 × 400 capturée, et c'est bien la fenêtre qu'on y voit.
+- **Piège de mesure** : `track.getSettings()` lu dès la résolution de
+  `getDisplayMedia` a annoncé une fois la taille de l'écran (2560 × 1080) pour une
+  fenêtre. Lu après une seconde de lecture, il donne la bonne taille. Juger sur une
+  image capturée, jamais sur les réglages lus à chaud.
 
 ## Contrainte structurante : la vue web est native
 

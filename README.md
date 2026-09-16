@@ -41,6 +41,11 @@ l'intranet et les outils d'un même client) ; deux comptes différents ne se voi
   n'est disponible. Sans cela, Teams et les portails Microsoft proposent d'emblée la clé d'accès
   de la session Windows ou macOS, qui n'est presque jamais le bon compte. Désactivable par
   service.
+- **Partage d'écran** — Electron n'a pas le sélecteur de Chromium : sans lui, Teams ou Meet
+  n'affichent même pas leur bouton. Hublink en fournit un, avec l'aperçu de chaque écran et de
+  chaque fenêtre. **Rien n'est sélectionné d'avance** et le son de l'ordinateur n'est joint que
+  si on coche la case : sur deux moniteurs, une appli en plein écran donne la même vignette que
+  l'écran qui la porte, et un défaut mal placé fait partir tout le bureau — musique comprise.
 - **Délai de mise en veille réglable** — de 5 minutes à 2 heures, ou jamais, depuis le pied du
   panneau ou le menu Affichage.
 - **Panneau rétractable** — `⌘/Ctrl + B` réduit le panneau à un rail d'icônes de 56 px : les
@@ -218,6 +223,8 @@ Toute URL sortante est **parsée**, jamais comparée en sous-chaîne :
 - Accordées d'office : notifications, plein écran, écriture presse-papiers.
 - **Confirmation explicite** pour caméra/micro, partage d'écran et lecture du presse-papiers,
   avec l'origine affichée. L'accord est mémorisé par origine, jusqu'à la fermeture de l'app.
+- Le sélecteur de partage **ne présélectionne rien** et n'attache le son du système que sur
+  demande : `loopback` capte tout ce que joue l'ordinateur, pas la seule fenêtre partagée.
 - `setPermissionCheckHandler` est défini en plus du handler asynchrone, sans quoi Electron
   applique ses propres défauts.
 

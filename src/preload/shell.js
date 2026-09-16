@@ -129,7 +129,7 @@ contextBridge.exposeInMainWorld('hublink', {
   // fenêtres, et rend l'identifiant choisi — ou rien du tout.
   partage: {
     onSources: (handler) => on('partage:sources', handler),
-    choisir: (id) => ipcRenderer.send('partage:choix', id)
+    choisir: (choix) => ipcRenderer.send('partage:choix', choix)
   },
 
   // La barre de la fenêtre vidéo : elle reçoit l'état de la lecture et renvoie

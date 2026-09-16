@@ -191,6 +191,8 @@ export type SourcePartage = {
   id: string;
   nom: string;
   ecran: boolean;
+  /** Définition de l'écran, pour le distinguer d'une appli en plein écran. */
+  detail: string | null;
   apercu: string;
   icone: string | null;
 };
@@ -334,8 +336,10 @@ declare global {
         onEtat(handler: (etat: EtatSuggestions | null) => void): () => void;
       };
       partage: {
-        onSources(handler: (data: { liste: SourcePartage[]; origine: string }) => void): () => void;
-        choisir(id: string | null): void;
+        onSources(
+          handler: (data: { liste: SourcePartage[]; origine: string; sonDemande: boolean }) => void
+        ): () => void;
+        choisir(choix: { id: string; son: boolean } | null): void;
       };
       video: {
         onEtat(handler: (etat: EtatVideo) => void): () => void;

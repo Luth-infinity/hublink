@@ -1,4 +1,4 @@
-const { BrowserWindow, desktopCapturer, ipcMain } = require('electron');
+const { BrowserWindow, desktopCapturer, ipcMain, screen } = require('electron');
 const path = require('path');
 
 /**
@@ -21,7 +21,7 @@ function configurer(r) {
   reglages = r;
 }
 
-/** Répond à la demande en cours, une seule fois. */
+/** Répond à la demande en cours, une seule fois. `choix` = { id, son } ou null. */
 function repondre(choix) {
   const rendre = attente;
   attente = null;
@@ -30,7 +30,7 @@ function repondre(choix) {
   if (rendre) rendre(choix);
 }
 
-async function choisirSource(parent, origine) {
+async function choisirSource(parent, origine, sonDemande) {
   // Les sources sont relevées AVANT d'ouvrir le sélecteur : sinon il se
   // proposerait lui-même, ce qui n'aurait aucun sens.
   const sources = await desktopCapturer.getSources({
@@ -39,12 +39,20 @@ async function choisirSource(parent, origine) {
     fetchWindowIcons: true
   });
 
+  // La définition de chaque écran : sur plusieurs moniteurs, une appli en plein
+  // écran donne une vignette IDENTIQUE à celle de l'écran qui la porte. Le seul
+  // moyen de les distinguer d'un coup d'oeil, c'est de l'écrire.
+  const definitions = new Map(
+    screen.getAllDisplays().map((d) => [String(d.id), `${d.size.width} × ${d.size.height}`])
+  );
+
   const liste = sources
     .filter((s) => s.thumbnail && !s.thumbnail.isEmpty())
     .map((s) => ({
       id: s.id,
       nom: s.name,
       ecran: s.id.startsWith('screen:'),
+      detail: s.id.startsWith('screen:') ? definitions.get(String(s.display_id)) || null : null,
       apercu: s.thumbnail.toDataURL(),
       icone: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : null
     }));
@@ -84,7 +92,8 @@ async function choisirSource(parent, origine) {
     }
 
     fenetre.webContents.on('did-finish-load', () => {
-      if (fenetre && !fenetre.isDestroyed()) fenetre.webContents.send('partage:sources', { liste, origine });
+      if (fenetre && !fenetre.isDestroyed())
+        fenetre.webContents.send('partage:sources', { liste, origine, sonDemande });
     });
     fenetre.once('ready-to-show', () => fenetre && fenetre.show());
     // Fermée d'une autre façon : c'est un refus, et la page attend une réponse.
@@ -92,7 +101,10 @@ async function choisirSource(parent, origine) {
       fenetre = null;
       if (attente) repondre(null);
     });
-  }).then((id) => sources.find((s) => s.id === id) || null);
+  }).then((choix) => {
+    const source = choix && sources.find((s) => s.id === choix.id);
+    return source ? { source, son: Boolean(choix.son) } : null;
+  });
 }
 
 /**
@@ -111,20 +123,30 @@ function brancher(session, fenetrePrincipale) {
         origine = '';
       }
 
-      const source = await choisirSource(fenetrePrincipale(), origine).catch(() => null);
-      if (!source) return callback({});
+      const choix = await choisirSource(fenetrePrincipale(), origine, requete.audioRequested).catch(
+        () => null
+      );
+      if (!choix) return callback({});
 
-      // Le son du système suit l'image quand la page le demande — une vidéo
-      // partagée sans sa bande-son n'a pas d'intérêt.
-      callback(requete.audioRequested ? { video: source, audio: 'loopback' } : { video: source });
+      // Le son n'est JAMAIS joint d'office : `loopback` capte tout le son de
+      // l'ordinateur, pas celui de la fenêtre partagée — la musique de fond
+      // partait dans la réunion. C'est donc une case à cocher, décochée.
+      callback(
+        choix.son && requete.audioRequested
+          ? { video: choix.source, audio: 'loopback' }
+          : { video: choix.source }
+      );
     },
-    // Windows n'a pas de sélecteur système : c'est le nôtre qui sert.
+    // Le nôtre, toujours. `useSystemPicker: true` a été mesuré sur macOS 26.6.2
+    // / Electron 41 : le sélecteur natif ne s'affiche sur AUCUN écran, le
+    // gestionnaire n'est jamais appelé et la demande meurt en
+    // « AbortError: Timeout starting video source ». Windows n'en a pas non plus.
     { useSystemPicker: false }
   );
 }
 
 function brancherIpc() {
-  ipcMain.on('partage:choix', (_e, id) => repondre(id || null));
+  ipcMain.on('partage:choix', (_e, choix) => repondre(choix && choix.id ? choix : null));
 }
 
 module.exports = { configurer, brancher, brancherIpc };
