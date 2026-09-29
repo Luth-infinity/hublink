@@ -25,7 +25,20 @@ const COLORS = [
   '#eab308',
   '#ec4899',
   '#06b6d4',
-  '#64748b'
+  '#64748b',
+  // Seconde rangée, plus soutenue : au-delà de dix clients, deux comptes
+  // finissaient par partager une couleur. Pas de noir : il ne teinterait
+  // rien en thème sombre.
+  '#1e40af',
+  '#b45309',
+  '#7e22ce',
+  '#16a34a',
+  '#0f766e',
+  '#9f1239',
+  '#65a30d',
+  '#d946ef',
+  '#0369a1',
+  '#78716c'
 ];
 
 type Props = {
@@ -119,7 +132,7 @@ export function AccountDialog({ open, account, onOpenChange, onSubmit }: Props) 
 
           <div className="grid gap-2">
             <Label>Couleur</Label>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid w-fit grid-cols-10 gap-2">
               {COLORS.map((value) => (
                 <button
                   key={value}
