@@ -864,6 +864,14 @@ class ViewManager {
     this.current.webContents.focus();
   }
 
+  /** Colle dans la page affichée ; faux s'il n'y en a pas pour le recevoir. */
+  collerDansLaPage() {
+    if (this.overlay || !this.current || this.current.webContents.isDestroyed()) return false;
+    this.current.webContents.focus();
+    this.current.webContents.paste();
+    return true;
+  }
+
   setOverlay(active) {
     this.overlay = Boolean(active);
     if (!this.current) return;

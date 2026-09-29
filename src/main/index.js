@@ -369,17 +369,40 @@ function createWindow() {
   const checkUpdateOnFocus = updates.watch((update) => send('update:available', update));
   win.on('focus', checkUpdateOnFocus);
 
-  // La page ne reprend pas le clavier toute seule quand la fenêtre redevient
-  // active. On le lui rend — sauf si c'est le shell qui écrit, auquel cas on
-  // ne va pas lui arracher son champ sous les doigts.
-  win.on('focus', async () => {
-    if (!win || win.isDestroyed()) return;
-    const shellEcrit = await win.webContents
-      .executeJavaScript(
-        "(() => { const a = document.activeElement; return Boolean(a && (a.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(a.tagName))); })()"
-      )
-      .catch(() => false);
-    if (!shellEcrit) views.redonnerLeFocus();
+  // Quand la fenêtre redevient active, Chromium rend bien le clavier à la page,
+  // mais Electron le donne aussitôt au shell. Les traducteurs (DeepL, Polyglot)
+  // envoient leur Ctrl+V dans cet intervalle : mesuré, il tombait dans le shell
+  // 2 ms avant qu'un rattrapage sur `focus` de la fenêtre ne rende la main à la
+  // page. Il faut donc savoir d'avance qui avait le clavier, et le rendre à
+  // l'instant même où le shell le prend — pas après un aller-retour au shell.
+  //
+  // Seule la page peut prendre le focus au shell dans cette fenêtre (calque et
+  // fenêtre vidéo le refusent) : un shell qui le perd pendant que la fenêtre est
+  // active l'a cédé à la page.
+  let fenetreActive = win.isFocused();
+  let clavier = 'page';
+  win.on('blur', () => {
+    fenetreActive = false;
+  });
+  win.webContents.on('focus', () => {
+    if (fenetreActive) clavier = 'shell';
+    else if (clavier === 'page') views.redonnerLeFocus();
+  });
+  win.webContents.on('blur', () => {
+    if (fenetreActive) clavier = 'page';
+  });
+  // Chromium ignore la demande de focus tant que la fenêtre n'est pas tout à
+  // fait active : le rendu ci-dessus ne prend effet qu'au `focus` de la
+  // fenêtre, et la touche Ctrl des traducteurs arrive avant. Un collage qui
+  // atteint le shell alors que le clavier était à la page lui revient donc.
+  win.webContents.on('before-input-event', (event, input) => {
+    if (clavier !== 'page' || input.type !== 'keyDown') return;
+    if (!(input.control || input.meta) || input.key.toLowerCase() !== 'v') return;
+    if (views.collerDansLaPage()) event.preventDefault();
+  });
+  win.on('focus', () => {
+    fenetreActive = true;
+    if (clavier === 'page') views.redonnerLeFocus();
   });
 }
 
