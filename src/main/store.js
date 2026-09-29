@@ -109,7 +109,7 @@ function normalize(state) {
   if (!Array.isArray(state.history)) state.history = [];
   if (typeof state.discreet !== 'boolean') state.discreet = false;
   if (!Array.isArray(state.collapsedAccounts)) state.collapsedAccounts = [];
-  if (typeof state.accentColor !== 'string') state.accentColor = null;
+  state.accentColor = teinteValide(state.accentColor);
   if (!state.theme) state.theme = 'system';
   if (typeof state.sidebarCollapsed !== 'boolean') state.sidebarCollapsed = false;
   if (typeof state.sleepAfterMinutes !== 'number') state.sleepAfterMinutes = 20;
@@ -519,9 +519,13 @@ function removeFavorite(id) {
   save();
 }
 
+// La teinte est recopiée telle quelle dans le CSS de la page d'accueil : une
+// saisie libre ou un fichier importé ne doivent y faire entrer qu'une couleur.
+const teinteValide = (color) => (typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color) ? color : null);
+
 function setAccentColor(color) {
   const s = load();
-  s.accentColor = color || null;
+  s.accentColor = teinteValide(color);
   save();
 }
 
@@ -713,7 +717,7 @@ function importConfig(data) {
   if (typeof data.theme === 'string') s.theme = data.theme;
   if (typeof data.sleepAfterMinutes === 'number') s.sleepAfterMinutes = data.sleepAfterMinutes;
   if (typeof data.accentColor === 'string' || data.accentColor === null) {
-    s.accentColor = data.accentColor;
+    s.accentColor = teinteValide(data.accentColor);
   }
   if (typeof data.blockAds === 'boolean') s.blockAds = data.blockAds;
   if (typeof data.skipSponsors === 'boolean') s.skipSponsors = data.skipSponsors;

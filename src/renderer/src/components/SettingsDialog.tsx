@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Ban, Download, Monitor, Moon, Pencil, Plus, Sun, Timer, Trash2, TriangleAlert, Upload } from 'lucide-react';
 import type { Account, AppState, Service, Theme } from '@/types';
 import { cn } from '@/lib/utils';
@@ -13,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AccountAvatar } from '@/components/AccountAvatar';
+import { ChoixCouleur } from '@/components/ChoixCouleur';
 import { ExtensionsPanel } from '@/components/ExtensionsPanel';
 import { AboutPanel } from '@/components/AboutPanel';
 
@@ -40,18 +42,56 @@ type Props = {
   onSetSleepDelay: (minutes: number) => void;
 };
 
-// Les mêmes teintes que celles proposées pour les comptes, plus le neutre.
-const ACCENTS: { nom: string; valeur: string | null }[] = [
-  { nom: 'Neutre', valeur: null },
-  { nom: 'Bleu', valeur: '#3b82f6' },
-  { nom: 'Violet', valeur: '#8b5cf6' },
-  { nom: 'Rose', valeur: '#ec4899' },
-  { nom: 'Orange', valeur: '#f97316' },
-  { nom: 'Ambre', valeur: '#f59e0b' },
-  { nom: 'Vert', valeur: '#10b981' },
-  { nom: 'Cyan', valeur: '#06b6d4' },
-  { nom: 'Ardoise', valeur: '#64748b' }
-];
+/**
+ * La teinte du mode navigateur, avec le même choix que celle d'un compte. Le
+ * curseur en émet une par pas, et chacune fait enregistrer la configuration et
+ * recharger les pages d'accueil : on n'envoie que la dernière, après une pause.
+ */
+function TeinteNavigateur({ valeur }: { valeur: string | null }) {
+  const [locale, setLocale] = React.useState(valeur);
+  const envoi = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const enAttente = React.useRef<{ couleur: string | null } | null>(null);
+  React.useEffect(() => setLocale(valeur), [valeur]);
+
+  const envoyer = () => {
+    clearTimeout(envoi.current);
+    if (enAttente.current) window.hublink.setAccent(enAttente.current.couleur);
+    enAttente.current = null;
+  };
+  // Fermer les réglages juste après un geste ne doit pas perdre le dernier choix.
+  React.useEffect(() => envoyer, []);
+
+  const choisir = (couleur: string | null) => {
+    setLocale(couleur);
+    enAttente.current = { couleur };
+    clearTimeout(envoi.current);
+    envoi.current = setTimeout(envoyer, 200);
+  };
+
+  return (
+    <ChoixCouleur
+      valeur={locale}
+      onChange={choisir}
+      avant={
+        <button
+          type="button"
+          onClick={() => choisir(null)}
+          title="Neutre"
+          aria-label="Neutre"
+          aria-pressed={locale === null}
+          className={cn(
+            'grid size-7 shrink-0 place-items-center rounded-full border transition-transform',
+            locale === null
+              ? 'scale-110 ring-2 ring-ring ring-offset-2 ring-offset-background'
+              : 'border-border hover:scale-105'
+          )}
+        >
+          <Ban className="size-3.5 text-muted-foreground" />
+        </button>
+      }
+    />
+  );
+}
 
 export function SettingsDialog({
   open,
@@ -223,28 +263,7 @@ export function SettingsDialog({
                   Le mode navigateur n'appartient à aucun compte : il n'a donc pas de couleur d'où
                   se teinter. Choisissez la sienne, ou laissez-le neutre.
                 </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {ACCENTS.map(({ nom, valeur }) => {
-                    const actif = state.accentColor === valeur;
-                    return (
-                      <button
-                        key={nom}
-                        type="button"
-                        onClick={() => window.hublink.setAccent(valeur)}
-                        title={nom}
-                        aria-label={nom}
-                        aria-pressed={actif}
-                        className={cn(
-                          'size-6 rounded-full border transition-transform hover:scale-110',
-                          actif ? 'border-foreground ring-2 ring-foreground/25' : 'border-border'
-                        )}
-                        style={valeur ? { backgroundColor: valeur } : undefined}
-                      >
-                        {!valeur && <Ban className="mx-auto size-3.5 text-muted-foreground" />}
-                      </button>
-                    );
-                  })}
-                </div>
+                <TeinteNavigateur valeur={state.accentColor} />
               </div>
 
               <Separator />

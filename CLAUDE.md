@@ -402,6 +402,13 @@ est enregistrée **telle quelle**, et c'est l'affichage qui la rend lisible
   jusqu'à 3,2:1 sur le fond du thème (`repereLisible`) : un marine disparaissait en
   sombre, un jaune en clair. Les couleurs déjà lisibles ne bougent pas.
 
+Le même sélecteur (`ChoixCouleur.tsx`) sert à la **teinte du mode navigateur**, avec
+le neutre en tête ; les réglages n'envoient au principal que le dernier choix du
+curseur (200 ms), chaque envoi réécrivant la configuration et rechargeant les pages
+d'accueil. Cette teinte est recopiée dans le CSS de la page d'accueil :
+`teinteValide` (store.js) n'y laisse entrer qu'un `#rrggbb`, à la saisie, au
+chargement comme à l'import.
+
 Ne pas corriger la couleur à l'enregistrement : changer de thème doit suffire à la
 réajuster, et l'utilisateur doit retrouver dans le champ le code qu'il a tapé.
 
