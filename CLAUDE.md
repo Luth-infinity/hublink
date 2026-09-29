@@ -456,11 +456,15 @@ Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en 
   pour attirer l'œil, les traducteurs le réécrivent à chaque frappe. La pastille ne
   redescend donc qu'après un silence, et l'historique ne se consigne qu'au calme.
 - **Une `WebContentsView` ne reprend pas le clavier quand la fenêtre redevient
-  active.** Le curseur clignote encore dans le champ, `document.hasFocus()` répond non,
-  et tout ce qui vient du clavier se perd. C'est ce qui empêchait le « Replace » des
-  outils de traduction : ils prennent le premier plan, le rendent, puis envoient un
-  Ctrl+V qui n'arrivait nulle part. `index.js` rend le focus à la vue sur `win.on('focus')`
-  — sauf si c'est le shell qui écrit, pour ne pas lui arracher son champ.
+  active.** Chromium le lui rend, puis Electron le donne au shell. Les traducteurs
+  (DeepL, Polyglot) prennent le premier plan, le rendent et envoient aussitôt Ctrl+V :
+  mesuré, le collage tombait dans le shell 2 ms avant le rattrapage qu'on faisait sur
+  `win.on('focus')` après un `executeJavaScript` — une course, qui passait chez l'un
+  et pas chez l'autre. `index.js` retient désormais qui avait le clavier (`clavier`),
+  le rend sans aller-retour, et un Ctrl+V qui atteint le shell alors que le clavier
+  était à la page y est collé (`views.collerDansLaPage`). Un `webContents.focus()`
+  demandé pendant la réactivation est ignoré : ne pas compter dessus seul.
+  Pour tester : DeepL de bureau (Ctrl+C C sur une sélection, puis « Remplacer »).
 - `navigator.clipboard.readText()` exige que la page ait le focus, en plus de la
   permission : sinon « Document is not focused », sans qu'aucune question ne soit posée.
 - **`dialog.showMessageBox` sans fenêtre parente peut se poser derrière.** La page
