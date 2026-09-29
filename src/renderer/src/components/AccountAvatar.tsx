@@ -1,4 +1,5 @@
 import { cn, initials } from '@/lib/utils';
+import { initialesSur } from '@/lib/couleur';
 import type { Account } from '@/types';
 
 type Props = {
@@ -22,11 +23,11 @@ export function AccountAvatar({ account, className, textClassName }: Props) {
   return (
     <span
       className={cn(
-        'grid shrink-0 place-items-center rounded-md font-semibold text-white ring-1 ring-black/10 dark:ring-white/15',
+        'grid shrink-0 place-items-center rounded-md font-semibold ring-1 ring-black/10 dark:ring-white/15',
         textClassName,
         className
       )}
-      style={{ backgroundColor: account.color }}
+      style={{ backgroundColor: account.color, color: initialesSur(account.color) }}
       aria-hidden
     >
       {initials(account.name || '?')}

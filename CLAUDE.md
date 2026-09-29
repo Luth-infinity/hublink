@@ -390,6 +390,21 @@ piste « System audio ».
   fenêtre. Lu après une seconde de lecture, il donne la bonne taille. Juger sur une
   image capturée, jamais sur les réglages lus à chaud.
 
+## Les couleurs de compte sont libres, leur affichage non
+
+20 pastilles, plus un curseur de teinte et un code hexadécimal : la couleur choisie
+est enregistrée **telle quelle**, et c'est l'affichage qui la rend lisible
+(`src/renderer/src/lib/couleur.ts`, calculs en OKLCH) :
+
+- la **vignette** garde la couleur exacte ; ses initiales passent du blanc au quasi
+  noir sous 3:1 (`initialesSur`) — le blanc sur le jaune de la palette tombait à 1,9:1 ;
+- les **repères du panneau** gardent la teinte, mais leur luminosité est poussée
+  jusqu'à 3,2:1 sur le fond du thème (`repereLisible`) : un marine disparaissait en
+  sombre, un jaune en clair. Les couleurs déjà lisibles ne bougent pas.
+
+Ne pas corriger la couleur à l'enregistrement : changer de thème doit suffire à la
+réajuster, et l'utilisateur doit retrouver dans le champ le code qu'il a tapé.
+
 ## Contrainte structurante : la vue web est native
 
 Une `WebContentsView` **se peint au-dessus du HTML du shell**, quoi qu'on fasse. Tout ce

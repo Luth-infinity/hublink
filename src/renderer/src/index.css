@@ -240,6 +240,32 @@ html.partage #root {
   background: #fff;
 }
 
+/* Le curseur de teinte des comptes : le rail est l'arc-en-ciel lui-même
+   (posé en ligne par le composant), la poignée un disque de la teinte choisie. */
+.teinte {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.teinte::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--teinte);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 35%);
+}
+
+.teinte:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
 /* Le bouton du lecteur ne surgit pas : il monte, comme s'il venait de
    l'image. */
 /* --- La liste des suggestions ----------------------------------------------

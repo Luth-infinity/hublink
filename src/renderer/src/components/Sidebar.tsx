@@ -12,6 +12,7 @@ import { ServiceIcon } from '@/components/ServiceIcon';
 import { AccountSwitch } from '@/components/AccountSwitch';
 import { ModeSwitch } from '@/components/ModeSwitch';
 import { UpdateBadge } from '@/components/UpdateBadge';
+import { repereLisible } from '@/lib/couleur';
 
 type Props = {
   services: Service[];
@@ -316,7 +317,7 @@ function SidebarImpl({
               'w-0.5 shrink-0 rounded-full transition-[height,opacity] duration-200',
               active ? 'h-5 opacity-100' : 'h-2 opacity-0 group-hover/ligne:h-4 group-hover/ligne:opacity-60'
             )}
-            style={{ backgroundColor: account ? account.color : 'transparent' }}
+            style={{ backgroundColor: account ? repereLisible(account.color, isDark) : 'transparent' }}
             aria-hidden
           />
           <ServiceIcon service={service} className="size-5" textClassName="text-[9px]" isDark={isDark} />
@@ -602,7 +603,7 @@ function SidebarImpl({
         >
           <span
             className="absolute top-1/2 -left-2 h-5 w-[3px] -translate-y-1/2 rounded-full"
-            style={{ backgroundColor: active && account ? account.color : 'transparent' }}
+            style={{ backgroundColor: active && account ? repereLisible(account.color, isDark) : 'transparent' }}
             aria-hidden
           />
           <ServiceIcon

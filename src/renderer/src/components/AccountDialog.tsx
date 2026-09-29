@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AccountAvatar } from '@/components/AccountAvatar';
+import { parseHex, repereLisible, teinteDe, teinteVive, useThemeSombre } from '@/lib/couleur';
 
 const COLORS = [
   '#3b82f6',
@@ -41,6 +42,23 @@ const COLORS = [
   '#78716c'
 ];
 
+// Le rail du curseur de teinte : les teintes vives, à luminosité égale.
+const ARC_EN_CIEL = `linear-gradient(to right, ${Array.from({ length: 13 }, (_, i) => teinteVive(i * 30)).join(', ')})`;
+
+/** Ce que devient le repère du compte dans le panneau, s'il doit changer. */
+function ajustement(color: string, sombre: boolean) {
+  const clair = repereLisible(color, false) !== color;
+  const fonce = repereLisible(color, true) !== color;
+  // Le thème courant d'abord : c'est celui que l'utilisateur a sous les yeux.
+  if (sombre ? fonce : clair)
+    return sombre
+      ? 'En thème sombre, son repère dans le panneau sera un peu plus clair pour rester visible.'
+      : 'En thème clair, son repère dans le panneau sera un peu plus foncé pour rester visible.';
+  if (clair) return 'En thème clair, son repère dans le panneau sera un peu plus foncé pour rester visible.';
+  if (fonce) return 'En thème sombre, son repère dans le panneau sera un peu plus clair pour rester visible.';
+  return null;
+}
+
 type Props = {
   open: boolean;
   account: Account | null;
@@ -52,6 +70,12 @@ export function AccountDialog({ open, account, onOpenChange, onSubmit }: Props) 
   const [name, setName] = React.useState('');
   const [color, setColor] = React.useState(COLORS[0]);
   const [avatar, setAvatar] = React.useState<string | null>(null);
+  // Le champ garde ce qu'on tape, même incomplet ; la couleur ne suit qu'une
+  // valeur valide.
+  const [saisie, setSaisie] = React.useState('');
+  const sombre = useThemeSombre();
+
+  React.useEffect(() => setSaisie(color), [color]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -150,9 +174,39 @@ export function AccountDialog({ open, account, onOpenChange, onSubmit }: Props) 
                 />
               ))}
             </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={0}
+                max={359}
+                value={teinteDe(color)}
+                onChange={(e) => setColor(teinteVive(Number(e.target.value)))}
+                aria-label="Teinte personnalisée"
+                className="teinte min-w-0 flex-1"
+                style={{ background: ARC_EN_CIEL, ['--teinte' as string]: color }}
+              />
+              <Input
+                value={saisie}
+                onChange={(e) => {
+                  const brut = e.target.value.trim();
+                  setSaisie(brut);
+                  const hex = brut.startsWith('#') ? brut : `#${brut}`;
+                  if (parseHex(hex)) setColor(hex.toLowerCase());
+                }}
+                onBlur={() => setSaisie(color)}
+                aria-label="Code de la couleur"
+                spellCheck={false}
+                autoComplete="off"
+                maxLength={7}
+                className="h-8 w-24 font-mono text-xs"
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
               Sert d'avatar à défaut de logo, et donne sa teinte à l'interface quand tu filtres sur ce compte.
             </p>
+            {ajustement(color, sombre) && (
+              <p className="text-xs text-muted-foreground">{ajustement(color, sombre)}</p>
+            )}
           </div>
 
           <DialogFooter>
