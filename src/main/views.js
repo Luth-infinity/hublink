@@ -117,8 +117,8 @@ class ViewManager {
     // service ne doivent la lui reprendre.
     this.sortieVideo = null;
     this.ramenerVideo = null;
-    // Vues dont la page a déjà joué une vidéo : l'incrustation n'a de sens que
-    // pour celles-là, on n'encombre pas la barre pour les autres.
+    // Vues dont la page montre une vidéo : le mode vidéo n'a de sens que pour
+    // celles-là, on n'encombre pas la barre pour les autres.
     this.avecMedia = new Set();
     this.sleepTimer = null;
     this.onEvent = () => {};
@@ -504,13 +504,6 @@ class ViewManager {
     }
   }
 
-  /**
-   * Suit la présence d'une vidéo dans une vue.
-   *
-   * `media-started-playing` est un signal natif de Chromium : il évite
-   * d'injecter un observateur dans chaque page, et il couvre aussi bien les
-   * services que les onglets du navigateur, dont les vues n'ont pas de preload.
-   */
   // Le clic droit dans une page. Partagé par les onglets et les services :
   // coller dans un champ ne doit pas demander de connaître un raccourci.
   brancherMenuContextuel(wc) {
@@ -522,17 +515,25 @@ class ViewManager {
     });
   }
 
+  /**
+   * Suit la présence d'une vidéo dans une vue, d'après ce que la page en dit
+   * (`media:presence`, envoyé par `preload/guest.js`).
+   *
+   * Le signal natif `media-started-playing` ne convenait pas : il part aussi
+   * pour un son de notification (Teams, Slack) et pour les aperçus que YouTube
+   * joue au survol d'une miniature, et ne retombait qu'au rechargement — que
+   * YouTube ne fait jamais. Le bouton finissait affiché partout.
+   */
   wireMedia(wc, id) {
-    wc.on('media-started-playing', () => {
-      if (this.avecMedia.has(id)) return;
-      this.avecMedia.add(id);
-      this.onEvent('media-present', { id, present: true });
-    });
-    // Une nouvelle page repart sans vidéo tant qu'elle n'en a pas joué.
-    wc.on('did-navigate', () => {
-      if (!this.avecMedia.delete(id)) return;
-      this.onEvent('media-present', { id, present: false });
-    });
+    // Une nouvelle page repart sans vidéo tant qu'elle n'en montre pas.
+    wc.on('did-navigate', () => this.signalerMedia(id, false));
+  }
+
+  signalerMedia(id, present) {
+    if (!id || present === this.avecMedia.has(id)) return;
+    if (present) this.avecMedia.add(id);
+    else this.avecMedia.delete(id);
+    this.onEvent('media-present', { id, present });
   }
 
   /**

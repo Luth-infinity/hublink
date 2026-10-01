@@ -45,6 +45,9 @@ function seed() {
     // Saute les séquences sponsorisées des vidéos YouTube, dans toutes les
     // pages. Actif par défaut : un message permet de revenir sur chaque saut.
     skipSponsors: true,
+    // Prolonge les couleurs de la vidéo derrière la page, sur YouTube. Coupé
+    // par défaut : c'est un goût.
+    ambiance: false,
     // Favoris du mode navigateur, et teinte choisie pour ce mode : sans compte
     // actif, le shell n'a aucune couleur d'où se teinter.
     favorites: [],
@@ -105,6 +108,7 @@ function normalize(state) {
   if (typeof state.browserMode !== 'boolean') state.browserMode = false;
   if (typeof state.blockAds !== 'boolean') state.blockAds = true;
   if (typeof state.skipSponsors !== 'boolean') state.skipSponsors = true;
+  if (typeof state.ambiance !== 'boolean') state.ambiance = false;
   if (!Array.isArray(state.favorites)) state.favorites = [];
   if (!Array.isArray(state.history)) state.history = [];
   if (typeof state.discreet !== 'boolean') state.discreet = false;
@@ -622,6 +626,7 @@ function exportConfig() {
     accentColor: s.accentColor,
     blockAds: s.blockAds,
     skipSponsors: s.skipSponsors,
+    ambiance: s.ambiance,
     accounts: s.accounts.map((a) => ({
       id: a.id,
       name: a.name,
@@ -721,6 +726,7 @@ function importConfig(data) {
   }
   if (typeof data.blockAds === 'boolean') s.blockAds = data.blockAds;
   if (typeof data.skipSponsors === 'boolean') s.skipSponsors = data.skipSponsors;
+  if (typeof data.ambiance === 'boolean') s.ambiance = data.ambiance;
 
   s.activeAccountIds = [];
   s.activeServiceId = s.services[0] ? s.services[0].id : null;

@@ -118,6 +118,8 @@ export type AppState = {
   blockAds: boolean;
   /** Saute les séquences sponsorisées de YouTube, d'après SponsorBlock. */
   skipSponsors: boolean;
+  /** Prolonge les couleurs de la vidéo derrière les pages YouTube. */
+  ambiance: boolean;
   favorites: Favorite[];
   history: HistoryEntry[];
   /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
@@ -378,6 +380,7 @@ declare global {
       setAccent(color: string | null): Promise<void>;
       setDiscreet(on?: boolean): Promise<boolean>;
       setSkipSponsors(on: boolean): Promise<void>;
+      setAmbiance(on: boolean): Promise<void>;
       exportConfig(): Promise<string | null>;
       importConfig(): Promise<boolean>;
       /** 0 = jamais mettre en veille. */

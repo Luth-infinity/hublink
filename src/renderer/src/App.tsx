@@ -58,7 +58,7 @@ export default function App() {
   // Nom du dernier service supprimé, le temps de pouvoir revenir dessus.
   const [undoDelete, setUndoDelete] = React.useState<string | null>(null);
   const undoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Vues ayant déjà joué une vidéo : l'incrustation ne s'affiche que là.
+  // Vues qui montrent une vidéo : le mode vidéo ne se propose que là.
   const [avecMedia, setAvecMedia] = React.useState<string[]>([]);
 
   const contentRef = React.useRef<HTMLDivElement>(null);
@@ -448,6 +448,7 @@ export default function App() {
           hasVideo={avecMedia.includes(
             (state.browserMode ? state.activeTabId : state.activeServiceId) ?? ''
           )}
+          ambiance={state.ambiance}
           onToggleFavorite={toggleFavorite}
           loadedExtensions={loadedExtensions}
           onToggleSidebar={toggleSidebar}

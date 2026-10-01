@@ -508,6 +508,242 @@ if (window.top === window) {
     });
   }
 
+  // --- Ambiance --------------------------------------------------------------
+  //
+  // Pendant la lecture, la vidéo se prolonge derrière toute la page, agrandie
+  // et adoucie, et la page devient translucide par-dessus. Coupé par défaut :
+  // c'est un goût, pas un confort.
+  //
+  // Le fond est calé pile sous le lecteur, à sa taille, et ses bords sont
+  // étirés jusqu'à ceux de la page : ce qui dépasse autour du lecteur est le
+  // prolongement de l'image, pas une seconde copie. Une copie agrandie à toute
+  // la page faisait réapparaître les personnages ailleurs, à une autre échelle.
+  //
+  // Recopiée à chaque image de la vidéo (`requestVideoFrameCallback`) dans une
+  // toile de 384 points de large, au-dessus du seuil où Chromium confie la
+  // toile à la carte graphique.
+  const AMBIANCE_STYLE = `
+    /* La couleur de fond de YouTube, qu'on vide plus bas : les tiroirs et les
+       menus en ont encore besoin. Elle n'est pas lisible depuis html,
+       YouTube ne la déclare que plus bas dans la page. */
+    html.hublink-ambiance { --hublink-fond: #fff; }
+    html.hublink-ambiance[dark] { --hublink-fond: #0f0f0f; }
+    html.hublink-ambiance body { background: transparent !important; }
+    html.hublink-ambiance ytd-app {
+      --yt-spec-base-background: transparent;
+      --yt-spec-general-background-a: transparent;
+      background: transparent !important;
+    }
+    html.hublink-ambiance tp-yt-app-drawer,
+    html.hublink-ambiance ytd-popup-container {
+      --yt-spec-base-background: var(--hublink-fond);
+      --yt-spec-general-background-a: var(--hublink-fond);
+    }
+    /* La page défile sous l'en-tête : sans flou, les deux textes se mêlent. */
+    html.hublink-ambiance #masthead-container {
+      background: color-mix(in srgb, var(--hublink-fond) 30%, transparent) !important;
+      backdrop-filter: blur(24px);
+    }
+    html.hublink-ambiance ytd-watch-flexy[theater] #full-bleed-container,
+    html.hublink-ambiance ytd-watch-flexy[fullscreen] #full-bleed-container {
+      background: transparent !important;
+    }
+    /* L'ambiance de YouTube, plus timide, ferait double emploi. */
+    html.hublink-ambiance #cinematics,
+    html.hublink-ambiance #cinematics-container { display: none !important; }
+
+    #hublink-ambiance {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+      display: none;
+    }
+    html.hublink-ambiance #hublink-ambiance { display: block; }
+    html.hublink-sortie #hublink-ambiance { display: none !important; }
+    #hublink-ambiance canvas {
+      width: 100%;
+      height: 100%;
+      /* Sans agrandissement : le fond doit rester calé sous le lecteur. */
+      filter: blur(18px) saturate(1.35) brightness(1.05);
+    }
+    html[dark] #hublink-ambiance canvas { filter: blur(18px) saturate(1.4) brightness(0.8); }
+    /* Un voile léger : l'image doit franchement se voir. */
+    #hublink-ambiance::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.3);
+    }
+    html[dark] #hublink-ambiance::after { background: rgba(15, 15, 15, 0.15); }
+    /* La lisibilité est rendue au texte plutôt que prise à l'image : les gris
+       de YouTube sont relevés, et chaque ligne se détache d'une ombre douce. */
+    html.hublink-ambiance ytd-app {
+      --yt-spec-text-secondary: rgba(0, 0, 0, 0.78);
+      text-shadow: 0 1px 3px rgba(255, 255, 255, 0.55);
+    }
+    html.hublink-ambiance[dark] ytd-app {
+      --yt-spec-text-primary: #fff;
+      --yt-spec-text-secondary: rgba(255, 255, 255, 0.85);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    }
+  `;
+  const AMBIANCE_LARGEUR = 384;
+
+  // `generation` arrête la boucle d'une vidéo qu'on ne suit plus : un rappel
+  // déjà demandé arrive encore une fois, et doit se taire.
+  const ambiance = { actif: false, boite: null, toile: null, ctx: null, video: null, generation: 0 };
+
+  const ajusterToile = () => {
+    const { toile } = ambiance;
+    if (!toile) return;
+    toile.width = AMBIANCE_LARGEUR;
+    toile.height = Math.max(1, Math.round((AMBIANCE_LARGEUR * innerHeight) / Math.max(1, innerWidth)));
+    if (ambiance.video) peindre(ambiance.video);
+  };
+
+  const peindre = (v) => {
+    if (!v.videoWidth || v.readyState < 2) return;
+    if (document.fullscreenElement || document.documentElement.classList.contains('hublink-sortie')) return;
+    const { toile, ctx } = ambiance;
+    const L = toile.width;
+    const H = toile.height;
+    const k = L / innerWidth;
+    // L'image telle qu'elle s'affiche, bandes noires exclues : c'est de ses
+    // bords que part le prolongement.
+    const r = v.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    const sw = v.videoWidth;
+    const sh = v.videoHeight;
+    const fit = Math.min(r.width / sw, r.height / sh);
+    const w = sw * fit * k;
+    const h = sh * fit * k;
+    const x = (r.left + (r.width - sw * fit) / 2) * k;
+    const y = (r.top + (r.height - sh * fit) / 2) * k;
+    // Une fine lisière de l'image, étirée : un pixel seul donnerait des
+    // rayures trop nettes, une bande trop large ferait revenir l'image.
+    const e = Math.max(2, Math.round(Math.min(sw, sh) * 0.015));
+    const bloc = (sx, sy, sl, sh2, dx, dy, dl, dh) => {
+      if (dl > 0 && dh > 0) ctx.drawImage(v, sx, sy, sl, sh2, dx, dy, dl, dh);
+    };
+    const droite = x + w;
+    const bas = y + h;
+    // Les côtés, puis les coins, puis l'image elle-même, cachée sous le
+    // lecteur mais utile à ses coins arrondis et au flou des raccords.
+    bloc(0, 0, e, sh, 0, y, x, h);
+    bloc(sw - e, 0, e, sh, droite, y, L - droite, h);
+    bloc(0, 0, sw, e, x, 0, w, y);
+    bloc(0, sh - e, sw, e, x, bas, w, H - bas);
+    bloc(0, 0, e, e, 0, 0, x, y);
+    bloc(sw - e, 0, e, e, droite, 0, L - droite, y);
+    bloc(0, sh - e, e, e, 0, bas, x, H - bas);
+    bloc(sw - e, sh - e, e, e, droite, bas, L - droite, H - bas);
+    ctx.drawImage(v, x, y, w, h);
+  };
+
+  /**
+   * Suit l'image du lecteur, au rythme de la vidéo et pas de l'écran : rien
+   * n'est redessiné en pause, et une vidéo à 60 images le reste en fond. Un
+   * saut dans la vidéo présente une image, et donc la redessine aussi.
+   */
+  const suivreImage = () => {
+    const v = document.querySelector('#movie_player video');
+    if (v === ambiance.video) return;
+    ambiance.video = v;
+    const generation = ++ambiance.generation;
+    if (!v) return;
+    const aChaqueImage = () => {
+      if (generation !== ambiance.generation) return;
+      peindre(v);
+      v.requestVideoFrameCallback(aChaqueImage);
+    };
+    peindre(v);
+    v.requestVideoFrameCallback(aChaqueImage);
+  };
+
+  const monterAmbiance = () => {
+    if (!ambiance.boite) {
+      const style = document.createElement('style');
+      style.textContent = AMBIANCE_STYLE;
+      const boite = document.createElement('div');
+      boite.id = 'hublink-ambiance';
+      const toile = document.createElement('canvas');
+      boite.appendChild(toile);
+      // Sous `html` et non sous `body` : YouTube ne touche pas à ce qu'il n'a
+      // pas posé là.
+      document.documentElement.append(style, boite);
+      Object.assign(ambiance, { boite, toile, ctx: toile.getContext('2d', { alpha: false }) });
+      ajusterToile();
+      addEventListener('resize', ajusterToile);
+      // Le lecteur défile avec la page : en pause, aucune image ne viendrait
+      // recaler le fond.
+      addEventListener('scroll', () => ambiance.video && peindre(ambiance.video), { passive: true });
+    }
+    document.documentElement.classList.add('hublink-ambiance');
+  };
+
+  const demonterAmbiance = () => {
+    document.documentElement.classList.remove('hublink-ambiance');
+    ambiance.video = null;
+    ambiance.generation++;
+  };
+
+  // Seulement sur une page de lecture : l'accueil et les résultats n'ont pas
+  // d'image à prolonger. YouTube change de page sans recharger, et remplace
+  // parfois l'élément vidéo : on le revérifie chaque seconde.
+  const suivreAmbiance = () => {
+    const voulu = ambiance.actif && location.pathname === '/watch';
+    const monte = document.documentElement.classList.contains('hublink-ambiance');
+    if (voulu && !monte) monterAmbiance();
+    else if (!voulu && monte) demonterAmbiance();
+    if (voulu) suivreImage();
+  };
+
+  if (SUR_YOUTUBE) {
+    setInterval(suivreAmbiance, 1000);
+    ipcRenderer
+      .invoke('ambiance:actif')
+      .then((actif) => {
+        ambiance.actif = Boolean(actif);
+        suivreAmbiance();
+      })
+      .catch(() => {});
+    ipcRenderer.on('ambiance:reglage', (_e, actif) => {
+      ambiance.actif = Boolean(actif);
+      suivreAmbiance();
+    });
+  }
+
+  // --- Présence d'une vidéo --------------------------------------------------
+  //
+  // Le bouton du mode vidéo ne paraît que si la page montre vraiment une
+  // vidéo : un élément assez grand pour être regardé, ou le lecteur d'un site
+  // vidéo intégré dans un cadre, que ce preload ne voit pas de l'intérieur.
+  // Un son de notification, un aperçu joué au survol d'une miniature ne
+  // comptent pas.
+  const APERCUS = 'ytd-video-preview, #video-preview, #inline-preview-player, ytd-thumbnail';
+  const CADRES_VIDEO = /\/\/(www\.)?(youtube(-nocookie)?\.com\/embed|player\.vimeo\.com|(www\.)?dailymotion\.com\/embed|player\.twitch\.tv)/;
+  const assezGrand = (el) => {
+    const r = el.getBoundingClientRect();
+    return r.width >= 200 && r.height >= 110;
+  };
+  const montreUneVideo = () =>
+    [...document.querySelectorAll('video')].some(
+      (v) => (v.readyState > 0 || v.currentSrc) && !v.closest(APERCUS) && seVoit(v) && assezGrand(v)
+    ) ||
+    [...document.querySelectorAll('iframe')].some((f) => CADRES_VIDEO.test(f.src) && seVoit(f) && assezGrand(f));
+
+  let presence = false;
+  setInterval(() => {
+    // Sortie dans la fenêtre vidéo, la page est masquée mais la vidéo y est
+    // toujours : le bouton doit rester pour l'y ramener.
+    const maintenant = Boolean(video) || montreUneVideo();
+    if (maintenant === presence) return;
+    presence = maintenant;
+    ipcRenderer.send('media:presence', presence);
+  }, 1000);
+
   /**
    * Sur YouTube, le son passe par le lecteur et non par l'élément vidéo.
    *

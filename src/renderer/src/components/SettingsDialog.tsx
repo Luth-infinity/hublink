@@ -304,6 +304,24 @@ export function SettingsDialog({
                 />
               </div>
 
+              <Separator />
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="grid gap-1">
+                  <h3 className="text-sm font-medium">Ambiance sur YouTube</h3>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Pendant la lecture, les couleurs de la vidéo débordent derrière toute la page,
+                    floutées.
+                  </p>
+                </div>
+                <Switch
+                  checked={state.ambiance}
+                  onCheckedChange={(on) => window.hublink.setAmbiance(on)}
+                  aria-label="Ambiance sur YouTube"
+                  className="mt-0.5 shrink-0"
+                />
+              </div>
+
               {state.sleepAfterMinutes === 0 && services.length > 4 && (
                 <p className="flex items-start gap-2 rounded-md border border-border p-2 text-xs text-muted-foreground">
                   <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />

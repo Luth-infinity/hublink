@@ -325,6 +325,39 @@ services, avec `--hublink-onglet`, qui écarte la pastille de non-lus et la
 proposition d'enregistrer un mot de passe. Ni les clés d'accès ni les notifications
 n'y sont neutralisées : un navigateur doit se comporter en navigateur.
 
+## L'ambiance YouTube prolonge la vidéo derrière la page
+
+Réglage `ambiance` (coupé par défaut), basculé depuis la barre du haut — l'interrupteur
+« Ambiance » n'y paraît que sur `youtube.com` — ou depuis les réglages. Tout vit dans
+`src/preload/guest.js`, sur les pages `/watch` seulement :
+
+- la vidéo est recopiée **à chaque image** (`requestVideoFrameCallback`, pas un minuteur)
+  dans une toile de 384 points, posée en `position: fixed; z-index: -1` sous `html`,
+  avec un flou léger. Sous 256 × 256 points, Chromium garde la toile hors de la carte
+  graphique : ne pas descendre en dessous ;
+- le fond est **calé sous le lecteur, à sa taille, et ses bords sont étirés** jusqu'à
+  ceux de la page (une lisière de 1,5 % de l'image par côté, et les coins). Deux essais
+  écartés par Lucas : des taches de couleurs (toile de 48 points, 15 images/s, fondu) —
+  trop ternes, pas fluides ; puis la vidéo entière agrandie à toute la page — « ça fait
+  doublon », les personnages réapparaissaient sous le lecteur à une autre échelle.
+  Aucun `transform: scale` sur la toile : il décalerait le fond du lecteur ;
+- la page devient translucide en vidant `--yt-spec-base-background` sur `ytd-app`. Cette
+  variable n'est pas définie sur `html` : la couleur de fond rendue aux tiroirs et menus
+  est donc fixée par thème (`--hublink-fond`) ;
+- la lisibilité est rendue au **texte**, pas prise à l'image : gris secondaires relevés
+  et ombre douce. Un voile épais éteignait les couleurs, un voile léger seul laissait
+  une scène claire effacer les textes gris ;
+- masquée en plein écran et dans la fenêtre vidéo (`html.hublink-sortie`).
+
+## Le bouton du mode vidéo suit la page
+
+`media:presence`, envoyé par `guest.js` toutes les secondes s'il change : une `<video>`
+visible d'au moins 200 × 110 points hors aperçus de miniatures, ou le cadre d'un lecteur
+connu (YouTube embed, Vimeo, Dailymotion, Twitch). Le signal natif
+`media-started-playing` servait avant : il partait pour un son de notification de Teams
+ou Slack et pour les aperçus au survol de YouTube, et ne retombait qu'au rechargement,
+que YouTube ne fait jamais. Le mini-lecteur de YouTube compte comme une vidéo.
+
 ## Les suggestions de la barre d'adresse
 
 La liste vit dans le calque (elle doit passer par-dessus la page), le clavier reste

@@ -907,6 +907,24 @@ function registerIpc() {
     }
   });
 
+  ipcMain.on('media:presence', (e, present) => {
+    views.signalerMedia(views.idDe(e.sender), Boolean(present));
+  });
+
+  // --- ambiance YouTube ------------------------------------------------------
+
+  ipcMain.handle('ambiance:actif', () => store.load().ambiance);
+
+  ipcMain.handle('app:set-ambiance', (_e, on) => {
+    const state = store.load();
+    state.ambiance = Boolean(on);
+    store.save();
+    pushState();
+    for (const page of webContents.getAllWebContents()) {
+      if (!page.isDestroyed()) page.send('ambiance:reglage', state.ambiance);
+    }
+  });
+
   ipcMain.handle('tab:select', async (_e, id) => {
     if (!store.getTab(id)) return;
     store.load().activeTabId = id;

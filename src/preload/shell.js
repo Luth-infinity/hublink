@@ -167,6 +167,7 @@ contextBridge.exposeInMainWorld('hublink', {
   setAccent: (color) => invoke('app:set-accent', color),
   setDiscreet: (on) => invoke('app:set-discreet', on),
   setSkipSponsors: (on) => invoke('app:set-skip-sponsors', on),
+  setAmbiance: (on) => invoke('app:set-ambiance', on),
   exportConfig: () => invoke('config:export'),
   importConfig: () => invoke('config:import'),
   setSleepDelay: (minutes) => invoke('app:set-sleep', minutes),

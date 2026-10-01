@@ -20,8 +20,10 @@ type Props = {
   downloads: Download[];
   /** Panneau actuellement ouvert dans le calque, s'il y en a un. */
   openPanel: 'downloads' | 'history' | 'accounts' | null;
-  /** La page courante a déjà joué une vidéo. */
+  /** La page courante montre une vidéo. */
   hasVideo: boolean;
+  /** Réglage « Ambiance » de YouTube, basculé depuis la barre. */
+  ambiance: boolean;
   /** Service supprimé à l'instant, tant qu'on peut encore revenir dessus. */
   undoDelete: string | null;
   onUndoDelete: () => void;
@@ -217,6 +219,43 @@ function HistoryButton({ open }: { open: boolean }) {
   );
 }
 
+/**
+ * L'ambiance se règle là où elle se voit : sur YouTube, dans la barre. Le
+ * rail allumé reprend l'idée de l'effet — des couleurs qui débordent.
+ */
+function AmbianceSwitch({ actif }: { actif: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={actif}
+      onClick={() => window.hublink.setAmbiance(!actif)}
+      className={cn(
+        'mr-1 flex h-7 items-center gap-2 rounded-md px-2 text-[11px] transition-colors hover:bg-shell-active',
+        actif ? 'text-shell-foreground' : 'text-shell-muted hover:text-shell-foreground'
+      )}
+      title={actif ? 'Couper l’ambiance' : 'Prolonger les couleurs de la vidéo derrière la page'}
+    >
+      Ambiance
+      <span
+        className={cn(
+          'relative h-3.5 w-6 shrink-0 rounded-full transition-colors duration-200',
+          actif
+            ? 'bg-[linear-gradient(90deg,#ff5f6d,#ffc371,#47e5bc,#5b8cff,#c86bff)] shadow-[0_0_10px_-1px_rgba(120,140,255,0.7)]'
+            : 'bg-shell-muted/35'
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-0.5 left-0.5 size-2.5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none',
+            actif && 'translate-x-2.5'
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
 export function Toolbar({
   service,
   nav,
@@ -231,10 +270,12 @@ export function Toolbar({
   downloads,
   openPanel,
   hasVideo,
+  ambiance,
   undoDelete,
   onUndoDelete
 }: Props) {
   const api = window.hublink;
+  const surYouTube = /^(m\.)?youtube\.com$/.test(hostOf(nav?.url ?? ''));
 
   // Le Chrome Web Store n'installe rien de lui-même dans Hublink : son bouton
   // « Ajouter à Chrome » s'appuie sur une API que le moteur n'expose pas. On
@@ -434,6 +475,7 @@ export function Toolbar({
             </button>
           </div>
         )}
+        {surYouTube && <AmbianceSwitch actif={ambiance} />}
         {hasVideo && (
           <Button
             variant="ghost"
