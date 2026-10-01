@@ -335,18 +335,29 @@ Réglage `ambiance` (coupé par défaut), basculé depuis la barre du haut — l
   dans une toile de 384 points, posée en `position: fixed; z-index: -1` sous `html`,
   avec un flou léger. Sous 256 × 256 points, Chromium garde la toile hors de la carte
   graphique : ne pas descendre en dessous ;
-- le fond est **calé sous le lecteur, à sa taille, et ses bords sont étirés** jusqu'à
-  ceux de la page (une lisière de 1,5 % de l'image par côté, et les coins). Deux essais
-  écartés par Lucas : des taches de couleurs (toile de 48 points, 15 images/s, fondu) —
-  trop ternes, pas fluides ; puis la vidéo entière agrandie à toute la page — « ça fait
-  doublon », les personnages réapparaissaient sous le lecteur à une autre échelle.
-  Aucun `transform: scale` sur la toile : il décalerait le fond du lecteur ;
+- deux couches, **centrées sur le lecteur** : un **halo** (la vidéo agrandie de 30 %
+  depuis le centre du lecteur, bords fondus par un masque recalculé seulement quand le
+  lecteur bouge) et, au loin, les **bords étirés d'une copie de 8 points de large**
+  jusqu'à ceux de la page. Trois essais écartés par Lucas : des taches de couleurs
+  (toile de 48 points, 15 images/s, fondu) — ternes, pas fluides ; la vidéo entière
+  agrandie à toute la page — « ça fait doublon », les personnages réapparaissaient à
+  une autre échelle ; les bords étirés depuis l'image pleine (0.6.1) — « de longues
+  lignes ». Plus la copie étirée est petite, plus le fond est lisse : 32 points
+  laissaient encore des bandes. Aucun `transform: scale` sur la toile : il décalerait
+  le fond du lecteur ;
 - la page devient translucide en vidant `--yt-spec-base-background` sur `ytd-app`. Cette
   variable n'est pas définie sur `html` : la couleur de fond rendue aux tiroirs et menus
   est donc fixée par thème (`--hublink-fond`) ;
 - la lisibilité est rendue au **texte**, pas prise à l'image : gris secondaires relevés
   et ombre douce. Un voile épais éteignait les couleurs, un voile léger seul laissait
   une scène claire effacer les textes gris ;
+- **les bandes noires incrustées dans l'image** (film au format cinéma encodé en 16:9,
+  fréquent sur les bandes-annonces) sont détectées une fois par seconde sur une copie
+  de 64 points (rangées et colonnes entièrement sous 26/255), et l'ambiance part du
+  bord de l'image réelle. Sans cela, elle prolongeait du noir — signalé par Lucas sur
+  une vidéo Marvel. Cadrage retenu après deux relevés identiques, jamais sous un tiers
+  de l'image (une scène sombre n'est pas une bande), remis à zéro quand `currentSrc`
+  change : YouTube garde le même élément d'une vidéo à l'autre ;
 - masquée en plein écran et dans la fenêtre vidéo (`html.hublink-sortie`).
 
 ## Le bouton du mode vidéo suit la page

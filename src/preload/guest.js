@@ -514,10 +514,14 @@ if (window.top === window) {
   // et adoucie, et la page devient translucide par-dessus. Coupé par défaut :
   // c'est un goût, pas un confort.
   //
-  // Le fond est calé pile sous le lecteur, à sa taille, et ses bords sont
-  // étirés jusqu'à ceux de la page : ce qui dépasse autour du lecteur est le
-  // prolongement de l'image, pas une seconde copie. Une copie agrandie à toute
-  // la page faisait réapparaître les personnages ailleurs, à une autre échelle.
+  // Deux couches, toutes deux centrées sur le lecteur :
+  // - un halo : la vidéo agrandie de 30 % autour du lecteur, fondue sur ses
+  //   bords. Juste autour du cadre, c'est l'image qui continue ;
+  // - au loin, les bords de l'image étirés jusqu'à ceux de la page, tirés
+  //   d'une copie minuscule : chaque bande est large et lissée.
+  // Une copie agrandie à toute la page faisait réapparaître les personnages
+  // ailleurs, à une autre échelle ; des bords étirés depuis l'image pleine
+  // traçaient de longues rayures.
   //
   // Recopiée à chaque image de la vidéo (`requestVideoFrameCallback`) dans une
   // toile de 384 points de large, au-dessus du seuil où Chromium confie la
@@ -566,9 +570,9 @@ if (window.top === window) {
       width: 100%;
       height: 100%;
       /* Sans agrandissement : le fond doit rester calé sous le lecteur. */
-      filter: blur(18px) saturate(1.35) brightness(1.05);
+      filter: blur(24px) saturate(1.35) brightness(1.05);
     }
-    html[dark] #hublink-ambiance canvas { filter: blur(18px) saturate(1.4) brightness(0.8); }
+    html[dark] #hublink-ambiance canvas { filter: blur(24px) saturate(1.4) brightness(0.8); }
     /* Un voile léger : l'image doit franchement se voir. */
     #hublink-ambiance::after {
       content: '';
@@ -590,17 +594,147 @@ if (window.top === window) {
     }
   `;
   const AMBIANCE_LARGEUR = 384;
+  // La copie d'où partent les bords étirés : assez petite pour que chaque
+  // bande couvre une large part de la page.
+  const AMBIANCE_MINIATURE = 8;
+  const HALO = 1.3;
 
   // `generation` arrête la boucle d'une vidéo qu'on ne suit plus : un rappel
   // déjà demandé arrive encore une fois, et doit se taire.
-  const ambiance = { actif: false, boite: null, toile: null, ctx: null, video: null, generation: 0 };
+  const ambiance = {
+    actif: false,
+    boite: null,
+    toile: null,
+    ctx: null,
+    // Toiles de travail, jamais affichées.
+    miniature: null,
+    halo: null,
+    masque: null,
+    cleMasque: '',
+    analyse: null,
+    // La partie de l'image hors bandes noires incrustées, en fractions.
+    cadre: { x: 0, y: 0, l: 1, h: 1 },
+    candidat: null,
+    sourceCadre: '',
+    releve: 0,
+    video: null,
+    generation: 0
+  };
+
+  const toileDeTravail = () => {
+    const c = document.createElement('canvas');
+    return { c, ctx: c.getContext('2d') };
+  };
 
   const ajusterToile = () => {
     const { toile } = ambiance;
     if (!toile) return;
     toile.width = AMBIANCE_LARGEUR;
     toile.height = Math.max(1, Math.round((AMBIANCE_LARGEUR * innerHeight) / Math.max(1, innerWidth)));
+    for (const t of [ambiance.halo, ambiance.masque]) {
+      t.c.width = toile.width;
+      t.c.height = toile.height;
+    }
+    ambiance.cleMasque = '';
     if (ambiance.video) peindre(ambiance.video);
+  };
+
+  /**
+   * Le masque du halo : un rectangle aux bords fondus, recalculé seulement
+   * quand le lecteur bouge. Le fondu va jusqu'à zéro avant le bord de l'image
+   * agrandie, sans quoi son cadre se verrait.
+   */
+  const preparerMasque = (hx, hy, hw, hh) => {
+    const cle = [hx, hy, hw, hh].map(Math.round).join(',');
+    if (cle === ambiance.cleMasque) return;
+    ambiance.cleMasque = cle;
+    const { c, ctx } = ambiance.masque;
+    const f = Math.max(2, Math.min(hw, hh) * 0.09);
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.filter = `blur(${f}px)`;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(hx + f * 1.6, hy + f * 1.6, hw - f * 3.2, hh - f * 3.2);
+    ctx.filter = 'none';
+  };
+
+  /**
+   * Les bandes noires incrustées dans l'image : un film au format cinéma
+   * encodé en 16:9 porte du noir en haut et en bas, que le lecteur affiche
+   * comme le reste. Prolonger ces bords-là donnait un fond noir. On cherche
+   * donc, une fois par seconde, les rangées et colonnes entièrement sombres
+   * sur une copie réduite, et l'ambiance part du bord de l'image réelle.
+   *
+   * Un cadrage n'est retenu qu'après deux relevés identiques, et jamais s'il
+   * laisse moins d'un tiers de l'image : une scène sombre ou un fondu au noir
+   * ne sont pas des bandes.
+   */
+  const ANALYSE_LARGEUR = 64;
+  const SEUIL_NOIR = 26;
+
+  const releverCadre = (v) => {
+    const a = ambiance.analyse;
+    const aw = ANALYSE_LARGEUR;
+    const ah = Math.max(8, Math.round((aw * v.videoHeight) / v.videoWidth));
+    if (a.c.width !== aw || a.c.height !== ah) {
+      a.c.width = aw;
+      a.c.height = ah;
+    }
+    a.ctx.drawImage(v, 0, 0, aw, ah);
+    let px;
+    try {
+      px = a.ctx.getImageData(0, 0, aw, ah).data;
+    } catch {
+      // Image d'une autre origine : on la prend telle quelle.
+      return null;
+    }
+    const sombre = (x, y) => {
+      const i = (y * aw + x) * 4;
+      return Math.max(px[i], px[i + 1], px[i + 2]) < SEUIL_NOIR;
+    };
+    const rangeeSombre = (y) => {
+      for (let x = 0; x < aw; x++) if (!sombre(x, y)) return false;
+      return true;
+    };
+    const colonneSombre = (x, haut, bas) => {
+      for (let y = haut; y < bas; y++) if (!sombre(x, y)) return false;
+      return true;
+    };
+    let haut = 0;
+    while (haut < ah && rangeeSombre(haut)) haut++;
+    let bas = ah;
+    while (bas > haut && rangeeSombre(bas - 1)) bas--;
+    let gauche = 0;
+    while (gauche < aw && colonneSombre(gauche, haut, bas)) gauche++;
+    let droite = aw;
+    while (droite > gauche && colonneSombre(droite - 1, haut, bas)) droite--;
+    // Une rangée de marge : la lisière d'une bande est souvent à demi sombre.
+    if (haut > 0) haut++;
+    if (bas < ah) bas--;
+    if (gauche > 0) gauche++;
+    if (droite < aw) droite--;
+    if (bas - haut < ah / 3 || droite - gauche < aw / 3) return null;
+    return { x: gauche / aw, y: haut / ah, l: (droite - gauche) / aw, h: (bas - haut) / ah };
+  };
+
+  const PLEIN_CADRE = { x: 0, y: 0, l: 1, h: 1 };
+  const memeCadre = (a, b) => a && b && ['x', 'y', 'l', 'h'].every((k) => Math.abs(a[k] - b[k]) < 0.001);
+
+  const suivreCadre = (v) => {
+    // YouTube garde le même élément d'une vidéo à l'autre : la source dit si
+    // on a changé de vidéo.
+    if (v.currentSrc !== ambiance.sourceCadre) {
+      ambiance.sourceCadre = v.currentSrc;
+      ambiance.cadre = PLEIN_CADRE;
+      ambiance.candidat = null;
+      ambiance.releve = 0;
+    }
+    const maintenant = performance.now();
+    if (maintenant - ambiance.releve < 1000) return;
+    ambiance.releve = maintenant;
+    const vu = releverCadre(v);
+    if (!vu) return;
+    if (memeCadre(vu, ambiance.candidat)) ambiance.cadre = vu;
+    ambiance.candidat = vu;
   };
 
   const peindre = (v) => {
@@ -610,36 +744,64 @@ if (window.top === window) {
     const L = toile.width;
     const H = toile.height;
     const k = L / innerWidth;
-    // L'image telle qu'elle s'affiche, bandes noires exclues : c'est de ses
-    // bords que part le prolongement.
     const r = v.getBoundingClientRect();
     if (!r.width || !r.height) return;
-    const sw = v.videoWidth;
-    const sh = v.videoHeight;
-    const fit = Math.min(r.width / sw, r.height / sh);
+    suivreCadre(v);
+    const c = ambiance.cadre;
+    const vw = v.videoWidth;
+    const vh = v.videoHeight;
+    // La partie utile de l'image, dans la vidéo…
+    const sx = c.x * vw;
+    const sy = c.y * vh;
+    const sw = c.l * vw;
+    const sh = c.h * vh;
+    // … et là où elle s'affiche, bandes noires du lecteur exclues.
+    const fit = Math.min(r.width / vw, r.height / vh);
+    const ox = r.left + (r.width - vw * fit) / 2;
+    const oy = r.top + (r.height - vh * fit) / 2;
+    const x = (ox + sx * fit) * k;
+    const y = (oy + sy * fit) * k;
     const w = sw * fit * k;
     const h = sh * fit * k;
-    const x = (r.left + (r.width - sw * fit) / 2) * k;
-    const y = (r.top + (r.height - sh * fit) / 2) * k;
-    // Une fine lisière de l'image, étirée : un pixel seul donnerait des
-    // rayures trop nettes, une bande trop large ferait revenir l'image.
-    const e = Math.max(2, Math.round(Math.min(sw, sh) * 0.015));
-    const bloc = (sx, sy, sl, sh2, dx, dy, dl, dh) => {
-      if (dl > 0 && dh > 0) ctx.drawImage(v, sx, sy, sl, sh2, dx, dy, dl, dh);
+
+    // Au loin : les bords de la miniature, étirés.
+    const mini = ambiance.miniature;
+    const mw = AMBIANCE_MINIATURE;
+    const mh = Math.max(3, Math.round((mw * sh) / sw));
+    if (mini.c.width !== mw || mini.c.height !== mh) {
+      mini.c.width = mw;
+      mini.c.height = mh;
+    }
+    mini.ctx.drawImage(v, sx, sy, sw, sh, 0, 0, mw, mh);
+    ctx.imageSmoothingQuality = 'high';
+    const bloc = (bx, by, bl, bh, dx, dy, dl, dh) => {
+      if (dl > 0 && dh > 0) ctx.drawImage(mini.c, bx, by, bl, bh, dx, dy, dl, dh);
     };
     const droite = x + w;
     const bas = y + h;
-    // Les côtés, puis les coins, puis l'image elle-même, cachée sous le
-    // lecteur mais utile à ses coins arrondis et au flou des raccords.
-    bloc(0, 0, e, sh, 0, y, x, h);
-    bloc(sw - e, 0, e, sh, droite, y, L - droite, h);
-    bloc(0, 0, sw, e, x, 0, w, y);
-    bloc(0, sh - e, sw, e, x, bas, w, H - bas);
-    bloc(0, 0, e, e, 0, 0, x, y);
-    bloc(sw - e, 0, e, e, droite, 0, L - droite, y);
-    bloc(0, sh - e, e, e, 0, bas, x, H - bas);
-    bloc(sw - e, sh - e, e, e, droite, bas, L - droite, H - bas);
-    ctx.drawImage(v, x, y, w, h);
+    bloc(0, 0, 1, mh, 0, y, x, h);
+    bloc(mw - 1, 0, 1, mh, droite, y, L - droite, h);
+    bloc(0, 0, mw, 1, x, 0, w, y);
+    bloc(0, mh - 1, mw, 1, x, bas, w, H - bas);
+    bloc(0, 0, 1, 1, 0, 0, x, y);
+    bloc(mw - 1, 0, 1, 1, droite, 0, L - droite, y);
+    bloc(0, mh - 1, 1, 1, 0, bas, x, H - bas);
+    bloc(mw - 1, mh - 1, 1, 1, droite, bas, L - droite, H - bas);
+    ctx.drawImage(mini.c, x, y, w, h);
+
+    // Autour de l'image : la vidéo agrandie depuis son centre, fondue.
+    const hw = w * HALO;
+    const hh = h * HALO;
+    const hx = x - (hw - w) / 2;
+    const hy = y - (hh - h) / 2;
+    preparerMasque(hx, hy, hw, hh);
+    const halo = ambiance.halo;
+    halo.ctx.clearRect(0, 0, halo.c.width, halo.c.height);
+    halo.ctx.drawImage(v, sx, sy, sw, sh, hx, hy, hw, hh);
+    halo.ctx.globalCompositeOperation = 'destination-in';
+    halo.ctx.drawImage(ambiance.masque.c, 0, 0);
+    halo.ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(halo.c, 0, 0);
   };
 
   /**
@@ -673,7 +835,18 @@ if (window.top === window) {
       // Sous `html` et non sous `body` : YouTube ne touche pas à ce qu'il n'a
       // pas posé là.
       document.documentElement.append(style, boite);
-      Object.assign(ambiance, { boite, toile, ctx: toile.getContext('2d', { alpha: false }) });
+      Object.assign(ambiance, {
+        boite,
+        toile,
+        ctx: toile.getContext('2d', { alpha: false }),
+        miniature: toileDeTravail(),
+        halo: toileDeTravail(),
+        masque: toileDeTravail(),
+        analyse: (() => {
+          const c = document.createElement('canvas');
+          return { c, ctx: c.getContext('2d', { willReadFrequently: true }) };
+        })()
+      });
       ajusterToile();
       addEventListener('resize', ajusterToile);
       // Le lecteur défile avec la page : en pause, aucune image ne viendrait
