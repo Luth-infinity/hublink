@@ -156,6 +156,17 @@ contextBridge.exposeInMainWorld('hublink', {
     onState: (handler) => on('panel:state', handler)
   },
 
+  // Vidéos YouTube : le principal lance yt-dlp, la progression arrive par la
+  // liste des téléchargements, comme pour un fichier ordinaire.
+  videos: {
+    telecharger: (url, format, titre) => ipcRenderer.send('videos:telecharger', { url, format, titre }),
+    annuler: (id) => ipcRenderer.send('videos:annuler', id),
+    dossier: () => invoke('videos:dossier'),
+    choisirDossier: () => invoke('videos:choisir-dossier'),
+    dossierParDefaut: () => invoke('videos:dossier-par-defaut'),
+    ouvrirDossier: () => invoke('videos:ouvrir-dossier')
+  },
+
   downloadsList: {
     clear: () => ipcRenderer.send('downloads:clear'),
     onList: (handler) => on('downloads:list', handler)

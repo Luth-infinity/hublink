@@ -360,6 +360,45 @@ Réglage `ambiance` (coupé par défaut), basculé depuis la barre du haut — l
   change : YouTube garde le même élément d'une vidéo à l'autre ;
 - masquée en plein écran et dans la fenêtre vidéo (`html.hublink-sortie`).
 
+## Les vidéos YouTube se téléchargent par yt-dlp
+
+Bouton « Télécharger » dans la barre, **seulement sur une page de vidéo** (`/watch?v=`
+ou `/shorts/`, `estVideoYouTube` des deux côtés) : ni l'accueil de YouTube, ni une
+recherche, ni un autre site. Le menu propose MP4 1080p / 720p / qualité maximale,
+MP3, M4A, WAV, la miniature, et rappelle le dossier de destination. Ce dossier est un
+réglage (`dossierVideos`, vide = Téléchargements du système), choisi dans les
+Paramètres ou depuis le menu ; il n'est pas exporté avec la configuration, un chemin
+n'ayant pas de sens sur une autre machine.
+
+Tout vit dans `src/main/videos.js` :
+
+- **yt-dlp et ffmpeg ne sont pas embarqués** : ils arrivent au premier usage dans
+  `userData/outils` (environ 100 Mo sur le disque, 48 Mo transférés). yt-dlp vient de la
+  dernière release GitHub, ffmpeg de `ffmpeg-static` en version figée (b6.1.1) — six fois
+  plus léger que les archives complètes. Pas de ffmpeg Windows ARM : le x64 y tourne en
+  émulation.
+- **yt-dlp se met à jour** (`-U`) au premier téléchargement de chaque lancement :
+  YouTube casse les versions de quelques semaines.
+- **yt-dlp exige un moteur JavaScript pour YouTube**. C'est Electron lui-même :
+  `--js-runtimes node:<process.execPath>` avec `ELECTRON_RUN_AS_NODE=1` dans
+  l'environnement. Mesuré : Node 24 annoncé, formats complets. Ne pas désactiver le
+  fusible `RunAsNode` sans prévoir autre chose.
+- **Le MP4 préfère le H.264 + AAC** (`-S res:1080,vcodec:h264,acodec:m4a`) : le VP9 ou
+  l'AV1 servis d'abord par YouTube ne s'ouvrent pas partout (PowerPoint, montage).
+  « Qualité maximale » lève cette préférence, le H.264 de YouTube s'arrêtant au 1080p.
+- `--no-mtime`, sinon le fichier prend la date de mise en ligne et se range des années
+  en arrière ; `--no-playlist`, une vidéo ouverte depuis une liste porte `&list=`.
+- La progression passe par les événements des téléchargements ordinaires : même
+  bouton, même panneau. Une vidéo MP4 arrive en deux flux ; la taille annoncée
+  (`filesize_approx`) couvre les deux et les octets s'additionnent, sinon la barre
+  repartirait de zéro. `--print` implique `--quiet` : `--progress` est indispensable.
+- La miniature n'a pas d'étape `after_move` : son chemin se lit en `after_video`.
+- **Annuler** tue l'arbre de processus (`taskkill /t`, sinon ffmpeg reste orphelin) et
+  efface les `.part`, `.ytdl` et flux intermédiaires (`.f137.mp4`) relevés dans la
+  progression — un `.part` de 226 Mo restait sinon dans le dossier.
+
+Non testé sur macOS (binaires `yt-dlp_macos` et ffmpeg darwin prévus).
+
 ## Le bouton du mode vidéo suit la page
 
 `media:presence`, envoyé par `guest.js` toutes les secondes s'il change : une `<video>`

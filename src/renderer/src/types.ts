@@ -95,7 +95,13 @@ export type Download = {
   received: number;
   /** 'progress' tant qu'il tourne, puis l'état final rendu par Electron. */
   state: 'progress' | 'completed' | 'cancelled' | 'interrupted';
+  /** Vidéo YouTube : le téléchargement peut s'arrêter depuis le panneau. */
+  annulable?: boolean;
+  /** Ce qui se passe avant que les octets n'arrivent (installation des outils). */
+  detail?: string | null;
 };
+
+export type FormatVideo = 'mp4-1080' | 'mp4-720' | 'mp4-max' | 'mp3' | 'm4a' | 'wav' | 'miniature';
 
 export type Theme = 'system' | 'light' | 'dark';
 
@@ -120,6 +126,8 @@ export type AppState = {
   skipSponsors: boolean;
   /** Prolonge les couleurs de la vidéo derrière les pages YouTube. */
   ambiance: boolean;
+  /** Dossier des vidéos YouTube téléchargées ; vide, les Téléchargements du système. */
+  dossierVideos: string | null;
   favorites: Favorite[];
   history: HistoryEntry[];
   /** Masque les comptes autres que celui affiché, pour un partage d'écran. */
@@ -367,6 +375,16 @@ declare global {
             } | null
           ) => void
         ): () => void;
+      };
+
+      videos: {
+        telecharger(url: string, format: FormatVideo, titre?: string): void;
+        annuler(id: string): void;
+        /** Le dossier effectif : celui choisi, sinon les Téléchargements. */
+        dossier(): Promise<string>;
+        choisirDossier(): Promise<string>;
+        dossierParDefaut(): Promise<string>;
+        ouvrirDossier(): Promise<string>;
       };
 
       /** Liste des téléchargements, tenue par le processus principal. */

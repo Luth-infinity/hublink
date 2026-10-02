@@ -18,6 +18,53 @@ import { ChoixCouleur } from '@/components/ChoixCouleur';
 import { ExtensionsPanel } from '@/components/ExtensionsPanel';
 import { AboutPanel } from '@/components/AboutPanel';
 
+/**
+ * Où arrivent les vidéos YouTube. Le chemin est montré en entier : c'est
+ * précisément ce qu'on vient chercher ici.
+ */
+function DossierVideos({ choisi }: { choisi: string | null }) {
+  const api = window.hublink;
+  const [dossier, setDossier] = React.useState('');
+  React.useEffect(() => {
+    api.videos.dossier().then(setDossier);
+  }, [choisi]);
+
+  return (
+    <div className="grid gap-2">
+      <div className="grid gap-1">
+        <h3 className="text-sm font-medium">Vidéos YouTube téléchargées</h3>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Le bouton « Télécharger » paraît sur les pages de vidéo YouTube. Les fichiers arrivent
+          ici{choisi ? '' : ', avec vos autres téléchargements'}.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <span
+          className="min-w-0 flex-1 truncate rounded-md border border-border px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground"
+          title={dossier}
+        >
+          {dossier || '…'}
+        </span>
+        <Button variant="outline" size="sm" onClick={() => api.videos.choisirDossier()}>
+          Choisir…
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => api.videos.ouvrirDossier()}>
+          Ouvrir
+        </Button>
+      </div>
+      {choisi && (
+        <button
+          type="button"
+          onClick={() => api.videos.dossierParDefaut()}
+          className="justify-self-start text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          Revenir au dossier Téléchargements
+        </button>
+      )}
+    </div>
+  );
+}
+
 const SLEEP_CHOICES = [0, 5, 10, 15, 20, 30, 45, 60, 120];
 
 const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
@@ -321,6 +368,10 @@ export function SettingsDialog({
                   className="mt-0.5 shrink-0"
                 />
               </div>
+
+              <Separator />
+
+              <DossierVideos choisi={state.dossierVideos} />
 
               {state.sleepAfterMinutes === 0 && services.length > 4 && (
                 <p className="flex items-start gap-2 rounded-md border border-border p-2 text-xs text-muted-foreground">

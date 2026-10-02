@@ -26,6 +26,7 @@ const videomode = require('./videomode');
 const partageecran = require('./partageecran');
 const suggestions = require('./suggestions');
 const sponsors = require('./sponsors');
+const videos = require('./videos');
 
 // Chromium fait passer, depuis quelques versions, tout le son de l'application
 // par son annuleur d'écho : ce qui sort des haut-parleurs sert de référence
@@ -301,7 +302,15 @@ function createWindow() {
     if (type === 'media-present') send('media:present', payload);
     if (type === 'download-started') {
       telechargements = [
-        { id: payload.id, name: payload.name, path: payload.path, total: payload.total, received: 0, state: 'progress' },
+        {
+          id: payload.id,
+          name: payload.name,
+          path: payload.path,
+          total: payload.total,
+          received: 0,
+          state: 'progress',
+          annulable: Boolean(payload.annulable)
+        },
         ...telechargements
       ];
       purgerTelechargements();
@@ -309,22 +318,39 @@ function createWindow() {
     }
     if (type === 'download-progress') {
       telechargements = telechargements.map((d) =>
-        d.id === payload.id ? { ...d, received: payload.received, total: payload.total || d.total } : d
+        d.id === payload.id
+          ? {
+              ...d,
+              // Une vidéo YouTube n'a son vrai titre qu'une fois lue par yt-dlp.
+              name: payload.name || d.name,
+              detail: payload.detail ?? null,
+              received: payload.received,
+              total: payload.total || d.total
+            }
+          : d
       );
       pousserTelechargements();
     }
     if (type === 'download-done') {
       telechargements = telechargements.map((d) =>
         d.id === payload.id
-          ? { ...d, state: payload.state, received: payload.total || d.received, total: payload.total || d.total }
+          ? {
+              ...d,
+              name: payload.name || d.name,
+              path: payload.path || d.path,
+              detail: null,
+              state: payload.state,
+              received: payload.total || d.received,
+              total: payload.total || d.total
+            }
           : d
       );
       purgerTelechargements();
       pousserTelechargements();
       if (payload.state === 'completed') {
         toast('success', `${payload.name} téléchargé`, { kind: 'reveal', label: 'Ouvrir le dossier', path: payload.path });
-      } else {
-        toast('error', `Téléchargement interrompu : ${payload.name}`);
+      } else if (payload.state !== 'cancelled') {
+        toast('error', `Téléchargement interrompu : ${payload.name}${payload.erreur ? ` — ${payload.erreur}` : ''}`);
       }
     }
     // Un lien `target="_blank"` : la vue demande un onglet, le shell le crée.
@@ -604,6 +630,47 @@ function registerIpc() {
     panneau = null;
     pousserPanneau();
   });
+
+  // --- vidéos YouTube -------------------------------------------------------
+
+  const dossierVideos = () => store.load().dossierVideos || app.getPath('downloads');
+
+  ipcMain.handle('videos:dossier', () => dossierVideos());
+
+  ipcMain.handle('videos:choisir-dossier', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Dossier des vidéos téléchargées',
+      defaultPath: dossierVideos(),
+      properties: ['openDirectory', 'createDirectory']
+    });
+    if (r.canceled || !r.filePaths[0]) return dossierVideos();
+    store.load().dossierVideos = r.filePaths[0];
+    store.save();
+    pushState();
+    return r.filePaths[0];
+  });
+
+  // Revenir aux Téléchargements du système : utile si le dossier choisi
+  // était sur un disque qu'on a débranché.
+  ipcMain.handle('videos:dossier-par-defaut', () => {
+    store.load().dossierVideos = null;
+    store.save();
+    pushState();
+    return dossierVideos();
+  });
+
+  ipcMain.handle('videos:ouvrir-dossier', () => {
+    const d = dossierVideos();
+    fs.mkdirSync(d, { recursive: true });
+    return shell.openPath(d);
+  });
+
+  ipcMain.on('videos:telecharger', (_e, { url, format, titre }) => {
+    if (!videos.estVideoYouTube(url)) return;
+    videos.telecharger({ url, format, titre, dossier: dossierVideos() }, views.onEvent);
+  });
+
+  ipcMain.on('videos:annuler', (_e, id) => videos.annuler(id));
 
   ipcMain.on('downloads:clear', () => {
     telechargements = [];

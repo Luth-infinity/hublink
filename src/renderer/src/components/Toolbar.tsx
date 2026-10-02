@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { ArrowLeft, ArrowRight, Blocks, Camera, Download as DownloadIcon, ExternalLink, FileDown, FolderOpen, History, Home, PanelLeft, PanelLeftClose, PictureInPicture2, Puzzle, RotateCw, Search, Star, Trash2, X } from 'lucide-react';
-import type { Download, LoadedExtension, MenuItem, NavState, Service } from '@/types';
+import { ArrowDownToLine, ArrowLeft, ArrowRight, Blocks, Camera, Download as DownloadIcon, ExternalLink, FileDown, FolderOpen, History, Home, PanelLeft, PanelLeftClose, PictureInPicture2, Puzzle, RotateCw, Search, Star, Trash2, X } from 'lucide-react';
+import type { Download, FormatVideo, LoadedExtension, MenuItem, NavState, Service } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -256,6 +256,66 @@ function AmbianceSwitch({ actif }: { actif: boolean }) {
   );
 }
 
+/** Accepte une page de vidéo YouTube : ni l'accueil, ni une recherche, ni une chaîne. */
+function estVideoYouTube(url: string) {
+  try {
+    const u = new URL(url);
+    if (!/^(www\.|m\.|music\.)?youtube\.com$/.test(u.hostname)) return false;
+    return (u.pathname === '/watch' && u.searchParams.has('v')) || u.pathname.startsWith('/shorts/');
+  } catch {
+    return false;
+  }
+}
+
+const FORMATS: { id: FormatVideo; label: string }[] = [
+  { id: 'mp4-1080', label: 'MP4 · 1080p' },
+  { id: 'mp4-720', label: 'MP4 · 720p' },
+  { id: 'mp4-max', label: 'MP4 · qualité maximale' },
+  { id: 'mp3', label: 'MP3 · son seul' },
+  { id: 'm4a', label: 'M4A · son seul, sans réencodage' },
+  { id: 'wav', label: 'WAV · son non compressé' },
+  { id: 'miniature', label: 'Miniature · JPG' }
+];
+
+/**
+ * Le menu rappelle où le fichier va arriver : on n'a pas à deviner, ni à
+ * aller chercher dans les réglages après coup.
+ */
+function TelechargerVideo({ url }: { url: string }) {
+  const api = window.hublink;
+  const ouvrir = async () => {
+    const dossier = await api.videos.dossier();
+    const dernier = dossier.split(/[\\/]/).filter(Boolean).pop() ?? dossier;
+    // Sur le disque, le dossier s'appelle « Downloads » même en français.
+    const nomDossier = dernier === 'Downloads' ? 'Téléchargements' : dernier;
+    const picked = await api.popupMenu([
+      ...FORMATS.slice(0, 3),
+      { type: 'separator' },
+      ...FORMATS.slice(3, 6),
+      { type: 'separator' },
+      FORMATS[6],
+      { type: 'separator' },
+      { id: '__ouvrir', label: `Dans « ${nomDossier} » — ouvrir le dossier` },
+      { id: '__changer', label: 'Changer de dossier…' }
+    ] as MenuItem[]);
+    if (!picked) return;
+    if (picked === '__ouvrir') return void api.videos.ouvrirDossier();
+    if (picked === '__changer') return void api.videos.choisirDossier();
+    api.videos.telecharger(url, picked as FormatVideo);
+  };
+  return (
+    <button
+      type="button"
+      onClick={ouvrir}
+      className="mr-1 flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] text-shell-muted transition-colors hover:bg-shell-active hover:text-shell-foreground"
+      title="Télécharger la vidéo en MP4, MP3…"
+    >
+      <ArrowDownToLine className="size-3.5" />
+      Télécharger
+    </button>
+  );
+}
+
 export function Toolbar({
   service,
   nav,
@@ -475,6 +535,7 @@ export function Toolbar({
             </button>
           </div>
         )}
+        {nav?.url && estVideoYouTube(nav.url) && <TelechargerVideo url={nav.url} />}
         {surYouTube && <AmbianceSwitch actif={ambiance} />}
         {hasVideo && (
           <Button

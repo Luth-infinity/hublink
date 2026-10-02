@@ -93,12 +93,16 @@ export function DownloadsPanel({ downloads }: { downloads: Download[] }) {
                   <span className="block truncate text-[12px] text-shell-foreground">{d.name}</span>
                   <span className="block truncate text-[11px] text-shell-muted">
                     {d.state === 'progress'
-                      ? pct !== null
+                      ? d.detail
+                        ? d.detail
+                        : pct !== null
                         ? `${pct} % — ${poids(d.received)} sur ${poids(d.total)}`
                         : `${poids(d.received)} reçus`
                       : d.state === 'completed'
                         ? poids(d.total)
-                        : 'Interrompu'}
+                        : d.state === 'cancelled'
+                          ? 'Annulé'
+                          : 'Interrompu'}
                   </span>
                   {d.state === 'progress' && (
                     <span className="mt-1 block h-[2px] overflow-hidden rounded-full bg-shell-active">
@@ -112,6 +116,21 @@ export function DownloadsPanel({ downloads }: { downloads: Download[] }) {
                     </span>
                   )}
                 </span>
+                {d.state === 'progress' && d.annulable && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title="Annuler"
+                    aria-label={`Annuler le téléchargement de ${d.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      api.videos.annuler(d.id);
+                    }}
+                    className="shrink-0 rounded p-1 text-shell-muted transition-colors hover:text-shell-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </span>
+                )}
                 {d.state === 'completed' && (
                   <span
                     role="button"

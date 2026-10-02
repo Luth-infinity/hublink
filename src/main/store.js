@@ -48,6 +48,9 @@ function seed() {
     // Prolonge les couleurs de la vidéo derrière la page, sur YouTube. Coupé
     // par défaut : c'est un goût.
     ambiance: false,
+    // Dossier où arrivent les vidéos YouTube téléchargées. Vide, ce sont les
+    // Téléchargements du système, comme pour le reste.
+    dossierVideos: null,
     // Favoris du mode navigateur, et teinte choisie pour ce mode : sans compte
     // actif, le shell n'a aucune couleur d'où se teinter.
     favorites: [],
@@ -109,6 +112,7 @@ function normalize(state) {
   if (typeof state.blockAds !== 'boolean') state.blockAds = true;
   if (typeof state.skipSponsors !== 'boolean') state.skipSponsors = true;
   if (typeof state.ambiance !== 'boolean') state.ambiance = false;
+  if (typeof state.dossierVideos !== 'string') state.dossierVideos = null;
   if (!Array.isArray(state.favorites)) state.favorites = [];
   if (!Array.isArray(state.history)) state.history = [];
   if (typeof state.discreet !== 'boolean') state.discreet = false;
