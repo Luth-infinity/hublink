@@ -667,7 +667,13 @@ function registerIpc() {
 
   ipcMain.on('videos:telecharger', (_e, { url, format, titre }) => {
     if (!videos.estVideoYouTube(url)) return;
-    videos.telecharger({ url, format, titre, dossier: dossierVideos() }, views.onEvent);
+    // La page qu'on regarde prête sa session : ses cookies évitent que YouTube
+    // ne prenne yt-dlp pour un robot. Elle peut être sortie en mode vidéo,
+    // d'où la recherche par adresse avant la vue courante.
+    const page =
+      webContents.getAllWebContents().find((w) => !w.isDestroyed() && w.getURL() === url) ||
+      views.current?.webContents;
+    videos.telecharger({ url, format, titre, dossier: dossierVideos(), session: page?.session }, views.onEvent);
   });
 
   ipcMain.on('videos:annuler', (_e, id) => videos.annuler(id));

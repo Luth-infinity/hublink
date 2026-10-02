@@ -388,6 +388,18 @@ Tout vit dans `src/main/videos.js` :
   « Qualité maximale » lève cette préférence, le H.264 de YouTube s'arrêtant au 1080p.
 - `--no-mtime`, sinon le fichier prend la date de mise en ligne et se range des années
   en arrière ; `--no-playlist`, une vidéo ouverte depuis une liste porte `&list=`.
+- **yt-dlp reçoit les cookies YouTube et Google de la page** (`fichierCookies`, au
+  format Netscape, `--cookies`). Sans eux, YouTube répond « Sign in to confirm you're
+  not a bot » après une dizaine de téléchargements depuis la même connexion — c'est
+  arrivé dès le lendemain de la 0.6.3. **Une session anonyme ne suffit pas** (mesuré
+  dans la démo) : il faut être connecté à YouTube dans la page ; Lucas l'a confirmé
+  connecté. Le fichier est en `0600` dans le dossier temporaire et effacé à la fin. La
+  page est cherchée par son adresse avant la vue courante : elle peut être sortie en
+  mode vidéo. Si un jour même connecté ne suffit plus, la piste est un fournisseur de
+  jetons PO (`bgutil-ytdlp-pot-provider`).
+- **Les erreurs se reconnaissent sur des phrases entières.** La 0.6.3 cherchait « age »
+  pour la limite d'âge : le motif attrapait « page » et « message », et affichait
+  « YouTube demande une connexion » pour le blocage anti-robot.
 - La progression passe par les événements des téléchargements ordinaires : même
   bouton, même panneau. Une vidéo MP4 arrive en deux flux ; la taille annoncée
   (`filesize_approx`) couvre les deux et les octets s'additionnent, sinon la barre

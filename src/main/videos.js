@@ -1,6 +1,7 @@
 const { app, net } = require('electron');
 const { spawn, execFile } = require('child_process');
 const path = require('path');
+const os = require('os');
 const fs = require('fs');
 const zlib = require('zlib');
 
@@ -119,6 +120,38 @@ function preparer() {
   return preparation;
 }
 
+/**
+ * Recopie les cookies YouTube et Google de la page dans un fichier que yt-dlp
+ * sait lire. Sans eux, YouTube prend vite yt-dlp pour un robot (« Sign in to
+ * confirm you're not a bot ») — mesuré après une dizaine de téléchargements
+ * depuis la même connexion. Avec eux, yt-dlp se présente comme la session
+ * que l'on regarde déjà, connectée ou non.
+ *
+ * Le fichier porte une session Google : il est lisible du seul utilisateur et
+ * effacé dès que yt-dlp a fini.
+ */
+async function fichierCookies(ses, id) {
+  if (!ses) return null;
+  const domaine = /(^|\.)(youtube\.com|google\.com)$/;
+  const cookies = (await ses.cookies.get({})).filter((c) => domaine.test(c.domain.replace(/^\./, '')));
+  if (cookies.length === 0) return null;
+  const lignes = cookies.map((c) => {
+    const dom = c.hostOnly ? c.domain.replace(/^\./, '') : c.domain.startsWith('.') ? c.domain : `.${c.domain}`;
+    return [
+      dom,
+      dom.startsWith('.') ? 'TRUE' : 'FALSE',
+      c.path || '/',
+      c.secure ? 'TRUE' : 'FALSE',
+      c.session || !c.expirationDate ? 0 : Math.floor(c.expirationDate),
+      c.name,
+      c.value
+    ].join('\t');
+  });
+  const chemin = path.join(os.tmpdir(), `hublink-cookies-${id}.txt`);
+  fs.writeFileSync(chemin, ['# Netscape HTTP Cookie File', ...lignes, ''].join('\n'), { mode: 0o600 });
+  return chemin;
+}
+
 const enCours = new Map();
 
 /**
@@ -128,7 +161,7 @@ const enCours = new Map();
  * ('download-started', 'download-progress', 'download-done'), pour que la
  * barre et le panneau n'aient rien à savoir de leur origine.
  */
-async function telecharger({ url, format, dossier, titre }, onEvent) {
+async function telecharger({ url, format, dossier, titre, session }, onEvent) {
   if (!estVideoYouTube(url) || !FORMATS[format]) return;
   const id = `y_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   let nom = titre || 'Vidéo YouTube';
@@ -147,7 +180,14 @@ async function telecharger({ url, format, dossier, titre }, onEvent) {
   }
 
   fs.mkdirSync(dossier, { recursive: true });
+  let cookies = null;
+  try {
+    cookies = await fichierCookies(session, id);
+  } catch (err) {
+    console.warn('[videos] cookies illisibles :', err);
+  }
   const args = [
+    ...(cookies ? ['--cookies', cookies] : []),
     ...FORMATS[format],
     '--js-runtimes', `node:${process.execPath}`,
     '--ffmpeg-location', DOSSIER_OUTILS(),
@@ -230,6 +270,7 @@ async function telecharger({ url, format, dossier, titre }, onEvent) {
 
   proc.on('error', (err) => erreurs.push(err.message));
   proc.on('close', (code) => {
+    if (cookies) fs.rmSync(cookies, { force: true });
     const annule = proc.hublinkAnnule;
     enCours.delete(id);
     if (code === 0 && !annule) {
@@ -272,8 +313,10 @@ function nettoyer(temporaires) {
 // Les erreurs de yt-dlp sont longues et techniques : on garde ce qui aide.
 function resumerErreur(erreurs) {
   const texte = erreurs.join(' ');
-  if (/Sign in to confirm|age/i.test(texte)) return 'YouTube demande une connexion pour cette vidéo';
-  if (/Private video|unavailable/i.test(texte)) return 'Vidéo indisponible';
+  if (/not a bot/i.test(texte)) return 'YouTube bloque le téléchargement : connectez-vous à YouTube dans cette page, puis réessayez';
+  if (/confirm your age|age-restricted|inappropriate for some users/i.test(texte)) return 'Vidéo soumise à une limite d’âge : connectez-vous à YouTube dans cette page';
+  if (/members-only|join this channel/i.test(texte)) return 'Vidéo réservée aux membres de la chaîne';
+  if (/Private video|Video unavailable|This video is unavailable/i.test(texte)) return 'Vidéo indisponible';
   if (/getaddrinfo|Unable to download|timed out/i.test(texte)) return 'Connexion impossible';
   return erreurs[0] ? erreurs[0].slice(0, 120) : null;
 }
