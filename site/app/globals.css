@@ -73,3 +73,15 @@ html[data-os='mac'] [data-cta-autre='mac'],
 html[data-os='win'] [data-cta-autre='win'] {
   display: inline;
 }
+
+/* L'avertissement de signature suit la même détection : le système du
+   visiteur, ou le message commun quand on ne l'a pas deviné. */
+[data-os-note='win'],
+[data-os-note='mac'],
+html[data-os] [data-os-note=''] {
+  display: none;
+}
+html[data-os='win'] [data-os-note='win'],
+html[data-os='mac'] [data-os-note='mac'] {
+  display: inline;
+}

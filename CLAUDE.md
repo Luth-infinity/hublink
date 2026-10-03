@@ -603,5 +603,6 @@ Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en 
   Le bundle porte l'attribut de quarantaine et n'est signé qu'en ad-hoc : Gatekeeper
   répond « code has no resources but signature indicates they must be present », macOS
   affiche « Hublink est endommagé » et **le bouton par défaut de cette boîte met l'app
-  à la corbeille**. C'est le clic droit → « Ouvrir » que le site documente, ou
-  `xattr -dr com.apple.quarantine` sur une build qu'on vient de produire soi-même.
+  à la corbeille**. Le guide du site (`/install`, `/fr/installer`, textes dans
+  `site/app/guide-content.ts`) fait passer `xattr -dr com.apple.quarantine` : le clic
+  droit → « Ouvrir » ne contourne plus Gatekeeper depuis macOS 15.

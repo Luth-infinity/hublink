@@ -14,12 +14,12 @@ import { BasculeLangue } from './bascule-langue';
 
 // Le sommaire des applications : Hublink n'est pas seul, et rien ne le disait.
 const SUITE = 'https://luth-apps.vercel.app';
-const REPO = 'https://github.com/Luth-infinity/hublink';
-const RELEASE = `${REPO}/releases/latest`;
+export const REPO = 'https://github.com/Luth-infinity/hublink';
+export const RELEASE = `${REPO}/releases/latest`;
 // Les deux plateformes n'avancent pas au même rythme : les binaires macOS se
 // construisent sur un Mac, ceux de Windows sur un PC. Annoncer un numéro unique
 // enverrait la moitié des visiteurs vers un fichier qui n'existe pas.
-const VERSION = { win: '0.6.4', mac: '0.6.4' };
+export const VERSION = { win: '0.6.4', mac: '0.6.4' };
 
 const DOWNLOADS = {
   mac: `${REPO}/releases/download/v${VERSION.mac}/Hublink-${VERSION.mac}-arm64.dmg`,
@@ -321,6 +321,22 @@ function Telecharger({ t }: { t: Contenu }) {
             </a>
           </span>
         </p>
+        {/* Même logique que les boutons : on ne parle que du système du
+            visiteur, et d'un message commun quand on n'a pas su le deviner. */}
+        <div className="reveal mx-auto mt-8 max-w-[60ch] rounded-2xl bg-card px-5 py-4 text-left ring-1 ring-line/60">
+          <p className="flex items-center gap-2 text-[15px] font-semibold tracking-tight">
+            <span className="size-1.5 shrink-0 rounded-full bg-amber-500" />
+            <span data-os-note="win">{t.telecharger.avertissement.titre.win}</span>
+            <span data-os-note="mac">{t.telecharger.avertissement.titre.mac}</span>
+            <span data-os-note="">{t.telecharger.avertissement.titre.inconnu}</span>
+          </p>
+          <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
+            {t.telecharger.avertissement.texte}{' '}
+            <a href={t.telecharger.avertissement.guide} className="font-medium text-ink underline underline-offset-4">
+              {t.telecharger.avertissement.lien}
+            </a>
+          </p>
+        </div>
         <p className="reveal mt-5 text-[13px] text-ink-soft">
           {t.telecharger.noteAvant}
           <a href={RELEASE} className="underline underline-offset-4 hover:text-ink">

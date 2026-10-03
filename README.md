@@ -109,9 +109,11 @@ Les binaires arrivent dans `release/`.
 > de Wine pour l'assembler — il est plus simple de lancer `npm run dist:win` **depuis une
 > machine Windows** ou une CI (`windows-latest` sur GitHub Actions).
 
-> **Signature** : les builds ne sont pas signés. Sur macOS, le premier lancement demande un
-> clic droit → « Ouvrir » ; sur Windows, SmartScreen affiche un avertissement. Une signature
-> demande un certificat Developer ID (Apple) ou un certificat de signature de code (Windows).
+> **Signature** : les builds ne sont pas signés. Windows (SmartScreen) et macOS (Gatekeeper)
+> affichent un avertissement au premier lancement ; le guide pas à pas est sur le site
+> ([FR](https://hublink.vercel.app/fr/installer) · [EN](https://hublink.vercel.app/install)).
+> Une signature demande un certificat Developer ID (Apple) ou un certificat de signature de
+> code (Windows).
 
 ## Architecture
 

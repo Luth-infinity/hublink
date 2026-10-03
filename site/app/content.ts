@@ -39,6 +39,13 @@ export type Contenu = {
     noteApres: (win: string, mac: string) => string;
     /** Lien discret vers l'autre plateforme que celle détectée chez le visiteur. */
     autre: (plateforme: string) => string;
+    /** Les binaires ne sont pas signés : prévenir avant, et renvoyer au guide. */
+    avertissement: {
+      titre: { win: string; mac: string; inconnu: string };
+      texte: string;
+      lien: string;
+      guide: string;
+    };
   };
   changelog: {
     titre: string;
@@ -187,7 +194,7 @@ export const fr: Contenu = {
       ],
       [
         'Premier lancement',
-        "Les binaires ne sont pas encore signés : clic droit puis « Ouvrir » sur macOS, « Informations complémentaires » puis « Exécuter quand même » sur Windows. Une seule fois, puis on n'y revient plus."
+        "Les binaires ne sont pas encore signés : Windows et macOS demandent une confirmation à la première ouverture. Le guide d'installation, lié sous les boutons de téléchargement, montre où cliquer. Une seule fois, puis on n'y revient plus."
       ]
     ]
   },
@@ -204,7 +211,18 @@ export const fr: Contenu = {
     // Les deux plateformes se rejoignent parfois : annoncer une version « à
     // venir » alors qu'elle est déjà là ferait douter du reste de la page.
     noteApres: (win, mac) => (win === mac ? '.' : `. La ${win} arrive prochainement sur macOS.`),
-    autre: (plateforme) => `Vous êtes sur ${plateforme} ?`
+    autre: (plateforme) => `Vous êtes sur ${plateforme} ?`,
+    avertissement: {
+      titre: {
+        win: 'Windows va afficher un avertissement à l’ouverture.',
+        mac: 'macOS va bloquer la première ouverture.',
+        inconnu: 'Windows et macOS vont afficher un avertissement.'
+      },
+      texte:
+        "Hublink n'est pas encore signé : les certificats d'Apple et de Microsoft se paient chaque année, et le projet n'a pas encore les moyens de les acheter. Le système ne connaît donc pas d'éditeur et le dit ; le code, lui, est public.",
+      lien: 'Le passer en deux minutes',
+      guide: '/fr/installer'
+    }
   },
   changelog: {
     titre: 'Ce qui a changé.',
@@ -359,7 +377,7 @@ export const en: Contenu = {
       ],
       [
         'First launch',
-        'The binaries are not signed yet: right-click then “Open” on macOS, “More info” then “Run anyway” on Windows. Once, and never again.'
+        'The binaries are not signed yet: Windows and macOS ask for confirmation on first launch. The install guide, linked under the download buttons, shows where to click. Once, and never again.'
       ]
     ]
   },
@@ -374,7 +392,18 @@ export const en: Contenu = {
     noteAvant: 'Intel Macs, ARM Windows and earlier versions are ',
     noteLien: 'on the releases page',
     noteApres: (win, mac) => (win === mac ? '.' : `. ${win} is coming to macOS shortly.`),
-    autre: (plateforme) => `On ${plateforme} instead?`
+    autre: (plateforme) => `On ${plateforme} instead?`,
+    avertissement: {
+      titre: {
+        win: 'Windows will show a warning when you open it.',
+        mac: 'macOS will block the first launch.',
+        inconnu: 'Windows and macOS will show a warning.'
+      },
+      texte:
+        'Hublink is not signed yet: Apple’s and Microsoft’s certificates are paid for every year, and the project cannot afford them yet. So the system knows no publisher and says so; the code itself is public.',
+      lien: 'Get past it in two minutes',
+      guide: '/install'
+    }
   },
   changelog: {
     titre: 'What changed.',
