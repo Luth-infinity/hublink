@@ -730,9 +730,10 @@ function SidebarImpl({
               return (
                 <section key={account.id} ref={flip(`compte:${account.id}`)} className="mb-3">
                   {/* En-tête glissable : c'est par lui qu'on réordonne les
-                      clients. Le chevron plie la section, le nom filtre dessus
-                      — deux gestes distincts, donc deux boutons imbriqués dans
-                      une ligne plutôt qu'un seul bouton pour tout. */}
+                      clients. Toute la ligne plie la section : le nom filtrait
+                      autrefois, et on croyait replier un client en se
+                      retrouvant seul avec lui. Le filtre reste au menu
+                      contextuel et au sélecteur de comptes. */}
                   <div
                     draggable
                     onDragStart={(e) => {
@@ -774,39 +775,42 @@ function SidebarImpl({
                     <button
                       type="button"
                       onClick={() => onToggleAccountCollapsed(account.id, !replie)}
-                      title={replie ? `Déplier ${account.name}` : `Replier ${account.name}`}
-                      aria-expanded={!replie}
-                      className="grid size-6 shrink-0 place-items-center rounded text-shell-muted transition-colors hover:text-shell-foreground"
-                    >
-                      <ChevronRight
-                        className={cn(
-                          'size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none',
-                          !replie && 'rotate-90'
-                        )}
-                        aria-hidden
-                      />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onFilterAccount([account.id])}
                       title={
-                        masque(account.id) ? 'Afficher ce compte' : `N'afficher que ${account.name}`
+                        masque(account.id)
+                          ? replie
+                            ? 'Déplier'
+                            : 'Replier'
+                          : replie
+                            ? `Déplier ${account.name}`
+                            : `Replier ${account.name}`
                       }
-                      className="flex min-w-0 flex-1 items-center gap-2 py-1 text-left"
+                      aria-expanded={!replie}
+                      className="group/titre flex min-w-0 flex-1 items-center gap-1 text-left"
                     >
-                      <AccountAvatar
-                        account={account}
-                        className={cn('size-4 rounded', masque(account.id) && FLOU)}
-                        textClassName="text-[7px]"
-                      />
-                      <h2
-                        className={cn(
-                          'truncate text-[11px] font-semibold tracking-wide text-shell-muted uppercase',
-                          masque(account.id) && FLOU
-                        )}
-                      >
-                        {account.name}
-                      </h2>
+                      <span className="grid size-6 shrink-0 place-items-center rounded text-shell-muted transition-colors group-hover/titre:text-shell-foreground">
+                        <ChevronRight
+                          className={cn(
+                            'size-3.5 transition-transform duration-200 ease-out motion-reduce:transition-none',
+                            !replie && 'rotate-90'
+                          )}
+                          aria-hidden
+                        />
+                      </span>
+                      <span className="flex min-w-0 flex-1 items-center gap-2 py-1">
+                        <AccountAvatar
+                          account={account}
+                          className={cn('size-4 rounded', masque(account.id) && FLOU)}
+                          textClassName="text-[7px]"
+                        />
+                        <h2
+                          className={cn(
+                            'truncate text-[11px] font-semibold tracking-wide text-shell-muted uppercase',
+                            masque(account.id) && FLOU
+                          )}
+                        >
+                          {account.name}
+                        </h2>
+                      </span>
                     </button>
                     <Badge count={unreadByAccount[account.id] || 0} />
                   </div>
