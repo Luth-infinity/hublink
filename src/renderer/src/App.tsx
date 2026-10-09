@@ -3,6 +3,7 @@ import { Minimize2, PictureInPicture2, Plus } from 'lucide-react';
 import type {
   Account,
   AppState,
+  EcranPartage as EtatPartage,
   Download,
   LoadedExtension,
   NavState,
@@ -20,6 +21,7 @@ import { AccountDialog } from '@/components/AccountDialog';
 import { ViewDialog } from '@/components/ViewDialog';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { Trame } from '@/components/Trame';
+import { EcranPartage } from '@/components/EcranPartage';
 
 const api = window.hublink;
 const isMac = api.platform === 'darwin';
@@ -45,6 +47,14 @@ export default function App() {
   const [settingsTab, setSettingsTab] = React.useState('general');
   // Trame, l'assistante : elle s'ouvre comme une modale, par-dessus la page figée.
   const [trameOpen, setTrameOpen] = React.useState(false);
+  // Deux services côte à côte : c'est le processus principal qui en décide.
+  const [partage, setPartage] = React.useState<EtatPartage>(null);
+  const partageRef = React.useRef<EtatPartage>(null);
+  partageRef.current = partage;
+  React.useEffect(() => {
+    api.split.etat().then(setPartage);
+    return api.split.onState(setPartage);
+  }, []);
   // Services libérés de la mémoire : on le signale plutôt que de laisser
   // l'utilisateur se demander pourquoi la page s'est rechargée.
   const [sleeping, setSleeping] = React.useState<string[]>([]);
@@ -174,8 +184,10 @@ export default function App() {
   // rendre la vue plus tôt la peindrait par-dessus l'animation.
   const sortieLente = React.useRef(false);
   if (trameOpen) sortieLente.current = true;
-  // Image figée de la page, posée derrière la modale le temps qu'elle vit.
+  // Image figée de la page, posée derrière la modale le temps qu'elle vit. En
+  // écran partagé, une image par côté, chacune à sa place.
   const [fond, setFond] = React.useState<string | null>(null);
+  const [fonds, setFonds] = React.useState<{ gauche: string | null; droite: string | null } | null>(null);
 
   React.useEffect(() => {
     let annule = false;
@@ -184,9 +196,15 @@ export default function App() {
       // la vue. Masquer d'abord laisserait un trou d'une frame — c'est ce trou
       // qui se voyait comme un clignotement.
       (async () => {
-        const image = await api.viewStill();
-        if (annule) return;
-        setFond(image);
+        if (partageRef.current) {
+          const images = await api.viewStills();
+          if (annule) return;
+          setFonds(images);
+        } else {
+          const image = await api.viewStill();
+          if (annule) return;
+          setFond(image);
+        }
         requestAnimationFrame(() => requestAnimationFrame(() => {
           if (!annule) api.setOverlay(true);
         }));
@@ -201,7 +219,10 @@ export default function App() {
       () => {
         sortieLente.current = false;
         api.setOverlay(false);
-        requestAnimationFrame(() => setFond(null));
+        requestAnimationFrame(() => {
+          setFond(null);
+          setFonds(null);
+        });
       },
       sortieLente.current ? 560 : 220
     );
@@ -270,6 +291,10 @@ export default function App() {
   const selectService = React.useCallback((id: string) => {
     setSleeping((prev) => prev.filter((key) => key !== id));
     return api.services.select(id);
+  }, []);
+  const openSplit = React.useCallback((id: string) => {
+    setSleeping((prev) => prev.filter((key) => key !== id));
+    return api.split.ouvrir(id);
   }, []);
   const editService = React.useCallback((s: Service) => setServiceDialog({ open: true, service: s }), []);
   // Supprimer un service est immédiat et sans confirmation : le rattrapage se
@@ -496,6 +521,8 @@ export default function App() {
             isDark={isDark}
             sleeping={sleeping}
             onSelectService={selectService}
+            onOpenSplit={openSplit}
+            serviceACote={partage ? partage[partage.actif === 'gauche' ? 'droite' : 'gauche'] : null}
             onAddService={openNewService}
             onEditService={editService}
             onRemoveService={removeService}
@@ -528,7 +555,16 @@ export default function App() {
                   la place de la vue native qu'elle remplace, donc rien ne
                   bouge à l'écran au moment du masquage. `object-cover` parce
                   que l'image est capturée à la moitié de la résolution. */}
-              {fond && (
+              {partage && !state.browserMode && (
+                <EcranPartage
+                  etat={partage}
+                  services={state.services}
+                  accounts={state.accounts}
+                  isDark={isDark}
+                  images={fonds}
+                />
+              )}
+              {fond && !partage && (
                 <img
                   src={fond}
                   alt=""

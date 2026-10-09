@@ -29,6 +29,10 @@ type Props = {
   sleeping: string[];
   isDark: boolean;
   onSelectService: (id: string) => void;
+  /** Ouvre un service dans l'autre moitié de la zone (écran partagé). */
+  onOpenSplit: (id: string) => void;
+  /** Le service affiché de l'autre côté de l'écran partagé, s'il y en a un. */
+  serviceACote: string | null;
   onAddService: () => void;
   onEditService: (service: Service) => void;
   onRemoveService: (service: Service) => void;
@@ -94,6 +98,8 @@ function SidebarImpl({
   sleeping,
   isDark,
   onSelectService,
+  onOpenSplit,
+  serviceACote,
   onAddService,
   onEditService,
   onRemoveService,
@@ -173,6 +179,13 @@ function SidebarImpl({
   const serviceMenu = (service: Service, index: number, total: number, siblings: Service[]) =>
     popup(
       [
+        // Grisé pour le service déjà affiché : il ne peut pas être à côté de lui-même.
+        {
+          id: 'split',
+          label: service.id === serviceACote ? 'Déjà affiché à côté' : 'Ouvrir à côté',
+          enabled: service.id !== activeServiceId && service.id !== serviceACote
+        },
+        { type: 'separator' },
         { id: 'up', label: 'Monter', enabled: index > 0 },
         { id: 'down', label: 'Descendre', enabled: index < total - 1 },
         { type: 'separator' },
@@ -193,6 +206,7 @@ function SidebarImpl({
         { id: 'remove', label: 'Retirer' }
       ],
       {
+        split: () => onOpenSplit(service.id),
         // Le voisin VISIBLE, pas celui de la liste complète.
         up: () => index > 0 && onReorder(service.id, siblings[index - 1].id),
         down: () => index < total - 1 && onReorder(service.id, siblings[index + 1].id),
@@ -257,6 +271,8 @@ function SidebarImpl({
     siblings: Service[];
   }) => {
     const active = service.id === activeServiceId;
+    // Affiché de l'autre côté de l'écran partagé : visible, mais sans la main.
+    const aCote = service.id === serviceACote;
     const asleep = sleeping.includes(service.id);
     const account = accountById.get(service.accountId);
     return (
@@ -295,7 +311,7 @@ function SidebarImpl({
             setDragging(null);
             setDropTarget(null);
           }}
-          onClick={() => onSelectService(service.id)}
+          onClick={(e) => (e.ctrlKey || e.metaKey ? onOpenSplit(service.id) : onSelectService(service.id))}
           onContextMenu={(e) => {
             e.preventDefault();
             serviceMenu(service, index, siblings.length, siblings);
@@ -306,7 +322,9 @@ function SidebarImpl({
             'group/ligne flex w-full cursor-grab items-center gap-2.5 rounded-md py-1.5 pr-2 pl-2 text-left transition-[background-color,color] duration-150 active:cursor-grabbing',
             active
               ? 'bg-shell-active text-shell-foreground'
-              : 'text-shell-muted hover:bg-shell-hover hover:text-shell-foreground'
+              : aCote
+                ? 'bg-shell-hover text-shell-foreground'
+                : 'text-shell-muted hover:bg-shell-hover hover:text-shell-foreground'
           )}
         >
           {/* Le repère du compte n'existe que sur la ligne active. Au survol
@@ -315,7 +333,11 @@ function SidebarImpl({
           <span
             className={cn(
               'w-0.5 shrink-0 rounded-full transition-[height,opacity] duration-200',
-              active ? 'h-5 opacity-100' : 'h-2 opacity-0 group-hover/ligne:h-4 group-hover/ligne:opacity-60'
+              active
+                ? 'h-5 opacity-100'
+                : aCote
+                  ? 'h-5 opacity-40'
+                  : 'h-2 opacity-0 group-hover/ligne:h-4 group-hover/ligne:opacity-60'
             )}
             style={{ backgroundColor: account ? repereLisible(account.color, isDark) : 'transparent' }}
             aria-hidden
@@ -588,7 +610,7 @@ function SidebarImpl({
         <button
           type="button"
           ref={flip(service.id)}
-          onClick={() => onSelectService(service.id)}
+          onClick={(e) => (e.ctrlKey || e.metaKey ? onOpenSplit(service.id) : onSelectService(service.id))}
           onContextMenu={(e) => {
             e.preventDefault();
             serviceMenu(service, siblings.indexOf(service), siblings.length, siblings);

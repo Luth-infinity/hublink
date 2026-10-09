@@ -220,6 +220,10 @@ export type EtatVideo = {
   ratio: number;
 };
 
+export type Cote = 'gauche' | 'droite';
+/** Deux services côte à côte ; `actif` est celui qui a la main. */
+export type EcranPartage = { gauche: string; droite: string; actif: Cote } | null;
+
 export type TrameService = { id: string; nom: string; charge: boolean };
 export type TrameBloc = { type: 'p' | 'li'; texte: string };
 export type TrameMessage = { role: 'q' | 'r'; texte: string; blocs?: TrameBloc[]; sources?: string[] };
@@ -334,6 +338,16 @@ declare global {
       setOverlay(active: boolean): void;
       /** Image figée de la page, à afficher derrière une modale. */
       viewStill(): Promise<string | null>;
+      /** En écran partagé : l'image de chaque côté. */
+      viewStills(): Promise<{ gauche: string | null; droite: string | null } | null>;
+      split: {
+        etat(): Promise<EcranPartage>;
+        /** Ouvre un service dans l'autre moitié de la zone. */
+        ouvrir(serviceId: string): Promise<void>;
+        fermer(cote: Cote): Promise<void>;
+        setBounds(bounds: Record<Cote, { x: number; y: number; width: number; height: number }>): void;
+        onState(handler: (etat: EcranPartage) => void): () => void;
+      };
       toggleSidebar(collapsed?: boolean): Promise<void>;
       popupMenu(items: MenuItem[]): Promise<string | null>;
 

@@ -115,6 +115,33 @@ est redevenu un service ordinaire, migré dans le premier compte au premier dém
 La session `persist:whatsapp` n'est plus lue : ne pas la recâbler, l'utilisateur a
 rescanné son code depuis. Ne pas réintroduire de zone « solo » en bas du panneau.
 
+## L'écran partagé
+
+Deux services côte à côte : « Ouvrir à côté » dans le menu d'un service, ou Ctrl+clic
+(⌘+clic) dans le panneau. Services seulement : le mode navigateur défait le partage
+(`showTab` appelle `finirSplit`).
+
+- **`views.current` reste la vue ACTIVE**, celle où l'on a cliqué en dernier
+  (`wc.on('focus')` → `activer`). Tout ce qui agit sur `current` — barre d'adresse,
+  précédent, zoom, capture, Trame — suit donc le côté actif sans rien savoir du
+  partage. L'autre côté est `views.secondaire`, affiché mais sans la main.
+  Changer de côté actif remet `activeServiceId` à jour (`split-actif`) : le panneau
+  surligne le bon service, et celui d'à côté reçoit un repère atténué.
+- Choisir dans le panneau un service déjà affiché le rend actif ; un autre service
+  **remplace le côté actif**, l'autre côté ne bouge pas.
+- **Le shell dessine le cadre, le principal pose les pages** : `EcranPartage.tsx`
+  rend l'en-tête de chaque côté (nom, client, fermer, trait du client sur le côté
+  actif) et la séparation, puis envoie les deux zones (`layout:split-bounds`).
+  Avant la première mesure, `zonesCotes()` coupe la zone en deux.
+- **Glisser la séparation masque les vues** et les remplace par leur image
+  (`view:stills`) : le pointeur passerait sinon sur une page native et le shell ne
+  recevrait plus rien. Proportion bornée à 25–75 %, retenue en `localStorage`,
+  double-clic pour revenir à moitié-moitié.
+- Les modales et Trame posent une image par côté (`view:stills`), pas une seule.
+- L'autre côté ne dort jamais (balayage de veille) et s'efface pendant un plein
+  écran vidéo. Partir en mode vidéo ferme le côté actif : l'autre reprend la place.
+- Le partage n'est pas retenu au redémarrage.
+
 ## Le filtre de comptes est une sélection
 
 `activeAccountIds` (une liste) remplace `activeAccountId` depuis les vues sur mesure ;

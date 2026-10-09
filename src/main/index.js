@@ -299,6 +299,14 @@ function createWindow() {
     // l'état complet (qui embarque les logos en base64 de tous les clients).
     if (type === 'service-meta') send('service:meta', payload);
     if (type === 'service-slept') send('service:slept', payload);
+    if (type === 'split') send('split:state', payload);
+    // En écran partagé, cliquer dans l'autre côté le rend actif : le panneau
+    // doit le surligner comme s'il avait été choisi dans la liste.
+    if (type === 'split-actif' && store.getService(payload.serviceId)) {
+      store.load().activeServiceId = payload.serviceId;
+      store.save();
+      pushState();
+    }
     if (type === 'tab-meta') send('tab:meta', payload);
     if (type === 'media-present') send('media:present', payload);
     if (type === 'download-started') {
@@ -945,6 +953,42 @@ function registerIpc() {
   });
 
   // --- navigateur neutre ---------------------------------------------------
+
+  // --- écran partagé ---------------------------------------------------------
+
+  ipcMain.handle('split:etat', () =>
+    views.split ? { ...views.split.ids, actif: views.split.actif } : null
+  );
+  ipcMain.handle('split:ouvrir', async (_e, id) => {
+    if (store.load().browserMode || !store.getService(id)) return;
+    await views.ouvrirACote(id);
+  });
+  ipcMain.handle('split:fermer', (_e, cote) => {
+    if (cote === 'gauche' || cote === 'droite') views.fermerCote(cote);
+  });
+  ipcMain.on('layout:split-bounds', (_e, bounds) => views.setBoundsCotes(bounds));
+
+  /**
+   * Les deux pages figées, le temps d'une modale ou d'un glissement de la
+   * séparation : chaque côté garde son image à sa place.
+   */
+  ipcMain.handle('view:stills', async () => {
+    if (!views.split) return null;
+    const image = async (id) => {
+      const vue = views.views.get(id);
+      if (!vue || vue.webContents.isDestroyed()) return null;
+      try {
+        const img = await vue.webContents.capturePage();
+        if (img.isEmpty()) return null;
+        const { width } = img.getSize();
+        return `data:image/jpeg;base64,${(width > 900 ? img.resize({ width: 900 }) : img).toJPEG(55).toString('base64')}`;
+      } catch {
+        return null;
+      }
+    };
+    const [gauche, droite] = await Promise.all([image(views.split.ids.gauche), image(views.split.ids.droite)]);
+    return { gauche, droite };
+  });
 
   ipcMain.handle('browser:toggle', async (_e, on) => {
     const state = store.load();

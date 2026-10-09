@@ -120,6 +120,13 @@ class ViewManager {
     // Vues dont la page montre une vidéo : le mode vidéo n'a de sens que pour
     // celles-là, on n'encombre pas la barre pour les autres.
     this.avecMedia = new Set();
+    // L'écran partagé : deux services côte à côte. `current` reste la vue
+    // ACTIVE — celle où l'on a cliqué en dernier —, si bien que la barre
+    // d'adresse, les boutons de navigation, le zoom ou Trame la suivent sans
+    // rien savoir du partage. L'autre côté est simplement affiché à sa place.
+    this.split = null; // { ids: { gauche, droite }, actif: 'gauche' | 'droite' }
+    // Les deux zones mesurées par le shell, sous l'en-tête de chaque côté.
+    this.boundsCotes = null;
     this.sleepTimer = null;
     this.onEvent = () => {};
   }
@@ -145,6 +152,7 @@ class ViewManager {
 
     for (const [serviceId, view] of [...this.views]) {
       if (view === this.current) continue;
+      if (this.coteDe(serviceId)) continue;
       if (serviceId === this.sortieVideo) continue;
       if ((this.lastActiveAt.get(serviceId) ?? 0) > cutoff) continue;
       // Un service endormi n'a plus de page : il ne peut donc plus signaler
@@ -618,6 +626,8 @@ class ViewManager {
     // vouloir le revoir en entier. On referme donc la vidéo d'abord.
     if (this.sortieVideo === tabId && this.ramenerVideo) await this.ramenerVideo();
     if (!this.window) return;
+    // Un onglet n'est jamais partagé : le mode navigateur défait le partage.
+    this.finirSplit();
     const view = await this.ensureTabView(tabId);
 
     // Changer de vue sans quitter le plein écran laisserait la fenêtre pleine
@@ -678,6 +688,12 @@ class ViewManager {
   wire(view, serviceId) {
     const wc = view.webContents;
     const emit = (type, payload) => this.onEvent(type, { serviceId, ...payload });
+
+    // En écran partagé, le côté qui prend le clavier devient le côté actif.
+    wc.on('focus', () => {
+      const cote = this.coteDe(serviceId);
+      if (cote) this.activer(cote);
+    });
 
     const poserBadge = (badge) => {
       if (store.updateServiceIfChanged(serviceId, { badge })) emit('service-meta', { badge });
@@ -797,6 +813,17 @@ class ViewManager {
     // vouloir le revoir en entier. On referme donc la vidéo d'abord.
     if (this.sortieVideo === serviceId && this.ramenerVideo) await this.ramenerVideo();
     if (!this.window) return;
+    // En écran partagé : un service déjà affiché devient le côté actif, un
+    // autre prend la place du côté actif — l'autre côté ne bouge pas.
+    if (this.split) {
+      const cote = this.coteDe(serviceId);
+      if (cote) {
+        this.activer(cote);
+        if (!this.overlay) this.current?.webContents.focus();
+        return;
+      }
+      this.split.ids[this.split.actif] = serviceId;
+    }
     const view = await this.ensureView(serviceId);
 
     // Changer de vue sans quitter le plein écran laisserait la fenêtre pleine
@@ -817,6 +844,139 @@ class ViewManager {
     view.setVisible(!this.overlay);
     if (!this.overlay) view.webContents.focus();
     this.emitNavState(serviceId);
+    if (this.split) this.emitSplit();
+  }
+
+  // --- écran partagé -------------------------------------------------------
+
+  static autre(cote) {
+    return cote === 'gauche' ? 'droite' : 'gauche';
+  }
+
+  /** Le côté où s'affiche un service, ou null. */
+  coteDe(serviceId) {
+    if (!this.split) return null;
+    if (this.split.ids.gauche === serviceId) return 'gauche';
+    if (this.split.ids.droite === serviceId) return 'droite';
+    return null;
+  }
+
+  /** La vue du côté inactif, affichée mais sans la main. */
+  get secondaire() {
+    if (!this.split) return null;
+    return this.views.get(this.split.ids[ViewManager.autre(this.split.actif)]) || null;
+  }
+
+  emitSplit() {
+    this.onEvent('split', this.split ? { ...this.split.ids, actif: this.split.actif } : null);
+  }
+
+  /**
+   * Ouvre un service dans l'autre moitié de la zone, et lui donne la main.
+   * Le premier partage met le service affiché à gauche ; ensuite, c'est le
+   * côté inactif qui change de service.
+   */
+  async ouvrirACote(serviceId) {
+    if (!this.window || !this.currentId || !store.getService(this.currentId)) return this.show(serviceId);
+    if (serviceId === this.currentId) return;
+    if (!this.split) this.split = { ids: { gauche: this.currentId, droite: null }, actif: 'gauche' };
+    const cote = this.coteDe(serviceId) || ViewManager.autre(this.split.actif);
+    const ancien = this.split.ids[cote];
+    if (ancien && ancien !== serviceId) {
+      const vue = this.views.get(ancien);
+      if (vue) this.window.contentView.removeChildView(vue);
+    }
+    this.quitterPleinEcran(this.pleinEcran);
+    this.split.ids[cote] = serviceId;
+    const view = await this.ensureView(serviceId);
+    if (!view) return this.fermerCote(cote);
+    this.window.contentView.addChildView(view);
+    this.lastActiveAt.set(serviceId, Date.now());
+    this.split.actif = cote;
+    this.current = view;
+    this.currentId = serviceId;
+    this.appliquerBounds();
+    view.setVisible(!this.overlay);
+    if (!this.overlay) view.webContents.focus();
+    this.emitNavState(serviceId);
+    this.emitSplit();
+    this.onEvent('split-actif', { serviceId });
+  }
+
+  /** Donne la main à un côté : la barre d'outils et le panneau le suivent. */
+  activer(cote) {
+    if (!this.split || this.split.actif === cote) return;
+    const id = this.split.ids[cote];
+    const vue = this.views.get(id);
+    if (!vue) return;
+    this.split.actif = cote;
+    this.current = vue;
+    this.currentId = id;
+    this.lastActiveAt.set(id, Date.now());
+    this.emitNavState(id);
+    this.emitSplit();
+    this.onEvent('split-actif', { serviceId: id });
+  }
+
+  /** Ferme un côté : l'autre reprend toute la place. La vue fermée reste chargée. */
+  fermerCote(cote) {
+    if (!this.split) return;
+    const garde = ViewManager.autre(cote);
+    const idGarde = this.split.ids[garde];
+    const fermee = this.views.get(this.split.ids[cote]);
+    const vueGarde = idGarde ? this.views.get(idGarde) : null;
+    if (fermee && this.window) this.window.contentView.removeChildView(fermee);
+    const changeDeMain = this.split.actif === cote;
+    this.split = null;
+    this.boundsCotes = null;
+    this.current = vueGarde || null;
+    this.currentId = vueGarde ? idGarde : null;
+    this.appliquerBounds();
+    if (vueGarde && !this.overlay) {
+      vueGarde.setVisible(true);
+      vueGarde.webContents.focus();
+    }
+    if (vueGarde) this.emitNavState(idGarde);
+    this.emitSplit();
+    if (changeDeMain && vueGarde) this.onEvent('split-actif', { serviceId: idGarde });
+  }
+
+  /** Défait le partage sans rien choisir : le côté actif reste, seul. */
+  finirSplit() {
+    if (!this.split) return;
+    const secondaire = this.secondaire;
+    if (secondaire && this.window) this.window.contentView.removeChildView(secondaire);
+    this.split = null;
+    this.boundsCotes = null;
+    this.appliquerBounds();
+    this.emitSplit();
+  }
+
+  setBoundsCotes(b) {
+    if (!this.split || !b || !b.gauche || !b.droite) return;
+    const arrondi = (r) => ({
+      x: Math.round(r.x),
+      y: Math.round(r.y),
+      width: Math.max(0, Math.round(r.width)),
+      height: Math.max(0, Math.round(r.height))
+    });
+    this.boundsCotes = { gauche: arrondi(b.gauche), droite: arrondi(b.droite) };
+    this.appliquerBounds();
+  }
+
+  /**
+   * Les zones des deux côtés. Avant que le shell ne les ait mesurées, on coupe
+   * la zone en deux : la page apparaît tout de suite à peu près à sa place,
+   * plutôt que de couvrir l'autre côté le temps d'un aller-retour.
+   */
+  zonesCotes() {
+    if (this.boundsCotes) return this.boundsCotes;
+    const b = this.bounds;
+    const moitie = Math.floor((b.width - 6) / 2);
+    return {
+      gauche: { x: b.x, y: b.y, width: moitie, height: b.height },
+      droite: { x: b.x + moitie + 6, y: b.y, width: b.width - moitie - 6, height: b.height }
+    };
   }
 
   // Appelé quand une modale ou un menu du shell s'ouvre / se ferme.
@@ -826,9 +986,14 @@ class ViewManager {
     const view = this.current;
     const id = this.currentId;
     this.quitterPleinEcran(this.pleinEcran);
-    this.window.contentView.removeChildView(view);
-    this.current = null;
-    this.currentId = null;
+    if (this.split) {
+      // En écran partagé, l'autre côté reprend toute la place.
+      this.fermerCote(this.split.actif);
+    } else {
+      this.window.contentView.removeChildView(view);
+      this.current = null;
+      this.currentId = null;
+    }
     this.sortieVideo = id;
     return { view, id };
   }
@@ -875,12 +1040,15 @@ class ViewManager {
 
   setOverlay(active) {
     this.overlay = Boolean(active);
+    const secondaire = this.secondaire;
+    if (secondaire) secondaire.setVisible(!this.overlay && !this.pleinEcran);
     if (!this.current) return;
     this.current.setVisible(!this.overlay);
     if (!this.overlay) this.current.webContents.focus();
   }
 
   hide() {
+    this.finirSplit();
     this.quitterPleinEcran(this.pleinEcran);
     if (this.current && this.window) this.window.contentView.removeChildView(this.current);
     this.current = null;
@@ -916,7 +1084,9 @@ class ViewManager {
    * écran occupant l'écran entier, ses bornes sont la mesure sûre.
    */
   geometrie() {
-    if (!this.pleinEcran || !this.window || this.window.isDestroyed()) return this.bounds;
+    if (!this.pleinEcran || !this.window || this.window.isDestroyed()) {
+      return this.split ? this.zonesCotes()[this.split.actif] : this.bounds;
+    }
     const { width, height } = screen.getDisplayMatching(this.window.getBounds()).bounds;
     return { x: 0, y: 0, width, height };
   }
@@ -932,6 +1102,13 @@ class ViewManager {
    */
   appliquerBounds() {
     if (this.current) this.current.setBounds(this.geometrie());
+    // L'autre côté s'efface le temps d'un plein écran vidéo : il passerait
+    // par-dessus la vidéo agrandie.
+    const secondaire = this.secondaire;
+    if (secondaire) {
+      secondaire.setBounds(this.zonesCotes()[ViewManager.autre(this.split.actif)]);
+      secondaire.setVisible(!this.overlay && !this.pleinEcran);
+    }
   }
 
   /** Le service auquel appartient un `webContents`, ou null. */
@@ -943,6 +1120,8 @@ class ViewManager {
   destroyService(serviceId) {
     const view = this.views.get(serviceId);
     if (!view) return;
+    const cote = this.coteDe(serviceId);
+    if (cote) this.fermerCote(cote);
     this.pastilleParApi.delete(serviceId);
     if (this.current === view) this.hide();
     view.webContents.close();

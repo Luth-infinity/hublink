@@ -104,6 +104,15 @@ contextBridge.exposeInMainWorld('hublink', {
   setContentBounds: (bounds) => ipcRenderer.send('layout:bounds', bounds),
   setOverlay: (active) => ipcRenderer.send('layout:overlay', active),
   viewStill: () => invoke('view:still'),
+  viewStills: () => invoke('view:stills'),
+
+  split: {
+    etat: () => invoke('split:etat'),
+    ouvrir: (id) => invoke('split:ouvrir', id),
+    fermer: (cote) => invoke('split:fermer', cote),
+    setBounds: (bounds) => ipcRenderer.send('layout:split-bounds', bounds),
+    onState: (handler) => on('split:state', handler)
+  },
   toggleSidebar: (collapsed) => invoke('layout:toggle-sidebar', collapsed),
   popupMenu: (items) => invoke('menu:popup', items),
   openExternal: (url) => invoke('app:open-external', url),
