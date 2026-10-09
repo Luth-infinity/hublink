@@ -220,6 +220,18 @@ export type EtatVideo = {
   ratio: number;
 };
 
+export type TrameService = { id: string; nom: string; charge: boolean };
+export type TrameBloc = { type: 'p' | 'li'; texte: string };
+export type TrameMessage = { role: 'q' | 'r'; texte: string; blocs?: TrameBloc[]; sources?: string[] };
+export type TrameReponse =
+  | { ok: true; blocs: TrameBloc[]; sources: string[] }
+  | { ok: false; code: string; message: string };
+export type TrameEtape = ({ type: 'lecture' | 'reveil'; id: string } | { type: 'redaction' }) & {
+  accountId?: string;
+};
+export type TramePoint = { texte: string; source: string | null };
+export type TrameTour = { ok: true; points: TramePoint[] } | { ok: false; code: string; message: string };
+
 declare global {
   interface Window {
     hublink: {
@@ -398,6 +410,21 @@ declare global {
       setAccent(color: string | null): Promise<void>;
       setDiscreet(on?: boolean): Promise<boolean>;
       setSkipSponsors(on: boolean): Promise<void>;
+      trame: {
+        cleEtat(): Promise<{ cle: boolean; chiffrement: boolean }>;
+        /** Chaîne vide = oublier la clé. Faux si le trousseau du système manque. */
+        enregistrerCle(valeur: string): Promise<boolean>;
+        services(accountId: string): Promise<TrameService[]>;
+        demander(demande: {
+          accountId: string;
+          question: string;
+          historique: TrameMessage[];
+          exclus: string[];
+        }): Promise<TrameReponse>;
+        /** Le tour du matin d'un client : ses services qui ont des non-lus. */
+        tour(accountId: string): Promise<TrameTour>;
+        onEtape(handler: (etape: TrameEtape) => void): () => void;
+      };
       setAmbiance(on: boolean): Promise<void>;
       exportConfig(): Promise<string | null>;
       importConfig(): Promise<boolean>;

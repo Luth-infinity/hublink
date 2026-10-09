@@ -178,6 +178,16 @@ contextBridge.exposeInMainWorld('hublink', {
   setAccent: (color) => invoke('app:set-accent', color),
   setDiscreet: (on) => invoke('app:set-discreet', on),
   setSkipSponsors: (on) => invoke('app:set-skip-sponsors', on),
+
+  trame: {
+    cleEtat: () => invoke('trame:cle-etat'),
+    /** Chaîne vide = oublier la clé. */
+    enregistrerCle: (valeur) => invoke('trame:cle', valeur),
+    services: (accountId) => invoke('trame:services', accountId),
+    demander: (demande) => invoke('trame:demander', demande),
+    tour: (accountId) => invoke('trame:tour', accountId),
+    onEtape: (handler) => on('trame:etape', handler)
+  },
   setAmbiance: (on) => invoke('app:set-ambiance', on),
   exportConfig: () => invoke('config:export'),
   importConfig: () => invoke('config:import'),

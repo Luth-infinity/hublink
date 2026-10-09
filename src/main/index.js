@@ -27,6 +27,7 @@ const partageecran = require('./partageecran');
 const suggestions = require('./suggestions');
 const sponsors = require('./sponsors');
 const videos = require('./videos');
+const trame = require('./trame');
 
 // Chromium fait passer, depuis quelques versions, tout le son de l'application
 // par son annuleur d'écho : ce qui sort des haut-parleurs sert de référence
@@ -429,6 +430,23 @@ function createWindow() {
   win.on('focus', () => {
     fenetreActive = true;
     if (clavier === 'page') views.redonnerLeFocus();
+  });
+}
+
+/**
+ * Attend qu'une page fraîchement montée ait fini de charger, puis encore un peu :
+ * Slack ou Teams ne dessinent leurs messages qu'après leur propre chargement.
+ * Plafonné, pour qu'un service qui ne répond pas ne bloque pas le tour.
+ */
+function pageChargee(wc) {
+  return new Promise((resolve) => {
+    const fin = () => setTimeout(resolve, 2500);
+    const garde = setTimeout(resolve, 15000);
+    if (!wc.isLoading()) return clearTimeout(garde), fin();
+    wc.once('did-stop-loading', () => {
+      clearTimeout(garde);
+      fin();
+    });
   });
 }
 
@@ -980,6 +998,67 @@ function registerIpc() {
     }
   });
 
+  // --- Trame -----------------------------------------------------------------
+
+  ipcMain.handle('trame:cle-etat', () => ({ cle: trame.aUneCle(), chiffrement: trame.disponible() }));
+  ipcMain.handle('trame:cle', (_e, valeur) => (valeur ? trame.enregistrerCle(valeur) : (trame.oublierCle(), true)));
+
+  /** Les services d'un compte, et lesquels ont une page à lire. */
+  ipcMain.handle('trame:services', (_e, accountId) =>
+    store
+      .load()
+      .services.filter((s) => s.accountId === accountId)
+      .map((s) => {
+        const vue = views.views.get(s.id);
+        return { id: s.id, nom: s.name, charge: Boolean(vue && !vue.webContents.isDestroyed()) };
+      })
+  );
+
+  ipcMain.handle('trame:demander', async (e, { accountId, question, historique, exclus }) => {
+    const pages = store
+      .load()
+      .services.filter((s) => s.accountId === accountId && !(exclus || []).includes(s.id))
+      .map((s) => ({ id: s.id, nom: s.name, webContents: views.views.get(s.id)?.webContents }))
+      .filter((p) => p.webContents && !p.webContents.isDestroyed());
+    try {
+      const reponse = await trame.demander({
+        question: String(question || '').slice(0, 2000),
+        historique,
+        pages,
+        etape: (etape) => !e.sender.isDestroyed() && e.sender.send('trame:etape', etape)
+      });
+      return { ok: true, ...reponse };
+    } catch (err) {
+      return { ok: false, code: err.code || 'inconnu', message: err.code ? err.message : 'Trame a rencontré un problème.' };
+    }
+  });
+
+  /**
+   * Le tour du matin d'un client : ses services qui ont des non-lus. Un service
+   * en veille n'a pas de page ; on la monte en arrière-plan, sans l'afficher,
+   * et on laisse à la webapp le temps de dessiner ses messages.
+   */
+  ipcMain.handle('trame:tour', async (e, accountId) => {
+    const services = store.load().services.filter((s) => s.accountId === accountId && s.badge > 0);
+    const etape = (x) => !e.sender.isDestroyed() && e.sender.send('trame:etape', { ...x, accountId });
+    const pages = [];
+    for (const s of services) {
+      let vue = views.views.get(s.id);
+      if (!vue || vue.webContents.isDestroyed()) {
+        etape({ type: 'reveil', id: s.id });
+        vue = await views.ensureView(s.id);
+        if (!vue) continue;
+        await pageChargee(vue.webContents);
+      }
+      pages.push({ id: s.id, nom: s.name, webContents: vue.webContents });
+    }
+    try {
+      return { ok: true, ...(await trame.resumerClient({ pages, etape })) };
+    } catch (err) {
+      return { ok: false, code: err.code || 'inconnu', message: err.code ? err.message : 'Trame a rencontré un problème.' };
+    }
+  });
+
   ipcMain.on('media:presence', (e, present) => {
     views.signalerMedia(views.idDe(e.sender), Boolean(present));
   });
@@ -1451,6 +1530,11 @@ function buildMenu() {
               pushState();
             }
           }))
+        },
+        {
+          label: 'Trame',
+          accelerator: `${mod}+J`,
+          click: () => send('app:shortcut', { type: 'trame' })
         },
         {
           label: 'Afficher / masquer le panneau',

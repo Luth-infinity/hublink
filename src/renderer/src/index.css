@@ -424,3 +424,169 @@ html.partage #root {
     animation-duration: 200ms, 260ms;
   }
 }
+
+/* --- Trame ------------------------------------------------------------------
+   La palette de l'IA est la même partout, distincte des couleurs de clients :
+   c'est elle qui dit « ici, c'est Trame ». */
+@property --trame-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes trame-tourne {
+  to {
+    --trame-angle: 360deg;
+  }
+}
+
+/* La lueur de la carte reprend celle du bord : discrète, plus vive pendant que
+   l'IA réfléchit, avec un éclat à l'ouverture. */
+.trame-carte::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(from var(--trame-angle), #7c5cff, #3fa9ff, #3ee6c4, #ff5ca8, #7c5cff);
+  filter: blur(22px);
+  opacity: 0.16;
+  transition: opacity 0.6s ease;
+  animation: trame-tourne 7s linear infinite;
+}
+.trame-carte[data-reflechit]::before {
+  opacity: 0.5;
+  animation-duration: 2.6s;
+}
+.trame-carte[data-eclat]::before {
+  animation:
+    trame-tourne 7s linear infinite,
+    trame-eclat 1.1s ease-out;
+}
+@keyframes trame-eclat {
+  from {
+    opacity: 0.75;
+  }
+}
+
+/* Le contenu arrive en cascade, flou puis net. */
+@keyframes trame-entre {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(5px);
+  }
+}
+@keyframes trame-part {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+    filter: blur(3px);
+  }
+}
+.trame-entre {
+  animation: trame-entre 0.55s cubic-bezier(0.2, 0.9, 0.1, 1) both;
+  animation-delay: calc(var(--i, 0) * 55ms + 140ms);
+}
+.trame-part {
+  animation: trame-part 0.22s ease both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+
+/* La question monte du champ ; chaque mot de la réponse arrive flou et se pose. */
+@keyframes trame-monte {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+}
+.trame-question {
+  animation: trame-monte 0.45s cubic-bezier(0.2, 0.9, 0.1, 1) both;
+  transform-origin: 100% 100%;
+}
+@keyframes trame-mot {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+.trame-mot {
+  animation: trame-mot 0.5s ease both;
+}
+.trame-puce::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.7em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c5cff, #3ee6c4);
+}
+
+/* Le fil défile avec une barre fine aux couleurs du shell : la barre native,
+   blanche et large, faisait tache dans la carte sombre. */
+.trame-fil {
+  scrollbar-width: thin;
+  scrollbar-color: var(--shell-border) transparent;
+}
+
+/* Le tour du matin : le trait de couleur du client se trace avant ses lignes. */
+@keyframes trame-trait {
+  from {
+    transform: scaleY(0);
+  }
+}
+.trame-trait {
+  transform-origin: top;
+  animation: trame-trait 0.6s cubic-bezier(0.2, 0.9, 0.1, 1) both;
+}
+
+/* « Lecture de Slack… » : une pastille qui tourne et un reflet qui passe. */
+.trame-orbe {
+  background: conic-gradient(from var(--trame-angle), #7c5cff, #3fa9ff, #3ee6c4, #ff5ca8, #7c5cff);
+  animation:
+    trame-tourne 1.4s linear infinite,
+    trame-respire 1.4s ease-in-out infinite;
+}
+@keyframes trame-respire {
+  50% {
+    transform: scale(0.7);
+  }
+}
+.trame-reflet {
+  background: linear-gradient(
+    90deg,
+    var(--shell-muted) 0%,
+    var(--shell-muted) 35%,
+    var(--shell-foreground) 50%,
+    var(--shell-muted) 65%,
+    var(--shell-muted) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: trame-reflet 1.8s linear infinite;
+}
+@keyframes trame-reflet {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trame-carte::before,
+  .trame-trait,
+  .trame-entre,
+  .trame-part,
+  .trame-question,
+  .trame-mot,
+  .trame-orbe,
+  .trame-reflet {
+    animation: none;
+  }
+}

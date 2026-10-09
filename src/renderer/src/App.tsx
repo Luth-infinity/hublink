@@ -19,6 +19,7 @@ import { ServiceDialog } from '@/components/ServiceDialog';
 import { AccountDialog } from '@/components/AccountDialog';
 import { ViewDialog } from '@/components/ViewDialog';
 import { SettingsDialog } from '@/components/SettingsDialog';
+import { Trame } from '@/components/Trame';
 
 const api = window.hublink;
 const isMac = api.platform === 'darwin';
@@ -42,6 +43,8 @@ export default function App() {
   // séparées en pied de panneau.
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [settingsTab, setSettingsTab] = React.useState('general');
+  // Trame, l'assistante : elle s'ouvre comme une modale, par-dessus la page figée.
+  const [trameOpen, setTrameOpen] = React.useState(false);
   // Services libérés de la mémoire : on le signale plutôt que de laisser
   // l'utilisateur se demander pourquoi la page s'est rechargée.
   const [sleeping, setSleeping] = React.useState<string[]>([]);
@@ -166,7 +169,11 @@ export default function App() {
   // Sans ce masquage, une modale s'ouvre derrière la page — on ne voit que
   // l'overlay sombre et plus aucun clic n'aboutit.
   const overlayOpen =
-    serviceDialog.open || accountDialog.open || settingsOpen || viewDialogOpen;
+    serviceDialog.open || accountDialog.open || settingsOpen || viewDialogOpen || trameOpen;
+  // La carte de Trame retourne dans son bouton en un peu plus d'une demi-seconde :
+  // rendre la vue plus tôt la peindrait par-dessus l'animation.
+  const sortieLente = React.useRef(false);
+  if (trameOpen) sortieLente.current = true;
   // Image figée de la page, posée derrière la modale le temps qu'elle vit.
   const [fond, setFond] = React.useState<string | null>(null);
 
@@ -190,10 +197,14 @@ export default function App() {
     }
     // À la fermeture, l'inverse : laisser l'animation de sortie se jouer
     // par-dessus l'image, rendre la vue, puis retirer l'image.
-    const t = setTimeout(() => {
-      api.setOverlay(false);
-      requestAnimationFrame(() => setFond(null));
-    }, 220);
+    const t = setTimeout(
+      () => {
+        sortieLente.current = false;
+        api.setOverlay(false);
+        requestAnimationFrame(() => setFond(null));
+      },
+      sortieLente.current ? 560 : 220
+    );
     return () => {
       annule = true;
       clearTimeout(t);
@@ -318,6 +329,16 @@ export default function App() {
     []
   );
   const toggleSidebar = React.useCallback(() => api.toggleSidebar(), []);
+  // Pas de Trame en mode navigateur : elle lit les services d'un client, et un
+  // onglet n'appartient à aucun.
+  const browserMode = state?.browserMode ?? false;
+  const toggleTrame = React.useCallback(() => {
+    if (!browserMode) setTrameOpen((o) => !o);
+  }, [browserMode]);
+  React.useEffect(() => {
+    if (browserMode) setTrameOpen(false);
+  }, [browserMode]);
+  const closeTrame = React.useCallback(() => setTrameOpen(false), []);
 
   const filterAccount = React.useCallback((ids: string[]) => api.accounts.filter(ids), []);
 
@@ -399,6 +420,7 @@ export default function App() {
         else if (shortcut.type === 'capture-full') captureFull();
         else if (shortcut.type === 'capture-visible') captureVisible();
         else if (shortcut.type === 'select-service') selectByIndex(shortcut.index ?? -1);
+        else if (shortcut.type === 'trame') toggleTrame();
       }),
     [
       openNewService,
@@ -408,7 +430,8 @@ export default function App() {
       openExtensions,
       openAccounts,
       captureFull,
-      captureVisible
+      captureVisible,
+      toggleTrame
     ]
   );
 
@@ -423,11 +446,14 @@ export default function App() {
       } else if (event.key.toLowerCase() === 'b') {
         event.preventDefault();
         toggleSidebar();
+      } else if (event.key.toLowerCase() === 'j') {
+        event.preventDefault();
+        toggleTrame();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectByIndex, toggleSidebar]);
+  }, [selectByIndex, toggleSidebar, toggleTrame]);
 
   if (!state) return <div className="grid h-full place-items-center text-shell-muted">Chargement…</div>;
 
@@ -453,6 +479,8 @@ export default function App() {
           loadedExtensions={loadedExtensions}
           onToggleSidebar={toggleSidebar}
           onOpenExtensions={openExtensions}
+          trameOpen={trameOpen}
+          onToggleTrame={toggleTrame}
         />
 
         <div className="flex min-h-0 flex-1">
@@ -586,6 +614,16 @@ export default function App() {
         onDeleteAccount={(a: Account) => api.accounts.remove(a.id)}
         onSetTheme={setTheme}
         onSetSleepDelay={setSleepDelay}
+      />
+
+      <Trame
+        open={trameOpen}
+        onClose={closeTrame}
+        account={account}
+        accounts={state.accounts}
+        services={state.services}
+        isDark={isDark}
+        onSelectService={selectService}
       />
 
     </>

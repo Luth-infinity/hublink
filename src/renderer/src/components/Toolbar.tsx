@@ -3,6 +3,7 @@ import { ArrowDownToLine, ArrowLeft, ArrowRight, Blocks, Camera, Download as Dow
 import type { Download, FormatVideo, LoadedExtension, MenuItem, NavState, Service } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { TrameLogo } from '@/components/TrameLogo';
 
 type Props = {
   service: Service | null;
@@ -12,6 +13,8 @@ type Props = {
   loadedExtensions: LoadedExtension[];
   onToggleSidebar: () => void;
   onOpenExtensions: () => void;
+  trameOpen: boolean;
+  onToggleTrame: () => void;
   /** En mode navigateur, la barre d'adresse devient saisissable. */
   browserMode: boolean;
   /** L'URL affichée figure déjà dans les favoris. */
@@ -332,7 +335,9 @@ export function Toolbar({
   hasVideo,
   ambiance,
   undoDelete,
-  onUndoDelete
+  onUndoDelete,
+  trameOpen,
+  onToggleTrame
 }: Props) {
   const api = window.hublink;
   const surYouTube = /^(m\.)?youtube\.com$/.test(hostOf(nav?.url ?? ''));
@@ -574,6 +579,26 @@ export function Toolbar({
                   ? 'Échec'
                   : 'Installer'}
           </Button>
+        )}
+        {/* Sobre comme les autres boutons : seul le logo porte la couleur de l'IA.
+            C'est de lui que part la carte de Trame, d'où l'identifiant. Absent
+            du mode navigateur : Trame lit les services d'un client, et un
+            onglet n'appartient à aucun. */}
+        {!browserMode && (
+          <button
+            id="trame-bouton"
+            type="button"
+            onClick={onToggleTrame}
+            aria-pressed={trameOpen}
+            title={`Trame — demander à l'IA ce qui se passe dans ce client (${isMac ? '⌘' : 'Ctrl+'}J)`}
+            className={cn(
+              'mr-1 flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-shell-foreground transition-colors hover:bg-shell-active',
+              trameOpen && 'bg-shell-active'
+            )}
+          >
+            <TrameLogo className="size-3.5" />
+            Trame
+          </button>
         )}
         {browserMode && <HistoryButton open={openPanel === 'history'} />}
         <DownloadsButton downloads={downloads} open={openPanel === 'downloads'} />

@@ -123,6 +123,9 @@ if (window.top === window) {
       ipcRenderer.send('guest:shortcut', { type: 'extensions' });
     } else if (event.key.toLowerCase() === 'b' && !event.shiftKey) {
       ipcRenderer.send('guest:shortcut', { type: 'toggle-sidebar' });
+    } else if (event.key.toLowerCase() === 'j' && !event.shiftKey) {
+      event.preventDefault();
+      ipcRenderer.send('guest:shortcut', { type: 'trame' });
     }
   });
 }

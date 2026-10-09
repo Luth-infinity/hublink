@@ -507,6 +507,42 @@ chargement comme à l'import.
 Ne pas corriger la couleur à l'enregistrement : changer de thème doit suffire à la
 réajuster, et l'utilisateur doit retrouver dans le champ le code qu'il a tapé.
 
+## Trame, l'assistante
+
+Bouton « Trame » dans la barre (Ctrl+J, relayé par `guest.js` depuis les pages et par
+le shell — la fenêtre sans cadre n'a pas de menu sous Windows). **Absente du mode
+navigateur** : elle lit les services d'un client, un onglet n'appartient à aucun.
+
+- **S'ouvre comme une modale** (`trameOpen` compte dans `overlayOpen`) : la vue est
+  masquée et remplacée par son image, c'est ce qui donne le clavier au champ. Le
+  calque des messages ne convient pas : il est `focusable: false`. La vue n'est
+  rendue qu'après 560 ms au lieu de 220, le temps que la carte retourne dans le
+  bouton — rendue plus tôt, la page se peindrait par-dessus l'animation.
+- **Le bord vivant** (`lib/trame-bord.ts`, Three.js) : un quad plein écran, la
+  lueur vient de la distance au bord, la couleur de l'angle autour du centre. Il
+  part du bouton (`#trame-bouton`) et cesse de dessiner une fois replié.
+- **L'IA est Groq, gratuite avec une clé par utilisateur**, chiffrée par
+  `safeStorage` dans `hublink.trame.json` (refus d'enregistrer sans trousseau,
+  comme `secrets.js`). Modèles en repli sur 429/413/404/503 : `gpt-oss-120b`,
+  `gpt-oss-20b`, `llama-3.3-70b-versatile`, en `reasoning_effort: 'medium'` — en `low`, il
+  prêtait une décision à la mauvaise personne d'un fil Slack. Réponse en JSON (`blocs`, `sources`),
+  nettoyée dans `src/main/trame.js` avant d'atteindre l'interface.
+- **Lecture des pages** : le texte de `main` (ou du `body`) des services **chargés**
+  du compte, sans extracteur par site. Un service en veille n'a pas de page : sa
+  pastille est grisée. Budget de 14 000 caractères réparti entre les pages, début
+  et surtout fin de chaque page — une messagerie range ses messages récents en bas.
+- La conversation vit dans le renderer, par compte, et se perd au redémarrage.
+- **Le tour du matin** part seul à la première ouverture de Trame de la journée (date
+  retenue dans le `localStorage` du shell), et reste en tête des suggestions. Il ne
+  lit que les services qui ont des non-lus, tous clients confondus, **un appel Groq
+  par client** (le quota gratuit est par minute) : le brief se construit client par
+  client. Un service en veille est monté en arrière-plan par `ensureView`, puis on
+  attend `did-stop-loading` + 2,5 s que la webapp dessine ses messages (plafond 15 s).
+
+Lucas a écarté : une page qui se défait en lignes (« glauque »), le bouton en dégradé
+et le nom « Hublink IA » (« too much »), le logo en # (« trop Slack »). Le logo est
+la vannerie (`TrameLogo.tsx`), toujours en dégradé ; le reste du bouton est sobre.
+
 ## Contrainte structurante : la vue web est native
 
 Une `WebContentsView` **se peint au-dessus du HTML du shell**, quoi qu'on fasse. Tout ce

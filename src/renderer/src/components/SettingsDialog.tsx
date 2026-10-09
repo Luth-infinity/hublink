@@ -17,6 +17,7 @@ import { AccountAvatar } from '@/components/AccountAvatar';
 import { ChoixCouleur } from '@/components/ChoixCouleur';
 import { ExtensionsPanel } from '@/components/ExtensionsPanel';
 import { AboutPanel } from '@/components/AboutPanel';
+import { TrameLogo } from '@/components/TrameLogo';
 
 /**
  * Où arrivent les vidéos YouTube. Le chemin est montré en entier : c'est
@@ -60,6 +61,86 @@ function DossierVideos({ choisi }: { choisi: string | null }) {
         >
           Revenir au dossier Téléchargements
         </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * La clé Groq de Trame. On n'affiche jamais la clé elle-même : seulement si
+ * elle est là, de quoi la remplacer, et de quoi l'oublier.
+ */
+function CleTrame() {
+  const api = window.hublink;
+  const [etat, setEtat] = React.useState<{ cle: boolean; chiffrement: boolean } | null>(null);
+  const [saisie, setSaisie] = React.useState('');
+  const [modifier, setModifier] = React.useState(false);
+  React.useEffect(() => {
+    api.trame.cleEtat().then(setEtat);
+  }, []);
+
+  const enregistrer = async (valeur: string) => {
+    await api.trame.enregistrerCle(valeur);
+    setSaisie('');
+    setModifier(false);
+    setEtat(await api.trame.cleEtat());
+  };
+
+  return (
+    <div className="grid gap-2">
+      <div className="grid gap-1">
+        <h3 className="flex items-center gap-1.5 text-sm font-medium">
+          <TrameLogo className="size-3.5" />
+          Trame
+        </h3>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          L'assistante lit les services ouverts du client affiché et répond avec Groq, une IA gratuite.
+          Les pages ne partent chez Groq qu'au moment où vous posez une question. Clé à créer sur{' '}
+          <button
+            type="button"
+            onClick={() => api.openExternal('https://console.groq.com/keys')}
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            console.groq.com/keys
+          </button>
+          .
+        </p>
+      </div>
+      {etat && !etat.chiffrement ? (
+        <p className="text-xs text-muted-foreground">
+          Le trousseau du système est indisponible : la clé ne peut pas être gardée.
+        </p>
+      ) : etat?.cle && !modifier ? (
+        <div className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 rounded-md border border-border px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground">
+            gsk_••••••••••••
+          </span>
+          <Button variant="outline" size="sm" onClick={() => setModifier(true)}>
+            Remplacer
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => enregistrer('')}>
+            Oublier
+          </Button>
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (saisie.trim()) enregistrer(saisie.trim());
+          }}
+          className="flex items-center gap-2"
+        >
+          <input
+            type="password"
+            value={saisie}
+            onChange={(e) => setSaisie(e.target.value)}
+            placeholder="gsk_…"
+            className="min-w-0 flex-1 rounded-md border border-border bg-transparent px-2.5 py-1.5 font-mono text-[11px] outline-none focus:border-ring"
+          />
+          <Button type="submit" size="sm" disabled={!saisie.trim()}>
+            Enregistrer
+          </Button>
+        </form>
       )}
     </div>
   );
@@ -372,6 +453,10 @@ export function SettingsDialog({
               <Separator />
 
               <DossierVideos choisi={state.dossierVideos} />
+
+              <Separator />
+
+              <CleTrame />
 
               {state.sleepAfterMinutes === 0 && services.length > 4 && (
                 <p className="flex items-start gap-2 rounded-md border border-border p-2 text-xs text-muted-foreground">
