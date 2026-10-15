@@ -572,12 +572,37 @@ class ViewManager {
     if (this.currentId !== id || this.pleinEcran === id) return;
     this.pleinEcran = id;
     this.appliquerBounds();
+    this.relancerMiseEnPage(id);
   }
 
   quitterPleinEcran(id) {
     if (!id || this.pleinEcran !== id) return;
     this.pleinEcran = null;
     this.appliquerBounds();
+    this.relancerMiseEnPage(id);
+  }
+
+  /**
+   * Fait recalculer à la page la taille de sa vidéo.
+   *
+   * La vue passe par plusieurs tailles en entrant en plein écran (celle du
+   * shell, puis l'écran entier) et YouTube fige celle de son `<video>` en
+   * pixels à chaque `resize`. Il lui arrivait de rester sur une taille
+   * intermédiaire : l'image s'étirait alors en largeur, aplatie. On renvoie
+   * un `resize` une fois la géométrie posée, puis encore après, le temps que
+   * la fenêtre ait fini de grandir.
+   */
+  relancerMiseEnPage(id) {
+    const vue = this.views.get(id);
+    if (!vue) return;
+    for (const delai of [100, 400, 1000]) {
+      setTimeout(() => {
+        const wc = vue.webContents;
+        if (wc.isDestroyed()) return;
+        if (this.pleinEcran === id) this.appliquerBounds();
+        wc.executeJavaScript("window.dispatchEvent(new Event('resize'))").catch(() => {});
+      }, delai);
+    }
   }
 
   /**
