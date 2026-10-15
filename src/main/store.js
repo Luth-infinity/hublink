@@ -2,6 +2,7 @@ const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { isUsableFavicon } = require('./urls');
+const { t } = require('./i18n');
 
 const FILE = path.join(app.getPath('userData'), 'hublink.config.json');
 
@@ -21,6 +22,8 @@ function uid(prefix) {
 function seed() {
   return {
     version: 2,
+    // Une première installation n'a pas de « nouveautés » à montrer.
+    lastSeenVersion: app.getVersion(),
     theme: 'system',
     sidebarCollapsed: false,
     sleepAfterMinutes: 20,
@@ -31,7 +34,7 @@ function seed() {
     views: [],
     accounts: DEFAULT_ACCOUNTS.map((a) => {
       const id = uid('a');
-      return { id, name: a.name, color: a.color, avatar: null, partition: `persist:account-${id}` };
+      return { id, name: t(a.name), color: a.color, avatar: null, partition: `persist:account-${id}` };
     }),
     services: [],
     activeServiceId: null,
@@ -119,6 +122,7 @@ function normalize(state) {
   if (!Array.isArray(state.collapsedAccounts)) state.collapsedAccounts = [];
   state.accentColor = teinteValide(state.accentColor);
   if (!state.theme) state.theme = 'system';
+  if (!['system', 'fr', 'en'].includes(state.language)) state.language = 'system';
   if (typeof state.sidebarCollapsed !== 'boolean') state.sidebarCollapsed = false;
   if (typeof state.sleepAfterMinutes !== 'number') state.sleepAfterMinutes = 20;
   if (!state.window) state.window = seed().window;

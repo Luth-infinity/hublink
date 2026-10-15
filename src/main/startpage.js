@@ -1,6 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const store = require('./store');
+const i18n = require('./i18n');
+
+// Textes de la page, traduits à chaque requête comme la teinte.
+const TEXTES = [
+  'Nouvel onglet',
+  'Mode navigateur',
+  'Rechercher sur le web',
+  "Session isolée de vos comptes. Rien n'est partagé avec vos services."
+];
 
 // Page d'accueil du mode navigateur. Servie par un schéma dédié plutôt que par
 // `file://` : la barre d'adresse reste lisible et la page n'obtient aucun
@@ -52,7 +61,10 @@ function serveOn(session) {
   // chaque requete pour qu'un rechargement suffise a la refleter.
   if (html === null) html = fs.readFileSync(path.join(__dirname, 'start.html'), 'utf8');
   session.protocol.handle('hublink', () => {
-    const page = html.replace('<!--TEINTE-->', styleTeinte(store.load().accentColor));
+    let page = html
+      .replace('<!--TEINTE-->', styleTeinte(store.load().accentColor))
+      .replace('<html lang="fr">', `<html lang="${i18n.getLanguage()}">`);
+    for (const texte of TEXTES) page = page.replaceAll(texte, i18n.t(texte));
     return new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8' } });
   });
 }

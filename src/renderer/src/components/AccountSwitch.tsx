@@ -4,6 +4,7 @@ import type { Account, AccountView } from '@/types';
 import { Button } from '@/components/ui/button';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { memeSelection, normaliser, vueCourante } from '@/lib/selection';
+import { t } from '@/lib/i18n';
 
 type Props = {
   accounts: Account[];
@@ -78,7 +79,7 @@ export function AccountSwitch({
       ? vue && !discreet
         ? vue.name
         : `${activeAccountIds.length} comptes`
-      : 'Tous';
+      : t('Tous');
 
   const hiddenUnread = accounts.reduce(
     (sum, account) =>
@@ -94,8 +95,8 @@ export function AccountSwitch({
           variant="ghost"
           size="icon-sm"
           onClick={openMenu}
-          title={seul ? `Compte : ${seul.name}` : plusieurs ? libelle : 'Tous les comptes'}
-          aria-label="Changer de compte"
+          title={seul ? t('Compte : {nom}', { nom: seul.name }) : plusieurs ? libelle : t('Tous les comptes')}
+          aria-label={t('Changer de compte')}
           className="relative text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
         >
           {seul ? (
@@ -119,8 +120,8 @@ export function AccountSwitch({
         variant="ghost"
         size="icon-sm"
         onClick={() => step(-1)}
-        aria-label="Compte précédent"
-        title="Compte précédent"
+        aria-label={t('Compte précédent')}
+        title={t('Compte précédent')}
         className="shrink-0 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
       >
         <ChevronLeft />
@@ -131,7 +132,7 @@ export function AccountSwitch({
         type="button"
         onClick={openMenu}
         aria-haspopup="menu"
-        title="Choisir les comptes affichés"
+        title={t('Choisir les comptes affichés')}
         className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-shell-hover px-2.5 py-1 transition-colors hover:bg-shell-active"
       >
         {seul && <AccountAvatar account={seul} className="size-4 rounded" textClassName="text-[7px]" />}
@@ -140,7 +141,7 @@ export function AccountSwitch({
         {hiddenUnread > 0 && (
           <span
             className="shrink-0 rounded-full bg-red-500 px-1.5 text-[9px] leading-[15px] font-bold text-white"
-            title={`${hiddenUnread} non-lus dans les autres comptes`}
+            title={t('{n} non-lus dans les autres comptes', { n: hiddenUnread })}
           >
             {hiddenUnread > 99 ? '99+' : hiddenUnread}
           </span>
@@ -151,8 +152,8 @@ export function AccountSwitch({
         variant="ghost"
         size="icon-sm"
         onClick={() => step(1)}
-        aria-label="Compte suivant"
-        title="Compte suivant"
+        aria-label={t('Compte suivant')}
+        title={t('Compte suivant')}
         className="shrink-0 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
       >
         <ChevronRight />

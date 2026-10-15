@@ -118,6 +118,8 @@ contextBridge.exposeInMainWorld('hublink', {
   openExternal: (url) => invoke('app:open-external', url),
   about: () => invoke('app:about'),
   checkUpdate: () => invoke('update:check'),
+  whatsNew: () => invoke('app:whats-new'),
+  whatsNewSeen: (version) => ipcRenderer.send('app:whats-new-seen', version),
   onUpdateAvailable: (handler) => on('update:available', handler),
   overlay: {
     setInteractive: (on) => ipcRenderer.send('overlay:interactive', on)
@@ -184,6 +186,7 @@ contextBridge.exposeInMainWorld('hublink', {
   openAccountsSettings: () => ipcRenderer.send('settings:accounts'),
 
   setTheme: (theme) => invoke('app:set-theme', theme),
+  setLanguage: (language) => invoke('app:set-language', language),
   setAccent: (color) => invoke('app:set-accent', color),
   setDiscreet: (on) => invoke('app:set-discreet', on),
   setSkipSponsors: (on) => invoke('app:set-skip-sponsors', on),

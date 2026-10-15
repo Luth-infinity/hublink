@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { EMOJI_GROUPS } from '@/lib/emoji';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { ServiceIcon } from '@/components/ServiceIcon';
+import { t } from '@/lib/i18n';
 
 // Raccourcis pour les webapps qu'on ajoute le plus souvent.
 const PRESETS = [
@@ -118,7 +119,7 @@ export function ServiceDialog({
     try {
       new URL(finalUrl);
     } catch {
-      setError("Cette URL n'est pas valide.");
+      setError(t("Cette URL n'est pas valide."));
       return;
     }
     onSubmit({
@@ -141,15 +142,15 @@ export function ServiceDialog({
       <DialogContent className="max-h-[88vh] overflow-y-auto">
         <form onSubmit={submit} className="contents">
           <DialogHeader>
-            <DialogTitle>{service ? 'Modifier le service' : 'Ajouter un service'}</DialogTitle>
+            <DialogTitle>{service ? t('Modifier le service') : t('Ajouter un service')}</DialogTitle>
             <DialogDescription>
-              Deux services d'un même compte partagent leur connexion, deux comptes ne se voient jamais.
+              {t("Deux services d'un même compte partagent leur connexion, deux comptes ne se voient jamais.")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="service-url">Adresse</Label>
+              <Label htmlFor="service-url">{t('Adresse')}</Label>
               <Input
                 id="service-url"
                 value={url}
@@ -173,8 +174,8 @@ export function ServiceDialog({
                     }
                   }}
                   className="group relative block rounded-md focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                  aria-label={icon ? "Remplacer l'icône" : "Choisir une icône"}
-                  title={icon ? "Remplacer l'icône" : "Choisir une icône"}
+                  aria-label={icon ? t("Remplacer l'icône") : t('Choisir une icône')}
+                  title={icon ? t("Remplacer l'icône") : t('Choisir une icône')}
                 >
                   <ServiceIcon
                     service={{ name: name || '?', icon, emoji, favicon: service?.favicon ?? null }}
@@ -194,8 +195,8 @@ export function ServiceDialog({
                       setIcon(null);
                       setEmoji(null);
                     }}
-                    aria-label="Revenir au favicon"
-                    title="Revenir au favicon du site"
+                    aria-label={t('Revenir au favicon')}
+                    title={t('Revenir au favicon du site')}
                     className="absolute -top-1.5 -right-1.5 rounded-full shadow"
                   >
                     <X />
@@ -204,12 +205,12 @@ export function ServiceDialog({
               </div>
 
               <div className="grid flex-1 gap-2">
-                <Label htmlFor="service-name">Nom</Label>
+                <Label htmlFor="service-name">{t('Nom')}</Label>
                 <Input
                   id="service-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Déduit du domaine si vide"
+                  placeholder={t('Déduit du domaine si vide')}
                 />
               </div>
 
@@ -219,8 +220,8 @@ export function ServiceDialog({
                 size="icon"
                 aria-expanded={pickingEmoji}
                 onClick={() => setPickingEmoji((v) => !v)}
-                title="Choisir un symbole"
-                aria-label="Choisir un symbole"
+                title={t('Choisir un symbole')}
+                aria-label={t('Choisir un symbole')}
               >
                 <Smile />
               </Button>
@@ -229,11 +230,11 @@ export function ServiceDialog({
             {pickingEmoji && (
               <div className="grid gap-2 rounded-lg border border-border p-3">
                 <p className="text-xs text-muted-foreground">
-                  Pratique quand le site n'expose pas de favicon lisible.
+                  {t("Pratique quand le site n'expose pas de favicon lisible.")}
                 </p>
                 {EMOJI_GROUPS.map((group) => (
                   <div key={group.label} className="grid gap-1">
-                    <span className="text-[11px] font-medium text-muted-foreground">{group.label}</span>
+                    <span className="text-[11px] font-medium text-muted-foreground">{t(group.label)}</span>
                     <div className="flex flex-wrap gap-1">
                       {group.emojis.map((value) => (
                         <button
@@ -261,7 +262,7 @@ export function ServiceDialog({
 
             {!service && (
               <div className="grid gap-2">
-                <Label>Raccourcis</Label>
+                <Label>{t('Raccourcis')}</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {PRESETS.map((preset) => (
                     <Button
@@ -284,7 +285,7 @@ export function ServiceDialog({
             )}
 
             <div className="grid gap-2">
-              <Label>Compte</Label>
+              <Label>{t('Compte')}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {accounts.map((account) => (
                   <button
@@ -310,7 +311,7 @@ export function ServiceDialog({
                   className="h-7 gap-1 px-2 text-xs"
                   onClick={onCreateAccount}
                 >
-                  <Plus /> Nouveau compte
+                  <Plus />{' '}{t('Nouveau compte')}
                 </Button>
               </div>
             </div>
@@ -325,37 +326,37 @@ export function ServiceDialog({
               [
                 {
                   id: 'open-in-app',
-                  libelle: 'Ouvrir les liens dans Hublink',
-                  aide: "Coché, un lien sortant s'ouvre dans la session de ce compte — utile pour l'intranet d'un client, où il faut être identifié. Sinon il part dans un onglet du navigateur intégré, en session neutre.",
+                  libelle: t('Ouvrir les liens dans Hublink'),
+                  aide: t("Coché, un lien sortant s'ouvre dans la session de ce compte — utile pour l'intranet d'un client, où il faut être identifié. Sinon il part dans un onglet du navigateur intégré, en session neutre."),
                   valeur: openLinks === 'app',
                   set: (v: boolean) => setOpenLinks(v ? 'app' : 'browser')
                 },
                 {
                   id: 'notifications',
-                  libelle: 'Notifications système',
-                  aide: "Coupé, ce service n'affiche plus de bulle hors de l'app. Le compteur de non-lus, lui, reste actif.",
+                  libelle: t('Notifications système'),
+                  aide: t("Coupé, ce service n'affiche plus de bulle hors de l'app. Le compteur de non-lus, lui, reste actif."),
                   valeur: notifications,
                   set: setNotifications
                 },
                 {
                   id: 'keep-awake',
-                  libelle: 'Ne jamais mettre en veille',
-                  suffixe: '≈ 110 Mo',
-                  aide: "Un service en veille n'a plus de page ouverte : il ne peut plus signaler ses messages. Coché, celui-ci reste chargé en permanence et continue de compter.",
+                  libelle: t('Ne jamais mettre en veille'),
+                  suffixe: t('≈ 110 Mo'),
+                  aide: t("Un service en veille n'a plus de page ouverte : il ne peut plus signaler ses messages. Coché, celui-ci reste chargé en permanence et continue de compter."),
                   valeur: keepAwake,
                   set: setKeepAwake
                 },
                 {
                   id: 'block-passkeys',
-                  libelle: "Refuser les clés d'accès",
-                  aide: "Empêche Microsoft et consorts de proposer la clé d'accès de la session Windows ou macOS, qui n'est presque jamais le bon compte. Le site retombe sur le mot de passe.",
+                  libelle: t("Refuser les clés d'accès"),
+                  aide: t("Empêche Microsoft et consorts de proposer la clé d'accès de la session Windows ou macOS, qui n'est presque jamais le bon compte. Le site retombe sur le mot de passe."),
                   valeur: blockPasskeys,
                   set: setBlockPasskeys
                 },
                 {
                   id: 'spoof-chrome',
-                  libelle: 'Se présenter comme Chrome',
-                  aide: 'Nécessaire pour Teams, Meet et les portails qui refusent les navigateurs inconnus. À laisser activé sauf problème.',
+                  libelle: t('Se présenter comme Chrome'),
+                  aide: t('Nécessaire pour Teams, Meet et les portails qui refusent les navigateurs inconnus. À laisser activé sauf problème.'),
                   valeur: spoofChrome,
                   set: setSpoofChrome
                 }
@@ -379,7 +380,7 @@ export function ServiceDialog({
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        aria-label={`À propos de « ${reglage.libelle} »`}
+                        aria-label={t('À propos de « {nom} »', { nom: t(reglage.libelle) })}
                         className="shrink-0 rounded-full text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:text-foreground"
                       >
                         <Info className="size-3.5" />
@@ -401,10 +402,10 @@ export function ServiceDialog({
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Annuler
+              {t('Annuler')}
             </Button>
             <Button type="submit" disabled={!accountId}>
-              {service ? 'Enregistrer' : 'Ajouter'}
+              {service ? t('Enregistrer') : t('Ajouter')}
             </Button>
           </DialogFooter>
         </form>

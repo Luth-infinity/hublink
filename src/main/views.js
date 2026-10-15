@@ -1,6 +1,7 @@
 const { app, WebContentsView, dialog, screen, session: electronSession } = require('electron');
 const path = require('path');
 const store = require('./store');
+const { t } = require('./i18n');
 const extensions = require('./extensions');
 const { isExternalUrl, isUsableFavicon, searchUrl } = require('./urls');
 const { uaFor } = require('./ua');
@@ -79,6 +80,7 @@ const AUTO_PERMISSIONS = new Set(['notifications', 'clipboard-sanitized-write', 
 // nouvelle origine.
 const CONFIRMED_PERMISSIONS = new Set(['media', 'display-capture', 'clipboard-read']);
 
+// Lus au moment de la question, pour suivre la langue choisie.
 const PERMISSION_LABELS = {
   media: 'utiliser votre caméra et votre microphone',
   'display-capture': 'partager votre écran',
@@ -209,11 +211,14 @@ class ViewManager {
       // et la question reste sans réponse — la page, elle, attend toujours.
       const question = {
         type: 'question',
-        buttons: ['Refuser', 'Autoriser'],
+        buttons: [t('Refuser'), t('Autoriser')],
         defaultId: 0,
         cancelId: 0,
-        message: `Autoriser ${origin} à ${PERMISSION_LABELS[permission] || permission} ?`,
-        detail: "Cette autorisation ne vaut que pour ce compte, jusqu'à la fermeture de Hublink."
+        message: t('Autoriser {origine} à {action} ?', {
+          origine: origin,
+          action: PERMISSION_LABELS[permission] ? t(PERMISSION_LABELS[permission]) : permission
+        }),
+        detail: t("Cette autorisation ne vaut que pour ce compte, jusqu'à la fermeture de Hublink.")
       };
       const { response } = this.window
         ? await dialog.showMessageBox(this.window, question)

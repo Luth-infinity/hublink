@@ -4,6 +4,7 @@ import type { Account, Cote, EcranPartage as Etat, Service } from '@/types';
 import { cn } from '@/lib/utils';
 import { repereLisible } from '@/lib/couleur';
 import { ServiceIcon } from '@/components/ServiceIcon';
+import { t } from '@/lib/i18n';
 
 const api = window.hublink;
 
@@ -133,8 +134,8 @@ export function EcranPartage({ etat, services, accounts, isDark, images }: Props
               api.split.fermer(c);
             }}
             className="ml-auto grid size-6 shrink-0 place-items-center rounded text-shell-muted transition-colors hover:bg-shell-active hover:text-shell-foreground"
-            aria-label={`Fermer ${service?.name ?? 'ce côté'}`}
-            title={`Fermer ${service?.name ?? 'ce côté'} — l'autre côté reprend toute la place`}
+            aria-label={t('Fermer {nom}', { nom: service?.name ?? t('ce côté') })}
+            title={t("Fermer {nom} — l'autre côté reprend toute la place", { nom: service?.name ?? t('ce côté') })}
           >
             <X className="size-3.5" />
           </button>
@@ -160,7 +161,7 @@ export function EcranPartage({ etat, services, accounts, isDark, images }: Props
         role="separator"
         aria-orientation="vertical"
         aria-valuenow={Math.round(ratio * 100)}
-        title="Glisser pour changer les proportions — double-clic pour revenir à moitié-moitié"
+        title={t('Glisser pour changer les proportions — double-clic pour revenir à moitié-moitié')}
         onPointerDown={commencer}
         onDoubleClick={() => {
           setRatio(0.5);

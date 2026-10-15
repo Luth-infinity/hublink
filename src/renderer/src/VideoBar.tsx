@@ -13,6 +13,7 @@ import {
   X
 } from 'lucide-react';
 import type { EtatVideo } from '@/types';
+import { t } from '@/lib/i18n';
 
 const api = window.hublink;
 
@@ -102,7 +103,7 @@ export default function VideoBar() {
         <button
           type="button"
           onClick={() => commande('passer')}
-          title={etat.passer}
+          title={t(etat.passer)}
           className={cn(
             'monte-passer absolute bottom-[58px] right-3 flex h-8 max-w-[70%] items-center gap-1.5',
             'rounded-full bg-white pl-2.5 pr-3 text-xs font-medium text-black shadow-lg',
@@ -110,7 +111,7 @@ export default function VideoBar() {
           )}
         >
           <SkipForward className="size-3.5 shrink-0" />
-          <span className="truncate">{etat.passer}</span>
+          <span className="truncate">{t(etat.passer)}</span>
         </button>
       )}
 
@@ -121,16 +122,16 @@ export default function VideoBar() {
         <button
           type="button"
           onClick={() => commande('revenir')}
-          title="Revenir au début du passage"
+          title={t('Revenir au début du passage')}
           className={cn(
             'monte-passer absolute bottom-[58px] right-3 flex h-8 max-w-[70%] items-center gap-2',
             'rounded-full bg-black/70 pl-3 pr-1 text-xs text-white shadow-lg ring-1 ring-white/15 backdrop-blur',
             'transition-transform hover:scale-[1.04] active:scale-95 motion-reduce:hover:scale-100'
           )}
         >
-          <span className="truncate text-white/80">{etat.sponsorPasse}</span>
+          <span className="truncate text-white/80">{t(etat.sponsorPasse)}</span>
           <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/15 px-2 py-1 font-medium">
-            <Undo2 className="size-3.5" /> Revenir
+            <Undo2 className="size-3.5" />{' '}{t('Revenir')}
           </span>
         </button>
       )}
@@ -157,13 +158,13 @@ export default function VideoBar() {
         </div>
 
         <div className="flex h-11 min-w-0 items-center gap-0.5 pb-1 pl-1.5 pr-1">
-          <Bouton titre={etat?.pause ? 'Lire' : 'Mettre en pause'} onClick={() => commande('lecture')} fort>
+          <Bouton titre={etat?.pause ? t('Lire') : t('Mettre en pause')} onClick={() => commande('lecture')} fort>
             {etat?.pause ? <Play className="size-[18px]" /> : <Pause className="size-[18px]" />}
           </Bouton>
-          <Bouton titre="Reculer de 10 secondes" onClick={() => commande('avancer', -SAUT)}>
+          <Bouton titre={t('Reculer de 10 secondes')} onClick={() => commande('avancer', -SAUT)}>
             <RotateCcw className="size-4" />
           </Bouton>
-          <Bouton titre="Avancer de 10 secondes" onClick={() => commande('avancer', SAUT)}>
+          <Bouton titre={t('Avancer de 10 secondes')} onClick={() => commande('avancer', SAUT)}>
             <RotateCw className="size-4" />
           </Bouton>
 
@@ -171,7 +172,7 @@ export default function VideoBar() {
               chaque élément permanent est pris sur le titre. */}
           <div className="group/son flex shrink-0 items-center">
             <Bouton
-              titre={etat?.muet ? 'Rétablir le son' : 'Couper le son'}
+              titre={etat?.muet ? t('Rétablir le son') : t('Couper le son')}
               onClick={() => commande('muet')}
             >
               {etat?.muet ? (
@@ -189,7 +190,7 @@ export default function VideoBar() {
               step={0.02}
               value={volume}
               onChange={(e) => commande('volume', Number(e.target.value))}
-              aria-label="Volume"
+              aria-label={t('Volume')}
               style={{ ['--part' as string]: volume }}
               className={cn(
                 'curseur sur-image w-0 cursor-pointer opacity-0 transition-[width,opacity] duration-200',
@@ -224,7 +225,7 @@ export default function VideoBar() {
           </span>
           {/* Une croix, parce que c'est ce qu'on cherche sur une fenêtre. Elle
               ne jette rien : la page retourne d'où elle vient. */}
-          <Bouton titre="Fermer — la page revient dans Hublink" onClick={() => api.video.fermer()}>
+          <Bouton titre={t('Fermer — la page revient dans Hublink')} onClick={() => api.video.fermer()}>
             <X className="size-4" />
           </Bouton>
         </div>

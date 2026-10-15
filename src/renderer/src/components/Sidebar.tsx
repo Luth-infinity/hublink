@@ -13,8 +13,11 @@ import { AccountSwitch } from '@/components/AccountSwitch';
 import { ModeSwitch } from '@/components/ModeSwitch';
 import { UpdateBadge } from '@/components/UpdateBadge';
 import { repereLisible } from '@/lib/couleur';
+import { t } from '@/lib/i18n';
 
 type Props = {
+  /** Seulement pour que `React.memo` laisse passer un changement de langue. */
+  lang: string;
   services: Service[];
   accounts: Account[];
   activeServiceId: string | null;
@@ -182,28 +185,28 @@ function SidebarImpl({
         // Grisé pour le service déjà affiché : il ne peut pas être à côté de lui-même.
         {
           id: 'split',
-          label: service.id === serviceACote ? 'Déjà affiché à côté' : 'Ouvrir à côté',
+          label: service.id === serviceACote ? t('Déjà affiché à côté') : t('Ouvrir à côté'),
           enabled: service.id !== activeServiceId && service.id !== serviceACote
         },
         { type: 'separator' },
-        { id: 'up', label: 'Monter', enabled: index > 0 },
-        { id: 'down', label: 'Descendre', enabled: index < total - 1 },
+        { id: 'up', label: t('Monter'), enabled: index > 0 },
+        { id: 'down', label: t('Descendre'), enabled: index < total - 1 },
         { type: 'separator' },
-        { id: 'reload', label: 'Recharger' },
+        { id: 'reload', label: t('Recharger') },
         // Grisé s'il dort déjà : rien à libérer.
-        { id: 'sleep', label: 'Mettre en sommeil', enabled: !sleeping.includes(service.id) },
-        { id: 'external', label: 'Ouvrir cette page dans le navigateur' },
-        { id: 'password', label: 'Copier le mot de passe' },
+        { id: 'sleep', label: t('Mettre en sommeil'), enabled: !sleeping.includes(service.id) },
+        { id: 'external', label: t('Ouvrir cette page dans le navigateur') },
+        { id: 'password', label: t('Copier le mot de passe') },
         { type: 'separator' },
         {
           id: 'links',
           label:
             service.openLinks === 'app'
-              ? 'Envoyer les liens vers le navigateur'
-              : 'Garder les liens dans Hublink'
+              ? t('Envoyer les liens vers le navigateur')
+              : t('Garder les liens dans Hublink')
         },
-        { id: 'edit', label: 'Modifier…' },
-        { id: 'remove', label: 'Retirer' }
+        { id: 'edit', label: t('Modifier…') },
+        { id: 'remove', label: t('Retirer') }
       ],
       {
         split: () => onOpenSplit(service.id),
@@ -233,13 +236,13 @@ function SidebarImpl({
     const reste = affiches.filter((id) => id !== account.id);
     return popup(
       [
-        { id: 'fold', label: replie ? 'Déplier' : 'Replier' },
+        { id: 'fold', label: replie ? t('Déplier') : t('Replier') },
         { type: 'separator' },
-        { id: 'up', label: 'Monter', enabled: index > 0 },
-        { id: 'down', label: 'Descendre', enabled: index < voisins.length - 1 },
+        { id: 'up', label: t('Monter'), enabled: index > 0 },
+        { id: 'down', label: t('Descendre'), enabled: index < voisins.length - 1 },
         { type: 'separator' },
-        { id: 'only', label: `N'afficher que ${account.name}` },
-        { id: 'hide', label: `Ne plus afficher ${account.name}`, enabled: reste.length > 0 }
+        { id: 'only', label: t("N'afficher que {nom}", { nom: account.name }) },
+        { id: 'hide', label: t('Ne plus afficher {nom}', { nom: account.name }), enabled: reste.length > 0 }
       ],
       {
         fold: () => onToggleAccountCollapsed(account.id, !replie),
@@ -253,7 +256,7 @@ function SidebarImpl({
   };
 
   const titleOf = (service: Service, asleep: boolean) => {
-    if (masque(service.accountId)) return 'Compte masqué';
+    if (masque(service.accountId)) return t('Compte masqué');
     const account = accountById.get(service.accountId);
     const parts = [service.name, account ? account.name : null, hostOf(service.url)];
     if (asleep) parts.push('en veille');
@@ -375,12 +378,12 @@ function SidebarImpl({
         onClick={() => changerDiscret(!discret)}
         title={
           browserMode
-            ? "Le navigateur n'affiche aucun compte : rien à masquer"
+            ? t("Le navigateur n'affiche aucun compte : rien à masquer")
             : discret
-              ? 'Réafficher les autres comptes'
-              : 'Masquer les autres comptes'
+              ? t('Réafficher les autres comptes')
+              : t('Masquer les autres comptes')
         }
-        aria-label="Mode discrétion"
+        aria-label={t('Mode discrétion')}
         aria-pressed={discret}
         className="flex flex-col items-center gap-1 rounded-lg px-1 py-1.5 transition-colors hover:bg-shell-hover disabled:pointer-events-none disabled:opacity-40"
       >
@@ -398,8 +401,8 @@ function SidebarImpl({
         aria-pressed={discret}
         title={
           browserMode
-            ? "Le navigateur n'affiche aucun compte : il n'y a rien à masquer"
-            : "Masque le nom et le logo des autres comptes, le temps d'un partage d'écran"
+            ? t("Le navigateur n'affiche aucun compte : il n'y a rien à masquer")
+            : t("Masque le nom et le logo des autres comptes, le temps d'un partage d'écran")
         }
         className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-shell-hover disabled:pointer-events-none disabled:opacity-40"
       >
@@ -408,7 +411,7 @@ function SidebarImpl({
           aria-hidden
         />
         <span className={cn('flex-1 text-left', discret ? 'text-shell-foreground' : 'text-shell-muted')}>
-          Mode discrétion
+          {t('Mode discrétion')}
         </span>
         <Switch checked={discret} className="pointer-events-none" tabIndex={-1} aria-hidden />
       </button>
@@ -444,7 +447,7 @@ function SidebarImpl({
           <div className="p-2 pb-0">
             <div className="flex h-8 items-center justify-center gap-1.5 rounded-full bg-shell-hover px-2.5">
               <Compass className="size-3.5 shrink-0 text-shell-muted" aria-hidden />
-              <span className="truncate text-[12px] font-medium text-shell-muted">Session neutre</span>
+              <span className="truncate text-[12px] font-medium text-shell-muted">{t('Session neutre')}</span>
             </div>
           </div>
         )}
@@ -459,7 +462,7 @@ function SidebarImpl({
             <>
               {!collapsed && (
                 <p className="px-2 pt-1 pb-1 text-[11px] font-medium tracking-wide text-shell-muted uppercase">
-                  Favoris
+                  {t('Favoris')}
                 </p>
               )}
               {favorites.map((favori) =>
@@ -496,8 +499,8 @@ function SidebarImpl({
                     <button
                       type="button"
                       onClick={() => onRemoveFavorite(favori.id)}
-                      title="Retirer des favoris"
-                      aria-label={`Retirer ${favori.title || hostOf(favori.url)} des favoris`}
+                      title={t('Retirer des favoris')}
+                      aria-label={t('Retirer {nom} des favoris', { nom: favori.title || hostOf(favori.url) })}
                       className="shrink-0 rounded p-0.5 text-shell-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-shell-foreground focus-visible:opacity-100"
                     >
                       <X className="size-3.5" />
@@ -518,7 +521,7 @@ function SidebarImpl({
                 type="button"
                 onClick={() => onSelectTab(tab.id)}
                 onAuxClick={(e) => e.button === 1 && onCloseTab(tab.id)}
-                title={asleep ? `${label(tab)} — en veille` : label(tab)}
+                title={asleep ? t('{nom} — en veille', { nom: label(tab) }) : label(tab)}
                 aria-current={active}
                 className={cn(
                   'grid size-9 shrink-0 place-items-center rounded-lg transition-colors',
@@ -550,8 +553,8 @@ function SidebarImpl({
                 <button
                   type="button"
                   onClick={() => onCloseTab(tab.id)}
-                  title="Fermer l'onglet"
-                  aria-label={`Fermer ${label(tab)}`}
+                  title={t("Fermer l'onglet")}
+                  aria-label={t('Fermer {nom}', { nom: label(tab) })}
                   className="shrink-0 rounded p-0.5 text-shell-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-shell-foreground focus-visible:opacity-100"
                 >
                   <X className="size-3.5" />
@@ -564,14 +567,14 @@ function SidebarImpl({
             variant="ghost"
             size={collapsed ? 'icon-sm' : 'sm'}
             onClick={onAddTab}
-            title="Nouvel onglet"
-            aria-label="Nouvel onglet"
+            title={t('Nouvel onglet')}
+            aria-label={t('Nouvel onglet')}
             className={cn(
               'mt-1 shrink-0 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground',
               !collapsed && 'w-full justify-start gap-2'
             )}
           >
-            <Plus /> {!collapsed && 'Nouvel onglet'}
+            <Plus /> {!collapsed && t('Nouvel onglet')}
           </Button>
         </div>
 
@@ -584,14 +587,14 @@ function SidebarImpl({
             variant="ghost"
             size={collapsed ? 'icon-sm' : 'sm'}
             onClick={onOpenSettings}
-            title="Paramètres"
-            aria-label="Paramètres"
+            title={t('Paramètres')}
+            aria-label={t('Paramètres')}
             className={cn(
               'text-shell-muted hover:bg-shell-hover hover:text-shell-foreground',
               !collapsed && 'w-full justify-start gap-2'
             )}
           >
-            <Settings /> {!collapsed && 'Paramètres'}
+            <Settings /> {!collapsed && t('Paramètres')}
           </Button>
         </footer>
       </aside>
@@ -666,10 +669,10 @@ function SidebarImpl({
                     onClick={() => onFilterAccount([account.id])}
                     title={
                       masque(account.id)
-                        ? 'Compte masqué'
-                        : `${account.name} — n'afficher que ce compte`
+                        ? t('Compte masqué')
+                        : t("{nom} — n'afficher que ce compte", { nom: account.name })
                     }
-                    aria-label={masque(account.id) ? 'Compte masqué' : account.name}
+                    aria-label={masque(account.id) ? t('Compte masqué') : account.name}
                     className="relative grid size-6 shrink-0 place-items-center rounded-md transition-opacity hover:opacity-100"
                   >
                     <AccountAvatar
@@ -691,8 +694,8 @@ function SidebarImpl({
             variant="ghost"
             size="icon-sm"
             onClick={onAddService}
-            title="Ajouter un service"
-            aria-label="Ajouter un service"
+            title={t('Ajouter un service')}
+            aria-label={t('Ajouter un service')}
             className="mt-1 shrink-0 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
           >
             <Plus />
@@ -708,8 +711,8 @@ function SidebarImpl({
             variant="ghost"
             size="icon-sm"
             onClick={onOpenSettings}
-            title="Paramètres"
-            aria-label="Paramètres"
+            title={t('Paramètres')}
+            aria-label={t('Paramètres')}
             className="text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
           >
             <Settings />
@@ -800,11 +803,9 @@ function SidebarImpl({
                       title={
                         masque(account.id)
                           ? replie
-                            ? 'Déplier'
-                            : 'Replier'
-                          : replie
-                            ? `Déplier ${account.name}`
-                            : `Replier ${account.name}`
+                            ? t('Déplier')
+                            : t('Replier')
+                          : t(replie ? 'Déplier {nom}' : 'Replier {nom}', { nom: account.name })
                       }
                       aria-expanded={!replie}
                       className="group/titre flex min-w-0 flex-1 items-center gap-1 text-left"
@@ -872,16 +873,16 @@ function SidebarImpl({
           onClick={onAddService}
           className="mt-1 w-full justify-start gap-2 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
         >
-          <Plus /> Ajouter un service
+          <Plus />{' '}{t('Ajouter un service')}
         </Button>
 
         {services.length === 0 && (
           <p className="px-2 py-4 text-center text-xs leading-relaxed text-shell-muted/70">
             {seul
-              ? 'Aucun service pour ce compte.'
+              ? t('Aucun service pour ce compte.')
               : activeAccountIds.length
-                ? 'Aucun service pour ces comptes.'
-                : "Aucun service pour l'instant."}
+                ? t('Aucun service pour ces comptes.')
+                : t("Aucun service pour l'instant.")}
           </p>
         )}
       </div>
@@ -897,7 +898,7 @@ function SidebarImpl({
           onClick={onOpenSettings}
           className="w-full justify-start gap-2 text-shell-muted hover:bg-shell-hover hover:text-shell-foreground"
         >
-          <Settings /> Paramètres
+          <Settings />{' '}{t('Paramètres')}
         </Button>
       </footer>
     </aside>

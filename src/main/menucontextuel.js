@@ -1,4 +1,5 @@
 const { Menu, MenuItem, clipboard, shell } = require('electron');
+const { t } = require('./i18n');
 
 /**
  * Le menu du clic droit dans les pages.
@@ -32,51 +33,51 @@ function brancher(wc, { fenetre, onEvent, rechercher, dev = false }) {
     if (params.misspelledWord) {
       const propositions = (params.dictionarySuggestions || []).slice(0, 5);
       for (const mot of propositions) ajouter({ label: mot, click: () => wc.replaceMisspelling(mot) });
-      if (!propositions.length) ajouter({ label: 'Aucune correction', enabled: false });
+      if (!propositions.length) ajouter({ label: t('Aucune correction'), enabled: false });
       separer();
       ajouter({
-        label: 'Ajouter au dictionnaire',
+        label: t('Ajouter au dictionnaire'),
         click: () => wc.session.addWordToSpellCheckerDictionary(params.misspelledWord)
       });
       separer();
     }
 
     if (params.linkURL) {
-      ajouter({ label: 'Ouvrir dans un nouvel onglet', click: () => onEvent('tab-requested', { url: params.linkURL }) });
+      ajouter({ label: t('Ouvrir dans un nouvel onglet'), click: () => onEvent('tab-requested', { url: params.linkURL }) });
       // Un lien reçu par courriel mène souvent vers un outil déjà ouvert
       // ailleurs, avec la bonne session : on laisse le choix de sortir.
-      ajouter({ label: 'Ouvrir dans le navigateur du système', click: () => shell.openExternal(params.linkURL) });
-      ajouter({ label: "Copier l'adresse du lien", click: () => clipboard.writeText(params.linkURL) });
+      ajouter({ label: t('Ouvrir dans le navigateur du système'), click: () => shell.openExternal(params.linkURL) });
+      ajouter({ label: t("Copier l'adresse du lien"), click: () => clipboard.writeText(params.linkURL) });
       separer();
     }
 
     if (params.mediaType === 'image' && params.srcURL) {
-      ajouter({ label: "Copier l'image", click: () => wc.copyImageAt(params.x, params.y) });
-      ajouter({ label: "Copier l'adresse de l'image", click: () => clipboard.writeText(params.srcURL) });
-      ajouter({ label: "Enregistrer l'image…", click: () => wc.downloadURL(params.srcURL) });
+      ajouter({ label: t("Copier l'image"), click: () => wc.copyImageAt(params.x, params.y) });
+      ajouter({ label: t("Copier l'adresse de l'image"), click: () => clipboard.writeText(params.srcURL) });
+      ajouter({ label: t("Enregistrer l'image…"), click: () => wc.downloadURL(params.srcURL) });
       separer();
     }
 
     if (params.isEditable) {
       // C'est la raison d'être de ce menu : sans lui, coller dans un champ
       // exigeait de connaître le raccourci clavier.
-      ajouter({ label: 'Annuler', enabled: Boolean(flags.canUndo), click: () => wc.undo() });
-      ajouter({ label: 'Rétablir', enabled: Boolean(flags.canRedo), click: () => wc.redo() });
+      ajouter({ label: t('Annuler|édition'), enabled: Boolean(flags.canUndo), click: () => wc.undo() });
+      ajouter({ label: t('Rétablir'), enabled: Boolean(flags.canRedo), click: () => wc.redo() });
       separer();
-      ajouter({ label: 'Couper', enabled: Boolean(flags.canCut), click: () => wc.cut() });
-      ajouter({ label: 'Copier', enabled: Boolean(flags.canCopy), click: () => wc.copy() });
-      ajouter({ label: 'Coller', enabled: Boolean(flags.canPaste), click: () => wc.paste() });
+      ajouter({ label: t('Couper'), enabled: Boolean(flags.canCut), click: () => wc.cut() });
+      ajouter({ label: t('Copier'), enabled: Boolean(flags.canCopy), click: () => wc.copy() });
+      ajouter({ label: t('Coller'), enabled: Boolean(flags.canPaste), click: () => wc.paste() });
       ajouter({
-        label: 'Coller sans mise en forme',
+        label: t('Coller sans mise en forme'),
         enabled: Boolean(flags.canPaste),
         click: () => wc.pasteAndMatchStyle()
       });
-      ajouter({ label: 'Tout sélectionner', enabled: Boolean(flags.canSelectAll), click: () => wc.selectAll() });
+      ajouter({ label: t('Tout sélectionner'), enabled: Boolean(flags.canSelectAll), click: () => wc.selectAll() });
       separer();
     } else if (params.selectionText) {
-      ajouter({ label: 'Copier', enabled: Boolean(flags.canCopy), click: () => wc.copy() });
+      ajouter({ label: t('Copier'), enabled: Boolean(flags.canCopy), click: () => wc.copy() });
       ajouter({
-        label: `Rechercher « ${extrait(params.selectionText)} »`,
+        label: t('Rechercher « {texte} »', { texte: extrait(params.selectionText) }),
         click: () => onEvent('tab-requested', { url: rechercher(params.selectionText) })
       });
       separer();
@@ -85,23 +86,23 @@ function brancher(wc, { fenetre, onEvent, rechercher, dev = false }) {
     // Le fond de la page : ce qu'on attend d'un clic droit dans le vide.
     if (!params.linkURL && !params.isEditable && !params.selectionText) {
       ajouter({
-        label: 'Précédent',
+        label: t('Précédent'),
         enabled: wc.navigationHistory.canGoBack(),
         click: () => wc.navigationHistory.goBack()
       });
       ajouter({
-        label: 'Suivant',
+        label: t('Suivant'),
         enabled: wc.navigationHistory.canGoForward(),
         click: () => wc.navigationHistory.goForward()
       });
-      ajouter({ label: 'Recharger', click: () => wc.reload() });
+      ajouter({ label: t('Recharger'), click: () => wc.reload() });
       separer();
-      ajouter({ label: "Copier l'adresse de la page", click: () => clipboard.writeText(wc.getURL()) });
+      ajouter({ label: t("Copier l'adresse de la page"), click: () => clipboard.writeText(wc.getURL()) });
     }
 
     if (dev) {
       separer();
-      ajouter({ label: "Inspecter l'élément", click: () => wc.inspectElement(params.x, params.y) });
+      ajouter({ label: t("Inspecter l'élément"), click: () => wc.inspectElement(params.x, params.y) });
     }
 
     // Une section vide laisserait un trait esseulé en fin de menu.

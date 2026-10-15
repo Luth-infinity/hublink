@@ -6,6 +6,7 @@ import { useSyncedTheme } from '@/lib/theme';
 import { AccountsPanel, DownloadsPanel, HistoryPanel } from '@/components/panels';
 import { MenuFlottant, type DemandeMenu } from '@/components/MenuFlottant';
 import { Suggestions } from '@/components/Suggestions';
+import { setLanguage } from '@/lib/i18n';
 
 const api = window.hublink;
 
@@ -49,6 +50,7 @@ export default function Overlay() {
   const [downloads, setDownloads] = React.useState<Download[]>([]);
   // L'état complet : les panneaux en lisent des parts différentes.
   const [etat, setEtat] = React.useState<AppState | null>(null);
+  if (etat) setLanguage(etat.language);
 
   React.useEffect(() => {
     api.getState().then(setEtat);

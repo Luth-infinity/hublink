@@ -127,4 +127,35 @@ function install() {
   autoUpdater.quitAndInstall(false, true);
 }
 
-module.exports = { check, watch, isNewer, canInstall, download, install };
+/**
+ * Notes de la version installée, pour la fenêtre « Nouveautés ».
+ *
+ * Même source que le changelog du site : le corps de la release GitHub. On
+ * garde la partie de la langue voulue (le français avant « ## English »,
+ * l'anglais après) et on écarte les lignes d'installation, comme `summarize()`
+ * côté site. Sans section anglaise, on retombe sur le français.
+ */
+async function notesFor(version, lang = 'fr') {
+  try {
+    const res = await net.fetch(`https://api.github.com/repos/${REPO}/releases/tags/v${version}`, {
+      headers: { Accept: 'application/vnd.github+json' }
+    });
+    // Pas de release pour ce tag (build locale) : rien à montrer, et rien à retenter.
+    if (res.status === 404) return { version, missing: true };
+    if (!res.ok) return null;
+    const release = await res.json();
+    const body = release.body || '';
+    const coupure = body.search(/^#{1,3}\s*English\s*$/im);
+    const partie = coupure === -1 ? body : lang === 'en' ? body.slice(coupure) : body.slice(0, coupure);
+    const points = partie
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#') && !l.startsWith('**') && !l.startsWith('>'))
+      .map((l) => l.replace(/^[-*]\s*/, ''));
+    return { version, date: release.published_at, page: release.html_url, points };
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { check, watch, isNewer, canInstall, download, install, notesFor };

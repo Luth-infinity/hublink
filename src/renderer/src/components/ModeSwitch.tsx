@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Compass, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/i18n';
 
 type Props = {
   browserMode: boolean;
@@ -44,8 +45,8 @@ export function ModeSwitch({ browserMode, onToggle, collapsed }: Props) {
             key={id}
             type="button"
             onClick={() => choisir(i === 1)}
-            title={titre}
-            aria-label={label}
+            title={t(titre)}
+            aria-label={t(label)}
             aria-pressed={actif === i}
             className={cn(
               'grid size-9 place-items-center rounded-lg transition-colors duration-200',
@@ -68,7 +69,7 @@ export function ModeSwitch({ browserMode, onToggle, collapsed }: Props) {
   return (
     <div
       role="tablist"
-      aria-label="Zone principale"
+      aria-label={t('Zone principale')}
       className="relative flex rounded-full bg-shell-input p-0.5"
     >
       {/* La pastille passe SOUS les libellés : ils changent de couleur pendant
@@ -93,7 +94,7 @@ export function ModeSwitch({ browserMode, onToggle, collapsed }: Props) {
             actif === i ? 'font-medium text-shell-foreground' : 'text-shell-muted hover:text-shell-foreground'
           )}
         >
-          {label}
+          {t(label)}
         </button>
       ))}
     </div>

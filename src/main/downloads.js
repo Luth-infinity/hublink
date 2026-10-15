@@ -1,6 +1,7 @@
 const { app, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { t } = require('./i18n');
 
 // Un navigateur ne demande pas où poser chaque fichier : il le dépose dans le
 // dossier de téléchargements et le signale. On garde ce comportement, en
@@ -69,7 +70,7 @@ function reveal(chemin) {
 
 /** Ouvre le fichier lui-même, avec l'application par défaut du système. */
 async function open(chemin) {
-  if (!chemin || !fs.existsSync(chemin)) return 'Fichier introuvable';
+  if (!chemin || !fs.existsSync(chemin)) return t('Fichier introuvable');
   // Renvoie une chaîne vide en cas de succès, un message d'erreur sinon.
   return shell.openPath(chemin);
 }

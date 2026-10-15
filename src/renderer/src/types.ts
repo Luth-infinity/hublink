@@ -104,10 +104,12 @@ export type Download = {
 export type FormatVideo = 'mp4-1080' | 'mp4-720' | 'mp4-max' | 'mp3' | 'm4a' | 'wav' | 'miniature';
 
 export type Theme = 'system' | 'light' | 'dark';
+export type Language = 'system' | 'fr' | 'en';
 
 export type AppState = {
   version: number;
   theme: Theme;
+  language: Language;
   sidebarCollapsed: boolean;
   sleepAfterMinutes: number;
   /** Comptes affichés : vide = tous, un seul = filtre sur ce compte, plusieurs = vue sur mesure. */
@@ -164,6 +166,7 @@ export type Shortcut = { type: string; index?: number };
 
 /** Version publiée plus récente que celle installée. */
 export type Update = { version: string; url: string; page: string; notes: string };
+export type WhatsNew = { version: string; date: string; page: string; points: string[] };
 
 /** Une action ne peut pas traverser l'IPC : on décrit, le principal exécute. */
 export type ToastAction =
@@ -361,6 +364,8 @@ declare global {
       openExternal(url: string): Promise<void>;
       about(): Promise<{ version: string; electron: string; chrome: string; userData: string }>;
       checkUpdate(): Promise<Update | null>;
+      whatsNew(): Promise<WhatsNew | null>;
+      whatsNewSeen(version: string): void;
       onUpdateAvailable(handler: (update: Update) => void): () => void;
       overlay: { setInteractive(on: boolean): void };
       suggestions: {
@@ -421,6 +426,7 @@ declare global {
       runToastAction(action: ToastAction): void;
       openAccountsSettings(): void;
       setTheme(theme: Theme): Promise<void>;
+      setLanguage(language: Language): Promise<void>;
       setAccent(color: string | null): Promise<void>;
       setDiscreet(on?: boolean): Promise<boolean>;
       setSkipSponsors(on: boolean): Promise<void>;

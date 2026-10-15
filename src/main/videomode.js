@@ -2,6 +2,7 @@ const { BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const views = require('./views');
 const store = require('./store');
+const { t } = require('./i18n');
 
 /**
  * Le mode vidéo : la page part dans une petite fenêtre qui reste au-dessus.
@@ -247,7 +248,7 @@ async function ouvrir() {
     minHeight: 146,
     resizable: true,
     backgroundColor: '#000000',
-    title: 'Hublink — vidéo'
+    title: t('Hublink — vidéo')
   });
   // Sa page ne se voit jamais : la vue web la recouvre entièrement. Elle n'est
   // là que pour donner un fond à la fenêtre le temps d'un redimensionnement.
@@ -264,7 +265,7 @@ async function ouvrir() {
     resizable: false,
     movable: false,
     hasShadow: false,
-    title: 'Hublink — commandes vidéo',
+    title: t('Hublink — commandes vidéo'),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'shell.js'),
       contextIsolation: true,
@@ -305,7 +306,7 @@ async function ouvrir() {
   // perdue. Le shell y met de quoi la faire revenir.
   const onglet = store.getTab(idVue);
   reglages.prevenir({
-    titre: (onglet && onglet.title) || (store.getService(idVue) || {}).name || 'La page'
+    titre: (onglet && onglet.title) || (store.getService(idVue) || {}).name || t('La page')
   });
 
   vue.webContents.send('video:sortir');

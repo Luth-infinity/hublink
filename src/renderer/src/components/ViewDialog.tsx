@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AccountAvatar } from '@/components/AccountAvatar';
+import { t } from '@/lib/i18n';
 
 type Props = {
   open: boolean;
@@ -50,14 +51,14 @@ export function ViewDialog({ open, comptes, onOpenChange, onSubmit }: Props) {
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="contents">
           <DialogHeader>
-            <DialogTitle>Enregistrer la vue</DialogTitle>
+            <DialogTitle>{t('Enregistrer la vue')}</DialogTitle>
             <DialogDescription>
-              Elle rejoint le sélecteur de comptes, et se rouvre d'un clic ou avec ses flèches.
+              {t("Elle rejoint le sélecteur de comptes, et se rouvre d'un clic ou avec ses flèches.")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-2">
-            <Label htmlFor="view-name">Nom de la vue</Label>
+            <Label htmlFor="view-name">{t('Nom de la vue')}</Label>
             <Input
               id="view-name"
               value={name}
@@ -68,7 +69,7 @@ export function ViewDialog({ open, comptes, onOpenChange, onSubmit }: Props) {
           </div>
 
           <div className="grid gap-2">
-            <Label>Comptes affichés</Label>
+            <Label>{t('Comptes affichés')}</Label>
             <ul className="flex flex-wrap gap-1.5">
               {comptes.map((compte) => (
                 <li
@@ -84,10 +85,10 @@ export function ViewDialog({ open, comptes, onOpenChange, onSubmit }: Props) {
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Annuler
+              {t('Annuler')}
             </Button>
             <Button type="submit" disabled={!name.trim()}>
-              Enregistrer
+              {t('Enregistrer')}
             </Button>
           </DialogFooter>
         </form>

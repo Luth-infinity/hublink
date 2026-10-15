@@ -8,12 +8,12 @@ Le code et les commits sont **en français**, au présent, décrivant le comport
 plutôt que la modification (« Corrige l'import manquant qui cassait le démarrage »).
 Les commentaires expliquent *pourquoi*, pas *quoi*.
 
-## État au 9 octobre 2026
+## État au 15 octobre 2026
 
 | | Version |
 |---|---|
-| Windows | **0.6.5** |
-| macOS | **0.6.5** |
+| Windows | **0.7.0** |
+| macOS | **0.7.0** |
 
 Les deux plateformes sont à parité, et **le restent sans rien faire** depuis la 0.5.2 :
 publier une release déclenche la construction des `.dmg` sur un runner macOS de GitHub
@@ -78,6 +78,12 @@ puces les plus importantes ont disparu du site sans erreur ni avertissement. Éc
 avec un vérificateur local — un équivalent Python avec `re.match` ancre tout le motif et
 ne reproduit pas ce comportement.
 
+**Le même corps de release alimente la fenêtre « Nouveautés » de l'app**
+(`notesFor` dans `src/main/updates.js`, `WhatsNewDialog.tsx`) : montrée une fois au
+premier lancement d'une nouvelle version (`lastSeenVersion`, écrit à la fermeture de la fenêtre), elle garde
+**toutes** les lignes de la partie française, pas seulement quatre. Hors ligne, elle
+retente au démarrage suivant ; une première installation ne la voit pas.
+
 **Les notes de version s'écrivent dans les deux langues**, le site étant bilingue : le
 français d'abord, puis un titre `## English` et sa traduction, puis les lignes
 d'installation. `section()` découpe sur ce titre. Sans section anglaise, la page anglaise
@@ -97,6 +103,28 @@ runner `macos-latest`, qui est un Mac.
 depuis la 0.4.1 ; `latest.yml` doit être joint à chaque release. Sur macOS, Squirrel.Mac
 exige une application signée et notariée, donc un compte développeur Apple payant : on
 s'y contente de signaler la version et de renvoyer vers la page de la release.
+
+## L'application est bilingue
+
+Réglage **Langue** (Système / Français / English, `state.language`) ; « Système » suit
+la langue de l'ordinateur et passe en anglais si ce n'est pas le français.
+
+- **La clé est le texte français** : `t('Supprimer le compte « {nom} » ?', { nom })`.
+  Le code reste lisible, et un libellé absent de `src/main/en.json` s'affiche en
+  français au lieu de casser. Un seul dictionnaire pour le main (`src/main/i18n.js`)
+  et le renderer (`src/renderer/src/lib/i18n.ts`, qui importe le même JSON).
+- **Un mot, deux sens** : suffixe de contexte, retiré à l'affichage —
+  `'Annuler|édition'` (Undo) à côté de `'Annuler'` (Cancel).
+- **Jamais `t()` au niveau du module** : la valeur serait figée au chargement. Les
+  constantes (`THEMES`, `MODES`, `UNSUPPORTED`…) gardent le français et sont traduites
+  là où on les affiche.
+- `React.memo(Sidebar)` reçoit `lang` en prop, sinon il ignorerait la bascule.
+  Le menu natif est reconstruit (`buildMenu()`) à chaque changement ; la page
+  d'accueil du navigateur est traduite à chaque requête (`startpage.js`).
+- Les sous-menus prédéfinis d'Electron (`editMenu`, `windowMenu`) restent dans sa
+  langue à lui : seuls leurs titres sont traduits.
+- Vérifier après ajout de texte : toute clé passée à `t()` doit exister dans `en.json`,
+  avec les mêmes `{variables}`.
 
 ## Deux choses peuvent occuper la zone principale
 

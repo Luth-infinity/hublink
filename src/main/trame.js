@@ -1,6 +1,8 @@
 const { app, safeStorage } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const i18n = require('./i18n');
+const { t } = i18n;
 
 /**
  * Trame : l'assistante qui lit les services ouverts d'un client et répond.
@@ -105,6 +107,11 @@ Règles :
 - "p" est un paragraphe, "li" un élément de liste ; une liste se fait de "li" consécutifs. Au plus 8 blocs.
 - "sources" ne contient que les identifiants des pages dont tu t'es réellement servi.`;
 
+// Les consignes restent en français ; seule la langue de la réponse suit
+// celle de l'application.
+const enAnglais = () =>
+  i18n.getLanguage() === 'en' ? "\n- Réponds en anglais, quelle que soit la langue des pages." : '';
+
 class ErreurTrame extends Error {
   constructor(code, message) {
     super(message);
@@ -138,24 +145,24 @@ async function appeler(messages, cleGroq) {
       try {
         return JSON.parse(data.choices?.[0]?.message?.content ?? '{}');
       } catch {
-        derniere = new ErreurTrame('format', 'La réponse est arrivée illisible. Repose ta question.');
+        derniere = new ErreurTrame('format', t('La réponse est arrivée illisible. Repose ta question.'));
         continue;
       }
     }
-    if (res.status === 401) throw new ErreurTrame('cle', 'Groq refuse cette clé. Colle-en une nouvelle.');
+    if (res.status === 401) throw new ErreurTrame('cle', t('Groq refuse cette clé. Colle-en une nouvelle.'));
     // Quota, page trop longue pour ce modèle ou modèle indisponible : le suivant.
     if ([429, 413, 404, 503].includes(res.status)) {
       derniere = new ErreurTrame(
         res.status === 429 ? 'quota' : 'modele',
         res.status === 429
-          ? 'La limite gratuite de Groq est atteinte. Réessaie dans une minute.'
-          : 'Groq ne peut pas répondre pour le moment.'
+          ? t('La limite gratuite de Groq est atteinte. Réessaie dans une minute.')
+          : t('Groq ne peut pas répondre pour le moment.')
       );
       continue;
     }
-    throw new ErreurTrame('groq', `Groq a répondu par une erreur (${res.status}).`);
+    throw new ErreurTrame('groq', t('Groq a répondu par une erreur ({code}).', { code: res.status }));
   }
-  throw derniere || new ErreurTrame('groq', 'Groq ne peut pas répondre pour le moment.');
+  throw derniere || new ErreurTrame('groq', t('Groq ne peut pas répondre pour le moment.'));
 }
 
 async function lireToutes(pages, etape) {
@@ -177,7 +184,7 @@ function corpusDe(lues) {
 
 function cleOuErreur() {
   const cleGroq = cle();
-  if (!cleGroq) throw new ErreurTrame('cle', 'Ajoute ta clé Groq pour que Trame puisse répondre.');
+  if (!cleGroq) throw new ErreurTrame('cle', t('Ajoute ta clé Groq pour que Trame puisse répondre.'));
   return cleGroq;
 }
 
@@ -191,7 +198,7 @@ async function demander({ question, historique, pages, etape }) {
   const cleGroq = cleOuErreur();
   const lues = await lireToutes(pages, etape);
   if (!lues.length) {
-    throw new ErreurTrame('vide', "Aucune page lisible : ouvre au moins un service de ce client.");
+    throw new ErreurTrame('vide', t('Aucune page lisible : ouvre au moins un service de ce client.'));
   }
   const passe = (historique || [])
     .slice(-6)
@@ -201,7 +208,7 @@ async function demander({ question, historique, pages, etape }) {
   etape({ type: 'redaction' });
   const brut = await appeler(
     [
-      { role: 'system', content: CONSIGNES },
+      { role: 'system', content: CONSIGNES + enAnglais() },
       {
         role: 'user',
         content: `Pages ouvertes :\n\n${corpusDe(lues)}\n\n${passe ? `Conversation :\n${passe}\n\n` : ''}Question : ${question}`
@@ -215,7 +222,7 @@ async function demander({ question, historique, pages, etape }) {
     .filter((b) => b && typeof b.texte === 'string' && b.texte.trim())
     .slice(0, 8)
     .map((b) => ({ type: b.type === 'li' ? 'li' : 'p', texte: b.texte.trim().slice(0, 800) }));
-  if (!blocs.length) throw new ErreurTrame('format', 'La réponse est arrivée vide. Repose ta question.');
+  if (!blocs.length) throw new ErreurTrame('format', t('La réponse est arrivée vide. Repose ta question.'));
   const ids = new Set(lues.map((p) => p.id));
   const sources = [...new Set((Array.isArray(brut.sources) ? brut.sources : []).filter((id) => ids.has(id)))];
   return { blocs, sources };
@@ -246,7 +253,7 @@ async function resumerClient({ pages, etape }) {
   etape({ type: 'redaction' });
   const brut = await appeler(
     [
-      { role: 'system', content: CONSIGNES_TOUR },
+      { role: 'system', content: CONSIGNES_TOUR + enAnglais() },
       { role: 'user', content: `Services :\n\n${corpusDe(lues)}` }
     ],
     cleGroq

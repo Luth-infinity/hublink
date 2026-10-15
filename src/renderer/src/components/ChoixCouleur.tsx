@@ -2,6 +2,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { parseHex, repereLisible, teinteDe, teinteVive, useThemeSombre } from '@/lib/couleur';
+import { t } from '@/lib/i18n';
 
 export const COULEURS = [
   '#3b82f6',
@@ -38,8 +39,8 @@ function ajustement(couleur: string, sombre: boolean) {
   const enSombre = repereLisible(couleur, true) !== couleur;
   const phrase = (theme: 'clair' | 'sombre') =>
     theme === 'sombre'
-      ? 'En thème sombre, son repère dans le panneau sera un peu plus clair pour rester visible.'
-      : 'En thème clair, son repère dans le panneau sera un peu plus foncé pour rester visible.';
+      ? t('En thème sombre, son repère dans le panneau sera un peu plus clair pour rester visible.')
+      : t('En thème clair, son repère dans le panneau sera un peu plus foncé pour rester visible.');
   // Le thème courant d'abord : c'est celui que l'utilisateur a sous les yeux.
   if (sombre && enSombre) return phrase('sombre');
   if (!sombre && enClair) return phrase('clair');
@@ -78,7 +79,7 @@ export function ChoixCouleur({ valeur, onChange, avecRepere = false, avant }: Pr
               key={c}
               type="button"
               onClick={() => onChange(c)}
-              aria-label={`Couleur ${c}`}
+              aria-label={t('Couleur {valeur}', { valeur: c })}
               aria-pressed={valeur === c}
               className={cn(
                 'size-7 rounded-full transition-transform',
@@ -98,7 +99,7 @@ export function ChoixCouleur({ valeur, onChange, avecRepere = false, avant }: Pr
           max={359}
           value={valeur ? teinteDe(valeur) : 0}
           onChange={(e) => onChange(teinteVive(Number(e.target.value)))}
-          aria-label="Teinte personnalisée"
+          aria-label={t('Teinte personnalisée')}
           className="teinte min-w-0 flex-1"
           style={{ background: ARC_EN_CIEL, ['--teinte' as string]: valeur ?? 'transparent' }}
         />
@@ -112,7 +113,7 @@ export function ChoixCouleur({ valeur, onChange, avecRepere = false, avant }: Pr
           }}
           onBlur={() => setSaisie(valeur ?? '')}
           placeholder="#rrggbb"
-          aria-label="Code de la couleur"
+          aria-label={t('Code de la couleur')}
           spellCheck={false}
           autoComplete="off"
           maxLength={7}

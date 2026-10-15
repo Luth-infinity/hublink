@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { AppWindow, Check, Monitor, X } from 'lucide-react';
 import { useSyncedTheme } from '@/lib/theme';
 import type { SourcePartage } from '@/types';
+import { t } from '@/lib/i18n';
 
 const api = window.hublink;
 
@@ -58,15 +59,15 @@ export default function PartageEcran() {
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-shell-border bg-shell text-shell-foreground shadow-2xl">
       <header className="deplacable flex shrink-0 items-start gap-3 px-5 pb-3 pt-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-base font-semibold leading-tight">Partager votre écran</h1>
+          <h1 className="text-base font-semibold leading-tight">{t('Partager votre écran')}</h1>
           <p className="mt-0.5 truncate text-xs text-shell-muted">
-            {origine ? `${origine} demande à voir ce que vous choisirez.` : 'Choisissez ce qui sera visible.'}
+            {origine ? t('{origine} demande à voir ce que vous choisirez.', { origine }) : t('Choisissez ce qui sera visible.')}
           </p>
         </div>
         <button
           type="button"
           onClick={() => partager(null)}
-          aria-label="Annuler"
+          aria-label={t('Annuler')}
           className="cliquable grid size-7 shrink-0 place-items-center rounded-md text-shell-muted transition-colors hover:bg-shell-hover hover:text-shell-foreground"
         >
           <X className="size-4" />
@@ -74,14 +75,14 @@ export default function PartageEcran() {
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-2">
-        <Groupe titre="Tout un écran" icone={<Monitor className="size-3.5" />} sources={ecrans}>
+        <Groupe titre={t('Tout un écran')} icone={<Monitor className="size-3.5" />} sources={ecrans}>
           {(s) => <Vignette key={s.id} source={s} actif={s.id === choisi} onChoisir={setChoisi} onValider={partager} />}
         </Groupe>
-        <Groupe titre="Une fenêtre" icone={<AppWindow className="size-3.5" />} sources={fenetres}>
+        <Groupe titre={t('Une fenêtre')} icone={<AppWindow className="size-3.5" />} sources={fenetres}>
           {(s) => <Vignette key={s.id} source={s} actif={s.id === choisi} onChoisir={setChoisi} onValider={partager} />}
         </Groupe>
         {!liste.length && (
-          <p className="py-16 text-center text-sm text-shell-muted">Rien à partager pour le moment.</p>
+          <p className="py-16 text-center text-sm text-shell-muted">{t('Rien à partager pour le moment.')}</p>
         )}
       </div>
 
@@ -102,7 +103,7 @@ export default function PartageEcran() {
             >
               {son && <Check className="size-3" />}
             </span>
-            Partager aussi le son de l'ordinateur (tout, pas seulement cette fenêtre)
+            {t("Partager aussi le son de l'ordinateur (tout, pas seulement cette fenêtre)")}
           </button>
         )}
         {!sonDemande && <span className="mr-auto" />}
@@ -111,7 +112,7 @@ export default function PartageEcran() {
           onClick={() => partager(null)}
           className="rounded-md px-3 py-1.5 text-sm text-shell-muted transition-colors hover:bg-shell-hover hover:text-shell-foreground"
         >
-          Annuler
+          {t('Annuler')}
         </button>
         <button
           type="button"
@@ -119,7 +120,7 @@ export default function PartageEcran() {
           onClick={() => partager(choisi)}
           className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground transition-opacity disabled:pointer-events-none disabled:opacity-40"
         >
-          Partager
+          {t('Partager')}
         </button>
       </footer>
     </div>

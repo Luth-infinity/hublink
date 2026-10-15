@@ -5,6 +5,7 @@ import Overlay from './Overlay';
 import VideoBar from './VideoBar';
 import PartageEcran from './PartageEcran';
 import './index.css';
+import { setLanguage } from './lib/i18n';
 
 // Le calque des messages partage ce paquet plutôt que d'avoir le sien : il
 // tient en quelques composants, et une seconde entrée de build coûterait plus
@@ -21,8 +22,16 @@ if (estCalque) document.documentElement.classList.add('calque');
 if (estVideo) document.documentElement.classList.add('video', 'dark');
 if (estPartage) document.documentElement.classList.add('partage');
 
-createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    {estVideo ? <VideoBar /> : estPartage ? <PartageEcran /> : estCalque ? <Overlay /> : <App />}
-  </React.StrictMode>
-);
+// La langue d'abord : sans elle, le premier rendu sortirait en français
+// avant de basculer.
+window.hublink
+  .getState()
+  .then((state) => setLanguage(state.language))
+  .catch(() => setLanguage('system'))
+  .finally(() =>
+    createRoot(document.getElementById('root')!).render(
+      <React.StrictMode>
+        {estVideo ? <VideoBar /> : estPartage ? <PartageEcran /> : estCalque ? <Overlay /> : <App />}
+      </React.StrictMode>
+    )
+  );

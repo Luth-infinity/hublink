@@ -1,6 +1,7 @@
 const { app, dialog, clipboard, nativeImage } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { t } = require('./i18n');
 
 /**
  * Capture d'écran d'un service.
@@ -46,7 +47,7 @@ function defaultPath(serviceName) {
 
 async function saveToFile(win, image, serviceName) {
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
-    title: 'Enregistrer la capture',
+    title: t('Enregistrer la capture'),
     defaultPath: defaultPath(serviceName),
     filters: [{ name: 'Image PNG', extensions: ['png'] }]
   });

@@ -17,6 +17,7 @@ import { useOptimiste } from '@/lib/optimiste';
 import { normaliser, vueCourante } from '@/lib/selection';
 import { ListeSurlignee } from '@/components/ListeSurlignee';
 import { AccountAvatar } from '@/components/AccountAvatar';
+import { locale, t } from '@/lib/i18n';
 
 /**
  * Les panneaux déroulants de la barre d'outils.
@@ -31,8 +32,8 @@ const api = window.hublink;
 /** « 4,2 Mo », « 812 Ko » — la taille telle qu'on l'attend dans une liste. */
 function poids(octets: number) {
   if (!octets) return '';
-  if (octets < 1024 * 1024) return `${Math.round(octets / 1024)} Ko`;
-  return `${(octets / (1024 * 1024)).toFixed(1).replace('.', ',')} Mo`;
+  if (octets < 1024 * 1024) return t('{n} Ko', { n: Math.round(octets / 1024) });
+  return t('{n} Mo', { n: (octets / (1024 * 1024)).toLocaleString(locale(), { maximumFractionDigits: 1, minimumFractionDigits: 1 }) });
 }
 
 /** « Aujourd'hui », « Hier », puis la date — comme on cherche de tête. */
@@ -42,28 +43,28 @@ function jour(at: number) {
   const hier = new Date(aujourdhui);
   hier.setDate(hier.getDate() - 1);
   const memeJour = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-  if (memeJour(d, aujourdhui)) return "Aujourd'hui";
-  if (memeJour(d, hier)) return 'Hier';
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  if (memeJour(d, aujourdhui)) return t("Aujourd'hui");
+  if (memeJour(d, hier)) return t('Hier');
+  return d.toLocaleDateString(locale(), { day: 'numeric', month: 'long' });
 }
 
 const heure = (at: number) =>
-  new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  new Date(at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
 
 const CADRE =
   'flex flex-col overflow-hidden rounded-lg border border-shell-border bg-shell-raised shadow-xl';
 
 export function DownloadsPanel({ downloads }: { downloads: Download[] }) {
   return (
-    <div role="dialog" aria-label="Téléchargements" className={cn(CADRE, 'max-h-[380px] w-[320px]')}>
+    <div role="dialog" aria-label={t('Téléchargements')} className={cn(CADRE, 'max-h-[380px] w-[320px]')}>
       <div className="flex items-center justify-between border-b border-shell-border px-3 py-2">
-        <span className="text-[12px] font-medium text-shell-foreground">Téléchargements</span>
+        <span className="text-[12px] font-medium text-shell-foreground">{t('Téléchargements')}</span>
         <button
           type="button"
           onClick={() => api.downloadsList.clear()}
           className="text-[11px] text-shell-muted transition-colors hover:text-shell-foreground"
         >
-          Effacer la liste
+          {t('Effacer la liste')}
         </button>
       </div>
 
@@ -96,13 +97,13 @@ export function DownloadsPanel({ downloads }: { downloads: Download[] }) {
                       ? d.detail
                         ? d.detail
                         : pct !== null
-                        ? `${pct} % — ${poids(d.received)} sur ${poids(d.total)}`
-                        : `${poids(d.received)} reçus`
+                        ? t('{pct} % — {recu} sur {total}', { pct, recu: poids(d.received), total: poids(d.total) })
+                        : t('{recu} reçus', { recu: poids(d.received) })
                       : d.state === 'completed'
                         ? poids(d.total)
                         : d.state === 'cancelled'
-                          ? 'Annulé'
-                          : 'Interrompu'}
+                          ? t('Annulé')
+                          : t('Interrompu')}
                   </span>
                   {d.state === 'progress' && (
                     <span className="mt-1 block h-[2px] overflow-hidden rounded-full bg-shell-active">
@@ -120,8 +121,8 @@ export function DownloadsPanel({ downloads }: { downloads: Download[] }) {
                   <span
                     role="button"
                     tabIndex={0}
-                    title="Annuler"
-                    aria-label={`Annuler le téléchargement de ${d.name}`}
+                    title={t('Annuler')}
+                    aria-label={t('Annuler le téléchargement de {nom}', { nom: d.name })}
                     onClick={(e) => {
                       e.stopPropagation();
                       api.videos.annuler(d.id);
@@ -135,8 +136,8 @@ export function DownloadsPanel({ downloads }: { downloads: Download[] }) {
                   <span
                     role="button"
                     tabIndex={0}
-                    title="Ouvrir le dossier"
-                    aria-label={`Ouvrir le dossier contenant ${d.name}`}
+                    title={t('Ouvrir le dossier')}
+                    aria-label={t('Ouvrir le dossier contenant {nom}', { nom: d.name })}
                     onClick={(e) => {
                       e.stopPropagation();
                       api.downloads.reveal(d.path);
@@ -181,16 +182,16 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
   }, [resultats]);
 
   return (
-    <div role="dialog" aria-label="Historique" className={cn(CADRE, 'max-h-[420px] w-[360px]')}>
+    <div role="dialog" aria-label={t('Historique')} className={cn(CADRE, 'max-h-[420px] w-[360px]')}>
       <div className="flex items-center justify-between border-b border-shell-border px-3 py-2">
-        <span className="text-[12px] font-medium text-shell-foreground">Historique</span>
+        <span className="text-[12px] font-medium text-shell-foreground">{t('Historique')}</span>
         {history.length > 0 && (
           <button
             type="button"
             onClick={() => api.browser.clearHistory()}
             className="flex items-center gap-1 text-[11px] text-shell-muted transition-colors hover:text-shell-foreground"
           >
-            <Trash2 className="size-3" /> Tout effacer
+            <Trash2 className="size-3" />{' '}{t('Tout effacer')}
           </button>
         )}
       </div>
@@ -200,8 +201,8 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
         <input
           value={filtre}
           onChange={(e) => setFiltre(e.target.value)}
-          placeholder="Rechercher une page vue"
-          aria-label="Rechercher dans l'historique"
+          placeholder={t('Rechercher une page vue')}
+          aria-label={t("Rechercher dans l'historique")}
           autoFocus
           className="min-w-0 flex-1 bg-transparent text-[12px] text-shell-foreground outline-none placeholder:text-shell-muted"
         />
@@ -211,8 +212,8 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
         {groupes.length === 0 && (
           <p className="px-3 py-6 text-center text-[12px] text-shell-muted">
             {history.length === 0
-              ? 'Rien pour le moment. Les pages visitées en mode navigateur apparaîtront ici.'
-              : 'Aucune page ne correspond.'}
+              ? t('Rien pour le moment. Les pages visitées en mode navigateur apparaîtront ici.')
+              : t('Aucune page ne correspond.')}
           </p>
         )}
 
@@ -254,8 +255,8 @@ export function HistoryPanel({ history }: { history: HistoryEntry[] }) {
                   <button
                     type="button"
                     onClick={() => api.browser.removeHistory(e.id)}
-                    aria-label={`Oublier ${e.title || hostOf(e.url)}`}
-                    title="Oublier cette page"
+                    aria-label={t('Oublier {nom}', { nom: e.title || hostOf(e.url) })}
+                    title={t('Oublier cette page')}
                     className="shrink-0 rounded p-0.5 text-shell-muted opacity-0 transition-opacity group-hover:opacity-100 hover:text-shell-foreground focus-visible:opacity-100"
                   >
                     <X className="size-3.5" />
@@ -323,13 +324,13 @@ export function AccountsPanel({
   const nonLus = (ids: string[]) => ids.reduce((n, id) => n + (unreadByAccount[id] || 0), 0);
 
   return (
-    <div role="dialog" aria-label="Comptes" className={cn(CADRE, 'max-h-[460px] w-[260px]')}>
+    <div role="dialog" aria-label={t('Comptes')} className={cn(CADRE, 'max-h-[460px] w-[260px]')}>
       <ListeSurlignee className="min-h-0 flex-1 overflow-y-auto py-1">
         <ul>
           <li data-surlignable className={cn(LIGNE, tous && 'bg-shell-active')}>
             <button type="button" onClick={() => montrer([])} className={ZONE}>
               <Users className="size-4 shrink-0 text-shell-muted" aria-hidden />
-              <span className="min-w-0 flex-1 truncate text-shell-foreground">Tous les comptes</span>
+              <span className="min-w-0 flex-1 truncate text-shell-foreground">{t('Tous les comptes')}</span>
               {nonLus(accounts.map((a) => a.id)) > 0 && <Pastille n={nonLus(accounts.map((a) => a.id))} />}
             </button>
             <span className="grid w-[38px] shrink-0 place-items-center" aria-hidden>
@@ -364,8 +365,8 @@ export function AccountsPanel({
                 <button
                   type="button"
                   onClick={() => api.views.remove(v.id)}
-                  aria-label={masquee ? 'Supprimer cette vue' : `Supprimer la vue ${v.name}`}
-                  title="Supprimer cette vue"
+                  aria-label={masquee ? t('Supprimer cette vue') : t('Supprimer la vue {nom}', { nom: v.name })}
+                  title={t('Supprimer cette vue')}
                   className="grid w-[38px] shrink-0 place-items-center self-stretch text-shell-muted transition-colors hover:text-shell-foreground"
                 >
                   {actif && <Check className="size-3.5 text-shell-foreground group-hover:hidden" aria-hidden />}
@@ -397,7 +398,7 @@ export function AccountsPanel({
                 <button
                   type="button"
                   onClick={() => montrer([compte.id])}
-                  title={masque ? undefined : `N'afficher que ${compte.name}`}
+                  title={masque ? undefined : t("N'afficher que {nom}", { nom: compte.name })}
                   className={ZONE}
                 >
                   <AccountAvatar
@@ -414,11 +415,11 @@ export function AccountsPanel({
                   type="button"
                   role="checkbox"
                   aria-checked={coche}
-                  aria-label={masque ? 'Afficher ce compte' : `Afficher ${compte.name}`}
+                  aria-label={masque ? t('Afficher ce compte') : t('Afficher {nom}', { nom: compte.name })}
                   disabled={derniere}
                   onClick={() => basculer(compte.id)}
                   title={
-                    derniere ? 'Au moins un compte reste affiché' : coche ? 'Retirer de l’affichage' : 'Ajouter à l’affichage'
+                    derniere ? t('Au moins un compte reste affiché') : coche ? t('Retirer de l’affichage') : t('Ajouter à l’affichage')
                   }
                   className="grid w-[38px] shrink-0 place-items-center self-stretch disabled:cursor-default"
                 >
@@ -454,7 +455,7 @@ export function AccountsPanel({
             className={cn(PIED, 'animate-in fade-in duration-150')}
           >
             <BookmarkPlus className="size-4 shrink-0" aria-hidden />
-            Enregistrer cette vue…
+            {t('Enregistrer cette vue…')}
           </button>
         )}
         <button
@@ -466,7 +467,7 @@ export function AccountsPanel({
           className={PIED}
         >
           <Settings className="size-4 shrink-0" aria-hidden />
-          Gérer les comptes…
+          {t('Gérer les comptes…')}
         </button>
       </div>
     </div>

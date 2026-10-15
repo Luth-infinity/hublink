@@ -6,6 +6,7 @@ import { AccountAvatar } from '@/components/AccountAvatar';
 import { ServiceIcon } from '@/components/ServiceIcon';
 import { TrameLogo } from '@/components/TrameLogo';
 import { BordVivant } from '@/lib/trame-bord';
+import { t } from '@/lib/i18n';
 
 const api = window.hublink;
 
@@ -112,7 +113,7 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
   const nomDe = React.useCallback(
     (id: string, avecClient = false) => {
       const s = services.find((x) => x.id === id);
-      if (!s) return 'une page';
+      if (!s) return t('une page');
       const client = avecClient ? accounts.find((a) => a.id === s.accountId) : null;
       return client ? `${client.name} · ${s.name}` : s.name;
     },
@@ -213,12 +214,12 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
     () =>
       api.trame.onEtape((e) => {
         const tour = Boolean(e.accountId);
-        if (e.type === 'redaction') setEtat(tour ? 'Résumé…' : 'Rédaction…');
+        if (e.type === 'redaction') setEtat(tour ? t('Résumé…') : t('Rédaction…'));
         else {
           const nom = nomDe(e.id, tour);
           // « Lecture d'Avanteam », pas « de Avanteam ».
           const de = /^[aeiouyhàâéèêëîïôûù]/i.test(nom) ? "d'" : 'de ';
-          setEtat(`${e.type === 'reveil' ? 'Réveil' : 'Lecture'} ${de}${nom}…`);
+          setEtat(t(e.type === 'reveil' ? 'Réveil {de}{nom}…' : 'Lecture {de}{nom}…', { de, nom }));
         }
       }),
     [nomDe]
@@ -243,7 +244,7 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
     setOccupe(true);
     setReflechit(true);
     bordRef.current?.reflechir(true);
-    setEtat('Lecture des pages…');
+    setEtat(t('Lecture des pages…'));
     rafraichir();
     requestAnimationFrame(defiler);
 
@@ -282,13 +283,13 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
     if (occupe || !accountId) return;
     const avecNonLus = accounts.filter((a) => services.some((s) => s.accountId === a.id && s.badge > 0));
     retenirTour();
-    conv.push({ role: 'q', texte: TOUR, tour: true });
+    conv.push({ role: 'q', texte: t(TOUR), tour: true });
     if (!avecNonLus.length) {
       conv.push({
         role: 'r',
         texte: '',
         tour: true,
-        blocs: [{ type: 'p', texte: 'Aucun non-lu ce matin : rien à résumer.' }]
+        blocs: [{ type: 'p', texte: t('Aucun non-lu ce matin : rien à résumer.') }]
       });
       rafraichir();
       return;
@@ -402,7 +403,7 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
           open && !sortie ? 'opacity-100' : 'opacity-0'
         )}
       >
-        Fermer <kbd className="rounded border border-white/25 px-1.5 py-px text-[10px]">Échap</kbd>
+        {t('Fermer')}{' '}<kbd className="rounded border border-white/25 px-1.5 py-px text-[10px]">{t('Échap')}</kbd>
       </button>
 
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center px-6 pt-[15vh]">
@@ -419,7 +420,7 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
             </span>
             {account && liste.length > 0 && (
               <div className="ml-auto flex flex-wrap items-center gap-1.5 text-xs text-shell-muted">
-                Lit
+                {t('Lit')}
                 {liste.map((s) => {
                   const service = services.find((x) => x.id === s.id);
                   const off = !s.charge || exclus.has(s.id);
@@ -431,10 +432,10 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
                       aria-pressed={!off}
                       title={
                         !s.charge
-                          ? `${s.nom} est en veille : ouvre-le pour que Trame le lise`
+                          ? t('{nom} est en veille : ouvre-le pour que Trame le lise', { nom: s.nom })
                           : exclus.has(s.id)
-                            ? `Lire ${s.nom}`
-                            : `Ne plus lire ${s.nom}`
+                            ? t('Lire {nom}', { nom: s.nom })
+                            : t('Ne plus lire {nom}', { nom: s.nom })
                       }
                       className={cn(
                         'flex h-6 items-center gap-1.5 rounded-full border border-shell-border pr-2 pl-1 text-xs text-shell-foreground transition-opacity',
@@ -455,26 +456,26 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
                 type="button"
                 onClick={vider}
                 disabled={occupe}
-                title="Nouvelle conversation"
+                title={t('Nouvelle conversation')}
                 className={cn(
                   'flex h-6 items-center gap-1.5 rounded-md px-2 text-xs text-shell-muted transition-colors hover:bg-shell-hover hover:text-shell-foreground disabled:opacity-40',
                   !(account && liste.length > 0) && 'ml-auto'
                 )}
               >
                 <SquarePen className="size-3.5" />
-                Nouvelle
+                {t('Nouvelle')}
               </button>
             )}
           </div>
 
           {!account ? (
             <p {...entree(1)} className={cn('text-sm text-shell-muted', entree(1).className)}>
-              Trame lit les services d'un client. Ouvres-en un pour commencer.
+              {t("Trame lit les services d'un client. Ouvres-en un pour commencer.")}
             </p>
           ) : cle && !cle.cle ? (
             <div {...entree(1)} className={cn('grid gap-2.5', entree(1).className)}>
               <p className="text-sm leading-relaxed text-shell-muted">
-                Trame répond avec Groq, une IA gratuite. Crée une clé sur{' '}
+                {t('Trame répond avec Groq, une IA gratuite. Crée une clé sur')}{' '}
                 <button
                   type="button"
                   onClick={() => api.openExternal('https://console.groq.com/keys')}
@@ -482,7 +483,7 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
                 >
                   console.groq.com/keys
                 </button>{' '}
-                et colle-la ici : elle reste chiffrée sur cet ordinateur.
+                {t('et colle-la ici : elle reste chiffrée sur cet ordinateur.')}
               </p>
               {cle.chiffrement ? (
                 <form
@@ -505,12 +506,12 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
                     disabled={!saisieCle.trim()}
                     className="h-8 rounded-lg bg-shell-foreground px-3 text-xs font-medium text-shell transition-opacity disabled:opacity-30"
                   >
-                    Enregistrer
+                    {t('Enregistrer')}
                   </button>
                 </form>
               ) : (
                 <p className="text-sm text-shell-muted">
-                  Le trousseau du système est indisponible : Trame ne peut pas garder ta clé.
+                  {t('Le trousseau du système est indisponible : Trame ne peut pas garder ta clé.')}
                 </p>
               )}
             </div>
@@ -530,13 +531,13 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
                 ref={champRef}
                 value={texte}
                 onChange={(e) => setTexte(e.target.value)}
-                placeholder="Demande à Trame…"
+                placeholder={t('Demande à Trame…')}
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-shell-muted"
               />
               <button
                 type="submit"
                 disabled={!texte.trim() || occupe || !pret}
-                aria-label="Envoyer"
+                aria-label={t('Envoyer')}
                 className="grid size-9 place-items-center rounded-lg bg-shell-foreground text-shell transition-[opacity,transform] hover:-translate-y-px disabled:translate-y-0 disabled:opacity-25"
               >
                 <ArrowUp className="size-4" />
@@ -603,7 +604,7 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
                 <button
                   key={idee}
                   type="button"
-                  onClick={() => envoyer(idee)}
+                  onClick={() => envoyer(idee === TOUR ? TOUR : t(idee))}
                   className={cn(
                     'h-[30px] rounded-full bg-shell-hover px-3 text-xs text-shell-muted transition-colors hover:bg-shell-active hover:text-shell-foreground',
                     ideesRevenues ? 'trame-entre' : entree(2 + i).className
@@ -612,7 +613,7 @@ export function Trame({ open, onClose, account, accounts, services, isDark, onSe
                   onAnimationEnd={() => setIdeesRevenues(false)}
                 >
                   {idee === TOUR && <TrameLogo className="mr-1.5 -ml-0.5 inline size-3.5 align-[-2px]" />}
-                  {idee}
+                  {t(idee)}
                 </button>
               ))}
             </div>
@@ -740,7 +741,7 @@ function Tour({
               {c.etat === 'erreur' ? (
                 <p className="text-sm text-shell-muted">{c.message}</p>
               ) : c.etat === 'fait' && !c.points.length ? (
-                <p className="text-sm text-shell-muted">Rien qui te concerne.</p>
+                <p className="text-sm text-shell-muted">{t('Rien qui te concerne.')}</p>
               ) : (
                 <ul className="grid gap-0.5">
                   {c.points.map((p, pi) => {
@@ -760,7 +761,7 @@ function Tour({
                           type="button"
                           disabled={!source}
                           onClick={() => source && onSource(source.id)}
-                          title={source ? `Ouvrir ${source.name}` : undefined}
+                          title={source ? t('Ouvrir {nom}', { nom: source.name }) : undefined}
                           className="trame-puce relative w-full rounded-md py-1 pr-1.5 pl-[22px] text-left text-sm leading-relaxed transition-colors enabled:hover:bg-shell-hover before:!top-[calc(0.25rem+0.7em)] before:!left-2"
                         >
                           {mots}

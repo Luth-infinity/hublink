@@ -2,6 +2,7 @@ import * as React from 'react';
 import { ArrowDownToLine } from 'lucide-react';
 import type { Update } from '@/types';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/i18n';
 
 /**
  * La mise à jour se propose sous les onglets, en pleine largeur.
@@ -24,10 +25,10 @@ export function UpdateBadge({ update, collapsed }: { update: Update; collapsed: 
   // Dans la barre du haut, le numéro seul suffisait — l'icône disait le reste.
   // En pleine largeur, il faut nommer l'action.
   const libelle = pret
-    ? 'Redémarrer pour installer'
+    ? t('Redémarrer pour installer')
     : percent !== null
       ? `${percent} %`
-      : `Mettre à jour · ${update.version}`;
+      : t('Mettre à jour · {version}', { version: update.version });
 
   const cliquer = async () => {
     if (!auto) return api.openExternal(update.url);
@@ -51,8 +52,8 @@ export function UpdateBadge({ update, collapsed }: { update: Update; collapsed: 
       onClick={cliquer}
       title={
         pret
-          ? `Hublink ${update.version} est prêt à s'installer`
-          : `Hublink ${update.version} est disponible`
+          ? t("Hublink {version} est prêt à s'installer", { version: update.version })
+          : t('Hublink {version} est disponible', { version: update.version })
       }
       className={cn(
         'flex items-center justify-center gap-1.5 rounded-md bg-emerald-500/15 font-medium text-emerald-700 transition-all duration-150 hover:bg-emerald-500/25 active:scale-[0.97] motion-reduce:active:scale-100 dark:text-emerald-300',

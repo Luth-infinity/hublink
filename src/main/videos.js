@@ -3,6 +3,7 @@ const { spawn, execFile } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const { t } = require('./i18n');
 const zlib = require('zlib');
 
 // Téléchargement des vidéos YouTube, par yt-dlp. Ni yt-dlp ni ffmpeg ne sont
@@ -164,18 +165,18 @@ const enCours = new Map();
 async function telecharger({ url, format, dossier, titre, session }, onEvent) {
   if (!estVideoYouTube(url) || !FORMATS[format]) return;
   const id = `y_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-  let nom = titre || 'Vidéo YouTube';
+  let nom = titre || t('Vidéo YouTube');
   onEvent('download-started', { id, name: nom, total: 0, path: '', annulable: true });
 
   const outilsAbsents = !fs.existsSync(cheminYtDlp()) || !fs.existsSync(cheminFfmpeg());
   if (outilsAbsents) {
-    onEvent('download-progress', { id, received: 0, total: 0, detail: 'Première fois : installation de yt-dlp et ffmpeg…' });
+    onEvent('download-progress', { id, received: 0, total: 0, detail: t('Première fois : installation de yt-dlp et ffmpeg…') });
   }
   try {
     await preparer();
   } catch (err) {
     console.warn('[videos] préparation impossible :', err);
-    onEvent('download-done', { id, name: nom, path: '', state: 'interrupted', erreur: 'Outils introuvables, vérifiez la connexion' });
+    onEvent('download-done', { id, name: nom, path: '', state: 'interrupted', erreur: t('Outils introuvables, vérifiez la connexion') });
     return;
   }
 
@@ -313,11 +314,11 @@ function nettoyer(temporaires) {
 // Les erreurs de yt-dlp sont longues et techniques : on garde ce qui aide.
 function resumerErreur(erreurs) {
   const texte = erreurs.join(' ');
-  if (/not a bot/i.test(texte)) return 'YouTube bloque le téléchargement : connectez-vous à YouTube dans cette page, puis réessayez';
-  if (/confirm your age|age-restricted|inappropriate for some users/i.test(texte)) return 'Vidéo soumise à une limite d’âge : connectez-vous à YouTube dans cette page';
-  if (/members-only|join this channel/i.test(texte)) return 'Vidéo réservée aux membres de la chaîne';
-  if (/Private video|Video unavailable|This video is unavailable/i.test(texte)) return 'Vidéo indisponible';
-  if (/getaddrinfo|Unable to download|timed out/i.test(texte)) return 'Connexion impossible';
+  if (/not a bot/i.test(texte)) return t('YouTube bloque le téléchargement : connectez-vous à YouTube dans cette page, puis réessayez');
+  if (/confirm your age|age-restricted|inappropriate for some users/i.test(texte)) return t('Vidéo soumise à une limite d’âge : connectez-vous à YouTube dans cette page');
+  if (/members-only|join this channel/i.test(texte)) return t('Vidéo réservée aux membres de la chaîne');
+  if (/Private video|Video unavailable|This video is unavailable/i.test(texte)) return t('Vidéo indisponible');
+  if (/getaddrinfo|Unable to download|timed out/i.test(texte)) return t('Connexion impossible');
   return erreurs[0] ? erreurs[0].slice(0, 120) : null;
 }
 

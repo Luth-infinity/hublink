@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AccountAvatar } from '@/components/AccountAvatar';
 import { ChoixCouleur, COULEURS } from '@/components/ChoixCouleur';
+import { t } from '@/lib/i18n';
 
 type Props = {
   open: boolean;
@@ -51,10 +52,9 @@ export function AccountDialog({ open, account, onOpenChange, onSubmit }: Props) 
       <DialogContent className="sm:max-w-md">
         <form onSubmit={submit} className="contents">
           <DialogHeader>
-            <DialogTitle>{account ? 'Modifier le compte' : 'Nouveau compte'}</DialogTitle>
+            <DialogTitle>{account ? t('Modifier le compte') : t('Nouveau compte')}</DialogTitle>
             <DialogDescription>
-              Un compte est une session isolée. Les services qui le partagent restent connectés
-              ensemble ; ceux d'un autre compte ne voient rien.
+              {t("Un compte est une session isolée. Les services qui le partagent restent connectés ensemble ; ceux d'un autre compte ne voient rien.")}
             </DialogDescription>
           </DialogHeader>
 
@@ -64,7 +64,7 @@ export function AccountDialog({ open, account, onOpenChange, onSubmit }: Props) 
                 type="button"
                 onClick={pickAvatar}
                 className="group relative block rounded-lg focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                aria-label={avatar ? 'Remplacer le logo' : 'Ajouter un logo'}
+                aria-label={avatar ? t('Remplacer le logo') : t('Ajouter un logo')}
               >
                 <AccountAvatar
                   account={{ name, color, avatar }}
@@ -81,7 +81,7 @@ export function AccountDialog({ open, account, onOpenChange, onSubmit }: Props) 
                   variant="secondary"
                   size="icon-xs"
                   onClick={() => setAvatar(null)}
-                  aria-label="Retirer le logo"
+                  aria-label={t('Retirer le logo')}
                   className="absolute -top-1.5 -right-1.5 rounded-full shadow"
                 >
                   <X />
@@ -90,34 +90,34 @@ export function AccountDialog({ open, account, onOpenChange, onSubmit }: Props) 
             </div>
 
             <div className="grid flex-1 gap-2">
-              <Label htmlFor="account-name">Nom du compte</Label>
+              <Label htmlFor="account-name">{t('Nom du compte')}</Label>
               <Input
                 id="account-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Client A"
+                placeholder={t('Client A')}
                 autoFocus
               />
               <p className="text-xs text-muted-foreground">
-                Clique sur la vignette pour importer un logo.
+                {t('Clique sur la vignette pour importer un logo.')}
               </p>
             </div>
           </div>
 
           <div className="grid gap-2">
-            <Label>Couleur</Label>
+            <Label>{t('Couleur')}</Label>
             <p className="text-xs text-muted-foreground">
-              Sert d'avatar à défaut de logo, et donne sa teinte à l'interface quand tu filtres sur ce compte.
+              {t("Sert d'avatar à défaut de logo, et donne sa teinte à l'interface quand tu filtres sur ce compte.")}
             </p>
             <ChoixCouleur valeur={color} onChange={setColor} avecRepere />
           </div>
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Annuler
+              {t('Annuler')}
             </Button>
             <Button type="submit" disabled={!name.trim()}>
-              {account ? 'Enregistrer' : 'Créer'}
+              {account ? t('Enregistrer') : t('Créer')}
             </Button>
           </DialogFooter>
         </form>

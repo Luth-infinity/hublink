@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { t } from '@/lib/i18n';
 
 /**
  * Permissions qu'Electron n'implémente pas. Une extension qui en dépend se
@@ -58,20 +59,17 @@ export function ExtensionsPanel({ state, account }: Props) {
   return (
     <div className="grid gap-3">
       <p className="text-sm text-muted-foreground">
-        Installées pour tous les comptes, activables compte par compte. Electron ne reprend qu'une
-        partie des API de Chrome : les extensions de contenu (bloqueurs, thèmes, correcteurs)
-        fonctionnent, celles qui capturent l'écran, téléchargent des fichiers ou dialoguent avec une
-        application native ne peuvent pas.
+        {t("Installées pour tous les comptes, activables compte par compte. Electron ne reprend qu'une partie des API de Chrome : les extensions de contenu (bloqueurs, thèmes, correcteurs) fonctionnent, celles qui capturent l'écran, téléchargent des fichiers ou dialoguent avec une application native ne peuvent pas.")}
       </p>
 
       <div className="grid gap-2">
-        <Label htmlFor="cws">Depuis le Chrome Web Store</Label>
+        <Label htmlFor="cws">{t('Depuis le Chrome Web Store')}</Label>
         <div className="flex gap-2">
           <Input
             id="cws"
             value={storeInput}
             onChange={(e) => setStoreInput(e.target.value)}
-            placeholder="URL du Store ou identifiant (32 lettres)"
+            placeholder={t('URL du Store ou identifiant (32 lettres)')}
             onKeyDown={(e) => {
               if (e.key !== 'Enter' || !storeInput.trim()) return;
               e.preventDefault();
@@ -80,7 +78,7 @@ export function ExtensionsPanel({ state, account }: Props) {
           />
           <Button disabled={!storeInput.trim() || busy !== null} onClick={install}>
             {busy === 'store' ? <Loader2 className="animate-spin" /> : <Store />}
-            Installer
+            {t('Installer')}
           </Button>
         </div>
       </div>
@@ -93,7 +91,7 @@ export function ExtensionsPanel({ state, account }: Props) {
           onClick={() => run('folder', () => api.extensions.installFromFolder())}
         >
           {busy === 'folder' ? <Loader2 className="animate-spin" /> : <FolderOpen />}
-          Dossier décompressé
+          {t('Dossier décompressé')}
         </Button>
         <Button
           variant="outline"
@@ -102,7 +100,7 @@ export function ExtensionsPanel({ state, account }: Props) {
           onClick={() => run('file', () => api.extensions.installFromFile())}
         >
           {busy === 'file' ? <Loader2 className="animate-spin" /> : <FileArchive />}
-          Fichier .crx / .zip
+          {t('Fichier .crx / .zip')}
         </Button>
       </div>
 
@@ -111,7 +109,7 @@ export function ExtensionsPanel({ state, account }: Props) {
       {state.extensions.length === 0 ? (
         <div className="grid place-items-center gap-2 py-8 text-center">
           <Puzzle className="size-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Aucune extension installée.</p>
+          <p className="text-sm text-muted-foreground">{t('Aucune extension installée.')}</p>
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -156,7 +154,7 @@ export function ExtensionsPanel({ state, account }: Props) {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label={`Désinstaller ${ext.name}`}
+                      aria-label={t('Désinstaller {nom}', { nom: ext.name })}
                       onClick={() => api.extensions.remove(ext.id)}
                     >
                       <Trash2 />
@@ -168,11 +166,11 @@ export function ExtensionsPanel({ state, account }: Props) {
                   <p className="flex items-start gap-2 rounded-md bg-muted p-2 text-xs text-muted-foreground">
                     <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
                     <span>
-                      Cette extension a besoin de{' '}
+                      {t('Cette extension a besoin de')}{' '}
                       <strong className="font-medium text-foreground">
-                        {blocking.map((p: string) => UNSUPPORTED[p]).join(', ')}
+                        {blocking.map((p: string) => t(UNSUPPORTED[p])).join(', ')}
                       </strong>
-                      , qu'Electron n'implémente pas. Elle se charge mais restera sans effet.
+                      {t(", qu'Electron n'implémente pas. Elle se charge mais restera sans effet.")}
                     </span>
                   </p>
                 )}

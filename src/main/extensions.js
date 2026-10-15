@@ -2,6 +2,7 @@ const { app, net, BrowserWindow } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const store = require('./store');
+const { t } = require('./i18n');
 const unzip = require('./unzip');
 
 const EXT_ROOT = path.join(app.getPath('userData'), 'extensions');
@@ -22,7 +23,7 @@ function extractCwsId(input) {
   const trimmed = input.trim();
   if (/^[a-p]{32}$/.test(trimmed)) return trimmed;
   const m = trimmed.match(/([a-p]{32})/);
-  if (!m) throw new Error("Identifiant Chrome Web Store introuvable dans cette valeur");
+  if (!m) throw new Error(t("Identifiant Chrome Web Store introuvable dans cette valeur"));
   return m[1];
 }
 
@@ -73,7 +74,7 @@ function register(dir, source) {
 
 function installFromDirectory(sourceDir) {
   if (!fs.existsSync(path.join(sourceDir, 'manifest.json'))) {
-    throw new Error("Ce dossier ne contient pas de manifest.json");
+    throw new Error(t("Ce dossier ne contient pas de manifest.json"));
   }
   const info = readManifest(sourceDir);
   const dest = path.join(EXT_ROOT, `${slugify(info.name)}-${Date.now().toString(36)}`);
@@ -93,7 +94,7 @@ function installFromArchive(buffer, source) {
     if (!fs.existsSync(path.join(root, 'manifest.json'))) {
       const entries = fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory());
       const nested = entries.find((e) => fs.existsSync(path.join(root, e.name, 'manifest.json')));
-      if (!nested) throw new Error("Aucun manifest.json dans l'archive");
+      if (!nested) throw new Error(t("Aucun manifest.json dans l'archive"));
       root = path.join(root, nested.name);
     }
     cleanup(root);
@@ -118,11 +119,11 @@ async function installFromStore(input) {
   const id = extractCwsId(input);
   const res = await net.fetch(CWS_CRX(id), { redirect: 'follow' });
   if (res.status === 204) {
-    throw new Error(`Le Store ne propose aucune version compatible pour ${id}`);
+    throw new Error(t('Le Store ne propose aucune version compatible pour {id}', { id }));
   }
-  if (!res.ok) throw new Error(`Téléchargement refusé par le Store (HTTP ${res.status})`);
+  if (!res.ok) throw new Error(t('Téléchargement refusé par le Store (HTTP {code})', { code: res.status }));
   const buffer = Buffer.from(await res.arrayBuffer());
-  if (buffer.length < 100) throw new Error('Extension introuvable sur le Chrome Web Store');
+  if (buffer.length < 100) throw new Error(t('Extension introuvable sur le Chrome Web Store'));
   return installFromArchive(buffer, { type: 'store', id });
 }
 
@@ -178,7 +179,7 @@ async function applyToSession(session, accountId) {
 // Electron n'affiche pas de barre d'extensions : on ouvre le popup nous-memes.
 function openPopup(session, chromeExtensionId, parent) {
   const ext = session.extensions.getAllExtensions().find((e) => e.id === chromeExtensionId);
-  if (!ext) throw new Error('Extension non chargée dans ce profil');
+  if (!ext) throw new Error(t('Extension non chargée dans ce profil'));
   const action = ext.manifest.action || ext.manifest.browser_action || {};
   const popup = action.default_popup;
   if (!popup) throw new Error(`${ext.name} n'expose pas de popup`);

@@ -3,6 +3,7 @@ import { ArrowDownToLine, Bug, Check, Coffee, Loader2, RefreshCw, Star } from 'l
 import { ISSUES_URL, REPO_URL, SUPPORT_URL } from '@/lib/links';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { t } from '@/lib/i18n';
 
 type About = { version: string; electron: string; chrome: string; userData: string };
 
@@ -42,8 +43,7 @@ export function AboutPanel() {
       <div className="grid gap-1">
         <p className="text-sm font-medium">Hublink {about?.version ?? ''}</p>
         <p className="text-xs text-muted-foreground">
-          Libre, sous licence MIT. Vos comptes et services restent sur cette machine : il n'y a pas de
-          serveur.
+          {t("Libre, sous licence MIT. Vos comptes et services restent sur cette machine : il n'y a pas de serveur.")}
         </p>
       </div>
 
@@ -53,14 +53,13 @@ export function AboutPanel() {
         <>
           <Separator />
           <div className="grid gap-2 rounded-lg border border-border p-4">
-            <p className="text-sm font-medium">Soutenir le projet</p>
+            <p className="text-sm font-medium">{t('Soutenir le projet')}</p>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Hublink est gratuit et le restera. Si l'app vous fait gagner du temps, un café aide à
-              payer les heures du soir.
+              {t("Hublink est gratuit et le restera. Si l'app vous fait gagner du temps, un café aide à payer les heures du soir.")}
             </p>
             <div className="mt-1 flex flex-wrap gap-2">
               <Button size="sm" className="gap-2" onClick={() => open(support)}>
-                <Coffee /> Offrir un café
+                <Coffee />{' '}{t('Offrir un café')}
               </Button>
               <Button
                 variant="outline"
@@ -68,7 +67,7 @@ export function AboutPanel() {
                 className="gap-2"
                 onClick={() => open(`${REPO_URL}/stargazers`)}
               >
-                <Star /> Mettre une étoile
+                <Star />{' '}{t('Mettre une étoile')}
               </Button>
             </div>
           </div>
@@ -81,11 +80,11 @@ export function AboutPanel() {
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="gap-2" disabled={state === 'checking'} onClick={checkNow}>
             {state === 'checking' ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            Vérifier les mises à jour
+            {t('Vérifier les mises à jour')}
           </Button>
           {state === 'uptodate' && (
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Check className="size-3.5" /> Vous êtes à jour.
+              <Check className="size-3.5" />{' '}{t('Vous êtes à jour.')}
             </span>
           )}
         </div>
@@ -96,7 +95,7 @@ export function AboutPanel() {
               disponible.
             </p>
             <Button size="sm" className="gap-2" onClick={() => open(found.url)}>
-              <ArrowDownToLine /> Télécharger
+              <ArrowDownToLine />{' '}{t('Télécharger')}
             </Button>
           </div>
         )}
@@ -106,10 +105,10 @@ export function AboutPanel() {
 
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" className="gap-2" onClick={() => open(REPO_URL)}>
-          <GithubMark /> Code source
+          <GithubMark />{' '}{t('Code source')}
         </Button>
         <Button variant="outline" size="sm" className="gap-2" onClick={() => open(ISSUES_URL)}>
-          <Bug /> Signaler un bug
+          <Bug />{' '}{t('Signaler un bug')}
         </Button>
       </div>
 
@@ -124,7 +123,7 @@ export function AboutPanel() {
             <dd>{about.electron}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-24 shrink-0">Données</dt>
+            <dt className="w-24 shrink-0">{t('Données')}</dt>
             <dd className="truncate" title={about.userData}>
               {about.userData}
             </dd>

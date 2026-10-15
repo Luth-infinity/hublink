@@ -15,6 +15,8 @@ const {
 const fs = require('fs');
 const path = require('path');
 const store = require('./store');
+const i18n = require('./i18n');
+const { t } = i18n;
 const views = require('./views');
 const extensions = require('./extensions');
 const { isExternalUrl } = require('./urls');
@@ -122,7 +124,7 @@ function runToastAction(action) {
     motsDePasseEnAttente.delete(action.jeton);
     if (!attente) return;
     const ok = secrets.enregistrer(attente.accountId, attente.origin, attente.username, attente.password);
-    toast(ok ? 'success' : 'error', ok ? 'Mot de passe enregistré' : 'Trousseau indisponible');
+    toast(ok ? 'success' : 'error', ok ? t('Mot de passe enregistré') : t('Trousseau indisponible'));
   }
   if (action.kind === 'revenir-sponsor') {
     const saut = sautsEnAttente.get(action.jeton);
@@ -357,9 +359,9 @@ function createWindow() {
       purgerTelechargements();
       pousserTelechargements();
       if (payload.state === 'completed') {
-        toast('success', `${payload.name} téléchargé`, { kind: 'reveal', label: 'Ouvrir le dossier', path: payload.path });
+        toast('success', t('{nom} téléchargé', { nom: payload.name }), { kind: 'reveal', label: t('Ouvrir le dossier'), path: payload.path });
       } else if (payload.state !== 'cancelled') {
-        toast('error', `Téléchargement interrompu : ${payload.name}${payload.erreur ? ` — ${payload.erreur}` : ''}`);
+        toast('error', t('Téléchargement interrompu : {nom}', { nom: payload.name }) + (payload.erreur ? ` — ${payload.erreur}` : ''));
       }
     }
     // Un lien `target="_blank"` : la vue demande un onglet, le shell le crée.
@@ -367,7 +369,7 @@ function createWindow() {
     // Une vue en arrière-plan continue de naviguer (rechargement, SPA) : sans ce
     // filtre, elle écrase la barre d'URL du service réellement affiché.
     if (type === 'nav-state' && payload.serviceId === views.currentId) send('nav:state', payload);
-    if (type === 'load-error') toast('error', `Chargement impossible : ${payload.desc}`);
+    if (type === 'load-error') toast('error', t('Chargement impossible : {raison}', { raison: payload.desc }));
   };
 
   const rendererDist = path.join(__dirname, '..', 'renderer', 'dist', 'index.html');
@@ -577,12 +579,21 @@ function registerIpc() {
     pushState();
   });
 
+  ipcMain.handle('app:set-language', (_e, language) => {
+    const value = ['system', 'fr', 'en'].includes(language) ? language : 'system';
+    store.load().language = value;
+    i18n.setLanguage(value);
+    buildMenu();
+    store.save();
+    pushState();
+  });
+
   // Le logo est réduit à 128 px et stocké en data URI dans la config : cela
   // évite un chemin `file://` que la CSP du renderer refuserait, et garde les
   // comptes autonomes (pas de fichier externe à retrouver).
   ipcMain.handle('account:pick-avatar', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: 'Choisir un logo',
+      title: t('Choisir un logo'),
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] }],
       properties: ['openFile']
     });
@@ -590,7 +601,7 @@ function registerIpc() {
 
     const image = nativeImage.createFromPath(filePaths[0]);
     if (image.isEmpty()) {
-      toast('error', "Ce fichier n'est pas une image lisible");
+      toast('error', t("Ce fichier n'est pas une image lisible"));
       return null;
     }
     const { width, height } = image.getSize();
@@ -665,7 +676,7 @@ function registerIpc() {
 
   ipcMain.handle('videos:choisir-dossier', async () => {
     const r = await dialog.showOpenDialog(win, {
-      title: 'Dossier des vidéos téléchargées',
+      title: t('Dossier des vidéos téléchargées'),
       defaultPath: dossierVideos(),
       properties: ['openDirectory', 'createDirectory']
     });
@@ -742,7 +753,7 @@ function registerIpc() {
     // Sans trousseau, on ne peut pas chiffrer — et on ne veut pas écrire en
     // clair. Le dire, plutôt que de laisser croire que la fonction n'existe pas.
     if (!secrets.disponible()) {
-      return toast('error', "Trousseau du système indisponible : mot de passe non enregistrable");
+      return toast('error', t('Trousseau du système indisponible : mot de passe non enregistrable'));
     }
 
     // Déjà connu et inchangé : inutile de reposer la question à chaque
@@ -755,9 +766,9 @@ function registerIpc() {
     // ponytail: pas d'expiration — la Map se vide au clic ou à la fermeture de
     // l'app. À revoir si on garde un jour l'application ouverte des semaines.
     const hote = origin.replace(/^https?:\/\//, '');
-    toast('success', `Enregistrer le mot de passe pour ${hote} ?`, {
+    toast('success', t('Enregistrer le mot de passe pour {hote} ?', { hote }), {
       kind: 'save-password',
-      label: 'Enregistrer',
+      label: t('Enregistrer'),
       jeton
     });
   });
@@ -768,7 +779,7 @@ function registerIpc() {
     if (win && !win.isDestroyed() && process.platform === 'win32') {
       win.setOverlayIcon(
         overlay ? nativeImage.createFromDataURL(overlay) : null,
-        total > 0 ? `${total} non-lus` : ''
+        total > 0 ? t('{n} non-lus', { n: total }) : ''
       );
     }
     // Un signal supplémentaire quand l'app n'a pas le focus : sans cela, une
@@ -786,14 +797,14 @@ function registerIpc() {
       if (image.isEmpty()) throw new Error('capture vide');
       if (toClipboard) {
         capture.copyToClipboard(image);
-        toast('success', 'Capture copiée dans le presse-papiers');
+        toast('success', t('Capture copiée dans le presse-papiers'));
         return 'clipboard';
       }
       const saved = await capture.saveToFile(win, image, service && service.name);
-      if (saved) toast('success', 'Capture enregistrée');
+      if (saved) toast('success', t('Capture enregistrée'));
       return saved;
     } catch (err) {
-      toast('error', `Capture impossible : ${err.message}`);
+      toast('error', t('Capture impossible : {raison}', { raison: err.message }));
       return null;
     }
   });
@@ -809,7 +820,7 @@ function registerIpc() {
   // donc pas de chemin `file://` que la CSP du renderer refuserait.
   ipcMain.handle('service:pick-icon', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: 'Choisir une icône',
+      title: t('Choisir une icône'),
       filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] }],
       properties: ['openFile']
     });
@@ -817,7 +828,7 @@ function registerIpc() {
 
     const image = nativeImage.createFromPath(filePaths[0]);
     if (image.isEmpty()) {
-      toast('error', "Ce fichier n'est pas une image lisible");
+      toast('error', t("Ce fichier n'est pas une image lisible"));
       return null;
     }
     const { width, height } = image.getSize();
@@ -840,19 +851,19 @@ function registerIpc() {
     const account = store.getAccount(id);
     if (!account) return;
     if (store.load().accounts.length <= 1) {
-      toast('error', 'Impossible de supprimer le dernier compte');
+      toast('error', t('Impossible de supprimer le dernier compte'));
       return;
     }
     const attached = store.load().services.filter((s) => s.accountId === id);
     const { response } = await dialog.showMessageBox(win, {
       type: 'warning',
-      buttons: ['Annuler', 'Supprimer'],
+      buttons: [t('Annuler'), t('Supprimer')],
       defaultId: 0,
       cancelId: 0,
-      message: `Supprimer le compte « ${account.name} » ?`,
+      message: t('Supprimer le compte « {nom} » ?', { nom: account.name }),
       detail: attached.length
-        ? `${attached.length} service(s) rattaché(s) seront retirés, ainsi que la session (cookies, connexions).`
-        : 'Sa session (cookies, connexions) sera perdue.'
+        ? t('{n} service(s) rattaché(s) seront retirés, ainsi que la session (cookies, connexions).', { n: attached.length })
+        : t('Sa session (cookies, connexions) sera perdue.')
     });
     if (response !== 1) return;
 
@@ -921,11 +932,11 @@ function registerIpc() {
     }
     const trouve = secrets.recuperer(compte.id, origin);
     if (!trouve) {
-      toast('error', `Aucun mot de passe enregistré pour ${service.name}`);
+      toast('error', t('Aucun mot de passe enregistré pour {nom}', { nom: service.name }));
       return false;
     }
     clipboard.writeText(trouve.password);
-    toast('success', `Mot de passe de ${service.name} copié`);
+    toast('success', t('Mot de passe de {nom} copié', { nom: service.name }));
     return true;
   });
 
@@ -1023,9 +1034,9 @@ function registerIpc() {
     const jeton = String(++jetonSaut);
     sautsEnAttente.set(jeton, { page: e.sender, debut });
     if (sautsEnAttente.size > MAX_SAUTS_EN_ATTENTE) sautsEnAttente.delete(sautsEnAttente.keys().next().value);
-    toast('success', saut.categorie === 'selfpromo' ? 'Autopromotion passée' : 'Sponsor passé', {
+    toast('success', saut.categorie === 'selfpromo' ? t('Autopromotion passée') : t('Sponsor passé'), {
       kind: 'revenir-sponsor',
-      label: 'Revenir',
+      label: t('Revenir'),
       jeton
     });
   });
@@ -1073,7 +1084,7 @@ function registerIpc() {
       });
       return { ok: true, ...reponse };
     } catch (err) {
-      return { ok: false, code: err.code || 'inconnu', message: err.code ? err.message : 'Trame a rencontré un problème.' };
+      return { ok: false, code: err.code || 'inconnu', message: err.code ? err.message : t('Trame a rencontré un problème.') };
     }
   });
 
@@ -1099,7 +1110,7 @@ function registerIpc() {
     try {
       return { ok: true, ...(await trame.resumerClient({ pages, etape })) };
     } catch (err) {
-      return { ok: false, code: err.code || 'inconnu', message: err.code ? err.message : 'Trame a rencontré un problème.' };
+      return { ok: false, code: err.code || 'inconnu', message: err.code ? err.message : t('Trame a rencontré un problème.') };
     }
   });
 
@@ -1279,9 +1290,9 @@ function registerIpc() {
     const r = await videomode.basculer();
     if (r === 'aucune' || r === 'aucune-vue') {
       const secours = await views.togglePictureInPicture();
-      if (secours === 'aucune') toast('error', 'Aucune vidéo sur cette page');
+      if (secours === 'aucune') toast('error', t('Aucune vidéo sur cette page'));
       else if (typeof secours === 'string' && secours.startsWith('erreur:')) {
-        toast('error', `Sortie impossible : ${secours.slice(7)}`);
+        toast('error', t('Sortie impossible : {raison}', { raison: secours.slice(7) }));
       }
       return secours;
     }
@@ -1316,26 +1327,26 @@ function registerIpc() {
   ipcMain.handle('config:export', async () => {
     const defaut = `hublink-configuration-${new Date().toISOString().slice(0, 10)}.json`;
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
-      title: 'Exporter la configuration',
+      title: t('Exporter la configuration'),
       defaultPath: defaut,
-      filters: [{ name: 'Sauvegarde Hublink', extensions: ['json'] }]
+      filters: [{ name: t('Sauvegarde Hublink'), extensions: ['json'] }]
     });
     if (canceled || !filePath) return null;
     try {
       fs.writeFileSync(filePath, JSON.stringify(store.exportConfig(), null, 2));
-      toast('success', 'Configuration exportée');
+      toast('success', t('Configuration exportée'));
       return filePath;
     } catch (err) {
-      toast('error', `Export impossible : ${err.message}`);
+      toast('error', t('Export impossible : {raison}', { raison: err.message }));
       return null;
     }
   });
 
   ipcMain.handle('config:import', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: 'Importer une configuration',
+      title: t('Importer une configuration'),
       properties: ['openFile'],
-      filters: [{ name: 'Sauvegarde Hublink', extensions: ['json'] }]
+      filters: [{ name: t('Sauvegarde Hublink'), extensions: ['json'] }]
     });
     if (canceled || !filePaths || !filePaths[0]) return false;
 
@@ -1343,7 +1354,7 @@ function registerIpc() {
     try {
       data = JSON.parse(fs.readFileSync(filePaths[0], 'utf8'));
     } catch {
-      toast('error', 'Fichier illisible');
+      toast('error', t('Fichier illisible'));
       return false;
     }
 
@@ -1352,30 +1363,32 @@ function registerIpc() {
     // ce qui part et ce qui arrive avant de toucher à quoi que ce soit.
     const { response } = await dialog.showMessageBox(win, {
       type: 'warning',
-      buttons: ['Annuler', 'Remplacer'],
+      buttons: [t('Annuler'), t('Remplacer')],
       defaultId: 0,
       cancelId: 0,
-      message: 'Remplacer la configuration actuelle ?',
-      detail:
-        `Vos ${state.accounts.length} compte(s) et ${state.services.length} service(s) seront ` +
-        `remplacés par ceux du fichier (${(data.accounts || []).length} compte(s), ` +
-        `${(data.services || []).length} service(s)).\n\n` +
-        'Vos connexions restent sur cette machine : les services importés demanderont de se ' +
-        "reconnecter. Une copie de la configuration actuelle est conservée à côté du fichier " +
-        'de configuration.'
+      message: t('Remplacer la configuration actuelle ?'),
+      detail: t(
+        'Vos {comptes} compte(s) et {services} service(s) seront remplacés par ceux du fichier ({comptesFichier} compte(s), {servicesFichier} service(s)).\n\nVos connexions restent sur cette machine : les services importés demanderont de se reconnecter. Une copie de la configuration actuelle est conservée à côté du fichier de configuration.',
+        {
+          comptes: state.accounts.length,
+          services: state.services.length,
+          comptesFichier: (data.accounts || []).length,
+          servicesFichier: (data.services || []).length
+        }
+      )
     });
     if (response !== 1) return false;
 
     const r = store.importConfig(data);
     if (!r.ok) {
-      toast('error', r.erreur);
+      toast('error', t(r.erreur));
       return false;
     }
     views.destroyAll();
     pushState();
     await restoreActive();
     views.preloadKeepAwake();
-    toast('success', `${r.comptes} compte(s) et ${r.services} service(s) importés`);
+    toast('success', t('{comptes} compte(s) et {services} service(s) importés', { comptes: r.comptes, services: r.services }));
     return true;
   });
 
@@ -1422,6 +1435,31 @@ function registerIpc() {
   );
   ipcMain.handle('update:install', () => updates.install());
 
+  // Fenêtre « Nouveautés » au premier lancement d'une nouvelle version. La
+  // version n'est marquée vue qu'à la fermeture de la fenêtre : hors ligne, ou
+  // si l'affichage échoue, elle reviendra au démarrage suivant au lieu d'être
+  // perdue.
+  ipcMain.handle('app:whats-new', async () => {
+    const version = app.getVersion();
+    if (store.load().lastSeenVersion === version) return null;
+    const notes = await updates.notesFor(version, i18n.getLanguage());
+    if (!notes) return null;
+    // Rien à montrer pour cette version (build locale, notes vides) : inutile
+    // de reposer la question à chaque démarrage.
+    if (notes.missing || notes.points.length === 0) {
+      store.load().lastSeenVersion = version;
+      store.save();
+      return null;
+    }
+    return notes;
+  });
+
+  ipcMain.on('app:whats-new-seen', (_e, version) => {
+    if (version !== app.getVersion()) return;
+    store.load().lastSeenVersion = version;
+    store.save();
+  });
+
   ipcMain.handle('app:about', () => ({
     version: app.getVersion(),
     electron: process.versions.electron,
@@ -1446,14 +1484,14 @@ function registerExtensionIpc() {
     pushState();
     const results = await views.refreshAllExtensions();
     const failure = results.find((r) => r.id === record.id && !r.ok);
-    if (failure) toast('error', `${record.name} : ${failure.error}`);
-    else toast('success', `${record.name} ${record.version} installée`);
+    if (failure) toast('error', t('{nom} : {raison}', { nom: record.name, raison: failure.error }));
+    else toast('success', t('{nom} {version} installée', { nom: record.name, version: record.version }));
     return record;
   };
 
   ipcMain.handle('ext:install-folder', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: "Choisir le dossier de l'extension (décompressée)",
+      title: t("Choisir le dossier de l'extension (décompressée)"),
       properties: ['openDirectory']
     });
     if (canceled || !filePaths[0]) return null;
@@ -1467,8 +1505,8 @@ function registerExtensionIpc() {
 
   ipcMain.handle('ext:install-file', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-      title: 'Choisir un fichier .crx ou .zip',
-      filters: [{ name: 'Extension Chrome', extensions: ['crx', 'zip'] }],
+      title: t('Choisir un fichier .crx ou .zip'),
+      filters: [{ name: t('Extension Chrome'), extensions: ['crx', 'zip'] }],
       properties: ['openFile']
     });
     if (canceled || !filePaths[0]) return null;
@@ -1495,7 +1533,7 @@ function registerExtensionIpc() {
     extensions.remove(id);
     pushState();
     await views.refreshAllExtensions();
-    if (record) toast('success', `${record.name} désinstallée`);
+    if (record) toast('success', t('{nom} désinstallée', { nom: record.name }));
   });
 
   ipcMain.handle('ext:toggle', async (_e, { id, accountId, enabled }) => {
@@ -1534,38 +1572,38 @@ function buildMenu() {
   const template = [
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
     {
-      label: 'Fichier',
+      label: t('Fichier'),
       submenu: [
-        { label: 'Nouveau service', accelerator: `${mod}+N`, click: () => send('app:shortcut', { type: 'new-service' }) },
-        { label: 'Nouveau compte', accelerator: `${mod}+Shift+N`, click: () => send('app:shortcut', { type: 'new-account' }) },
+        { label: t('Nouveau service'), accelerator: `${mod}+N`, click: () => send('app:shortcut', { type: 'new-service' }) },
+        { label: t('Nouveau compte'), accelerator: `${mod}+Shift+N`, click: () => send('app:shortcut', { type: 'new-account' }) },
         { type: 'separator' },
         process.platform === 'darwin' ? { role: 'close' } : { role: 'quit' }
       ]
     },
-    { role: 'editMenu' },
+    { role: 'editMenu', label: t('Édition') },
     {
-      label: 'Affichage',
+      label: t('Affichage'),
       submenu: [
-        { label: 'Recharger', accelerator: `${mod}+R`, click: () => views.withCurrent((wc) => wc.reload()) },
+        { label: t('Recharger'), accelerator: `${mod}+R`, click: () => views.withCurrent((wc) => wc.reload()) },
         {
-          label: 'Recharger sans le cache',
+          label: t('Recharger sans le cache'),
           accelerator: `${mod}+Shift+R`,
           click: () => views.withCurrent((wc) => wc.reloadIgnoringCache())
         },
         {
-          label: 'Capturer la page entière',
+          label: t('Capturer la page entière'),
           accelerator: `${mod}+Shift+S`,
           click: () => send('app:shortcut', { type: 'capture-full' })
         },
         {
-          label: 'Capturer la zone visible',
+          label: t('Capturer la zone visible'),
           click: () => send('app:shortcut', { type: 'capture-visible' })
         },
         { type: 'separator' },
         {
-          label: 'Mettre en veille les services inactifs',
+          label: t('Mettre en veille les services inactifs'),
           submenu: [0, 5, 10, 15, 20, 30, 45, 60, 120].map((minutes) => ({
-            label: minutes === 0 ? 'Jamais' : `Après ${minutes} min`,
+            label: minutes === 0 ? t('Jamais') : t('Après {n} min', { n: minutes }),
             type: 'radio',
             checked: (store.load().sleepAfterMinutes || 0) === minutes,
             click: () => {
@@ -1581,25 +1619,25 @@ function buildMenu() {
           click: () => send('app:shortcut', { type: 'trame' })
         },
         {
-          label: 'Afficher / masquer le panneau',
+          label: t('Afficher / masquer le panneau'),
           accelerator: `${mod}+B`,
           click: () => send('app:shortcut', { type: 'toggle-sidebar' })
         },
         { type: 'separator' },
         {
-          label: 'Zoom avant',
+          label: t('Zoom avant'),
           accelerator: `${mod}+Plus`,
           click: () => views.withCurrent((wc) => wc.setZoomLevel(wc.getZoomLevel() + 0.5))
         },
         {
-          label: 'Zoom arrière',
+          label: t('Zoom arrière'),
           accelerator: `${mod}+-`,
           click: () => views.withCurrent((wc) => wc.setZoomLevel(wc.getZoomLevel() - 0.5))
         },
-        { label: 'Zoom normal', accelerator: `${mod}+0`, click: () => views.withCurrent((wc) => wc.setZoomLevel(0)) },
+        { label: t('Zoom normal'), accelerator: `${mod}+0`, click: () => views.withCurrent((wc) => wc.setZoomLevel(0)) },
         { type: 'separator' },
         {
-          label: 'Outils de développement du service',
+          label: t('Outils de développement du service'),
           accelerator: `${mod}+Alt+I`,
           click: () => views.withCurrent((wc) => wc.toggleDevTools())
         },
@@ -1609,10 +1647,10 @@ function buildMenu() {
     {
       label: 'Extensions',
       submenu: [
-        { label: 'Gérer les extensions', accelerator: `${mod}+Shift+E`, click: () => send('app:shortcut', { type: 'extensions' }) }
+        { label: t('Gérer les extensions'), accelerator: `${mod}+Shift+E`, click: () => send('app:shortcut', { type: 'extensions' }) }
       ]
     },
-    { role: 'windowMenu' }
+    { role: 'windowMenu', label: t('Fenêtre') }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -1630,6 +1668,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(async () => {
     nativeTheme.themeSource = store.load().theme || 'system';
+    i18n.setLanguage(store.load().language);
     registerIpc();
     buildMenu();
     createWindow();

@@ -4,6 +4,7 @@ import type { Download, FormatVideo, LoadedExtension, MenuItem, NavState, Servic
 import { cn, hostOf } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { TrameLogo } from '@/components/TrameLogo';
+import { t } from '@/lib/i18n';
 
 type Props = {
   service: Service | null;
@@ -105,8 +106,8 @@ function AddressInput({ url }: { url: string }) {
       }}
       spellCheck={false}
       autoComplete="off"
-      placeholder="Rechercher ou saisir une adresse"
-      aria-label="Adresse"
+      placeholder={t('Rechercher ou saisir une adresse')}
+      aria-label={t('Adresse')}
       aria-autocomplete="list"
       className="min-w-0 flex-1 bg-transparent text-[11px] text-shell-foreground outline-none placeholder:text-shell-muted"
     />
@@ -164,8 +165,8 @@ function DownloadsButton({ downloads, open }: { downloads: Download[]; open: boo
       ref={ref}
       type="button"
       onClick={() => api.panels.toggle('downloads', ancreDe(ref.current))}
-      title={actifs.length > 0 ? `${actifs.length} téléchargement(s) en cours` : 'Téléchargements'}
-      aria-label="Téléchargements"
+      title={actifs.length > 0 ? t('{n} téléchargement(s) en cours', { n: actifs.length }) : t('Téléchargements')}
+      aria-label={t('Téléchargements')}
       aria-expanded={open}
       className={cn(
         'relative mr-1 flex items-center gap-1.5 overflow-hidden rounded-md px-1.5 py-1 transition-all duration-150 active:scale-[0.97] motion-reduce:active:scale-100',
@@ -207,9 +208,9 @@ function HistoryButton({ open }: { open: boolean }) {
       variant="ghost"
       size="icon-sm"
       onClick={() => api.panels.toggle('history', ancreDe(ref.current))}
-      aria-label="Historique"
+      aria-label={t('Historique')}
       aria-expanded={open}
-      title="Historique"
+      title={t('Historique')}
       className={cn(
         'mr-1',
         open
@@ -237,9 +238,9 @@ function AmbianceSwitch({ actif }: { actif: boolean }) {
         'mr-1 flex h-7 items-center gap-2 rounded-md px-2 text-[11px] transition-colors hover:bg-shell-active',
         actif ? 'text-shell-foreground' : 'text-shell-muted hover:text-shell-foreground'
       )}
-      title={actif ? 'Couper l’ambiance' : 'Prolonger les couleurs de la vidéo derrière la page'}
+      title={actif ? t('Couper l’ambiance') : t('Prolonger les couleurs de la vidéo derrière la page')}
     >
-      Ambiance
+      {t('Ambiance')}
       <span
         className={cn(
           'relative h-3.5 w-6 shrink-0 rounded-full transition-colors duration-200',
@@ -290,16 +291,17 @@ function TelechargerVideo({ url }: { url: string }) {
     const dossier = await api.videos.dossier();
     const dernier = dossier.split(/[\\/]/).filter(Boolean).pop() ?? dossier;
     // Sur le disque, le dossier s'appelle « Downloads » même en français.
-    const nomDossier = dernier === 'Downloads' ? 'Téléchargements' : dernier;
+    const nomDossier = dernier === 'Downloads' ? t('Téléchargements') : dernier;
+    const formats = FORMATS.map((f) => ({ ...f, label: t(f.label) }));
     const picked = await api.popupMenu([
-      ...FORMATS.slice(0, 3),
+      ...formats.slice(0, 3),
       { type: 'separator' },
-      ...FORMATS.slice(3, 6),
+      ...formats.slice(3, 6),
       { type: 'separator' },
-      FORMATS[6],
+      formats[6],
       { type: 'separator' },
-      { id: '__ouvrir', label: `Dans « ${nomDossier} » — ouvrir le dossier` },
-      { id: '__changer', label: 'Changer de dossier…' }
+      { id: '__ouvrir', label: t('Dans « {dossier} » — ouvrir le dossier', { dossier: nomDossier }) },
+      { id: '__changer', label: t('Changer de dossier…') }
     ] as MenuItem[]);
     if (!picked) return;
     if (picked === '__ouvrir') return void api.videos.ouvrirDossier();
@@ -311,10 +313,10 @@ function TelechargerVideo({ url }: { url: string }) {
       type="button"
       onClick={ouvrir}
       className="mr-1 flex h-7 items-center gap-1.5 rounded-md px-2 text-[11px] text-shell-muted transition-colors hover:bg-shell-active hover:text-shell-foreground"
-      title="Télécharger la vidéo en MP4, MP3…"
+      title={t('Télécharger la vidéo en MP4, MP3…')}
     >
       <ArrowDownToLine className="size-3.5" />
-      Télécharger
+      {t('Télécharger')}
     </button>
   );
 }
@@ -390,11 +392,11 @@ export function Toolbar({
   // (`chrome.tabs.captureVisibleTab` n'existe pas) : la capture est native.
   const openCaptureMenu = async () => {
     const picked = await api.popupMenu([
-      { id: 'full-save', label: 'Page entière — enregistrer…' },
-      { id: 'full-copy', label: 'Page entière — copier' },
+      { id: 'full-save', label: t('Page entière — enregistrer…') },
+      { id: 'full-copy', label: t('Page entière — copier') },
       { type: 'separator' },
-      { id: 'visible-save', label: 'Zone visible — enregistrer…' },
-      { id: 'visible-copy', label: 'Zone visible — copier' }
+      { id: 'visible-save', label: t('Zone visible — enregistrer…') },
+      { id: 'visible-copy', label: t('Zone visible — copier') }
     ]);
     if (!picked) return;
     api.capturePage({ fullPage: picked.startsWith('full'), toClipboard: picked.endsWith('copy') });
@@ -404,15 +406,15 @@ export function Toolbar({
     const items: MenuItem[] = loadedExtensions.length
       ? loadedExtensions.map((ext) => ({
           id: ext.chromeId,
-          label: ext.hasPopup ? ext.name : `${ext.name} (pas de popup)`,
+          label: ext.hasPopup ? ext.name : t('{nom} (pas de popup)', { nom: ext.name }),
           enabled: ext.hasPopup
         }))
-      : [{ id: 'none', label: 'Aucune extension chargée', enabled: false }];
+      : [{ id: 'none', label: t('Aucune extension chargée'), enabled: false }];
 
     const picked = await api.popupMenu([
       ...items,
       { type: 'separator' },
-      { id: '__manage', label: 'Gérer les extensions…' }
+      { id: '__manage', label: t('Gérer les extensions…') }
     ]);
     if (picked === '__manage') onOpenExtensions();
     else if (picked && picked !== 'none') api.extensions.openPopup(picked);
@@ -433,9 +435,9 @@ export function Toolbar({
           size="icon-sm"
           onClick={onToggleSidebar}
           className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-          aria-label={sidebarCollapsed ? 'Afficher le panneau' : 'Masquer le panneau'}
+          aria-label={sidebarCollapsed ? t('Afficher le panneau') : t('Masquer le panneau')}
           aria-pressed={!sidebarCollapsed}
-          title={`${sidebarCollapsed ? 'Afficher' : 'Masquer'} le panneau (${isMac ? '⌘' : 'Ctrl+'}B)`}
+          title={`${sidebarCollapsed ? t('Afficher le panneau') : t('Masquer le panneau')} (${isMac ? '⌘' : 'Ctrl+'}B)`}
         >
           {sidebarCollapsed ? <PanelLeft /> : <PanelLeftClose />}
         </Button>
@@ -446,8 +448,8 @@ export function Toolbar({
           disabled={!nav?.canGoBack}
           onClick={() => api.nav.back()}
           className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-          aria-label="Précédent"
-          title="Précédent"
+          aria-label={t('Précédent')}
+          title={t('Précédent')}
         >
           <ArrowLeft />
         </Button>
@@ -457,8 +459,8 @@ export function Toolbar({
           disabled={!nav?.canGoForward}
           onClick={() => api.nav.forward()}
           className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-          aria-label="Suivant"
-          title="Suivant"
+          aria-label={t('Suivant')}
+          title={t('Suivant')}
         >
           <ArrowRight />
         </Button>
@@ -468,8 +470,8 @@ export function Toolbar({
           disabled={!service && !browserMode}
           onClick={() => (nav?.loading ? api.nav.stop() : api.nav.reload())}
           className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-          aria-label={nav?.loading ? 'Arrêter' : 'Recharger'}
-          title={nav?.loading ? 'Arrêter' : 'Recharger'}
+          aria-label={nav?.loading ? t('Arrêter') : t('Recharger')}
+          title={nav?.loading ? t('Arrêter') : t('Recharger')}
         >
           {nav?.loading ? <X /> : <RotateCw />}
         </Button>
@@ -479,8 +481,8 @@ export function Toolbar({
           disabled={!service && !browserMode}
           onClick={() => api.nav.home()}
           className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-          aria-label={browserMode ? "Page d'accueil" : "Revenir à l'URL du service"}
-          title={browserMode ? "Page d'accueil" : "Revenir à l'URL du service"}
+          aria-label={browserMode ? t("Page d'accueil") : t("Revenir à l'URL du service")}
+          title={browserMode ? t("Page d'accueil") : t("Revenir à l'URL du service")}
         >
           <Home />
         </Button>
@@ -491,7 +493,7 @@ export function Toolbar({
           <AddressInput url={nav?.url ?? ''} />
         ) : (
           <span className="truncate text-[11px] text-shell-muted" title={nav?.url ?? service?.url ?? ''}>
-            {nav?.url ?? service?.url ?? 'Aucun service sélectionné'}
+            {nav?.url ?? service?.url ?? t('Aucun service sélectionné')}
           </span>
         )}
         {browserMode && nav?.url && !nav.url.startsWith('hublink://') && (
@@ -502,9 +504,9 @@ export function Toolbar({
               'ml-auto shrink-0 transition-colors',
               isFavorite ? 'text-amber-500' : 'text-shell-muted hover:text-shell-foreground'
             )}
-            aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            aria-label={isFavorite ? t('Retirer des favoris') : t('Ajouter aux favoris')}
             aria-pressed={isFavorite}
-            title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            title={isFavorite ? t('Retirer des favoris') : t('Ajouter aux favoris')}
           >
             <Star className={cn('size-3.5', isFavorite && 'fill-current')} />
           </button>
@@ -517,8 +519,8 @@ export function Toolbar({
               'shrink-0 text-shell-muted transition-colors hover:text-shell-foreground',
               !browserMode && 'ml-auto'
             )}
-            aria-label="Ouvrir dans le navigateur"
-            title="Ouvrir dans le navigateur"
+            aria-label={t('Ouvrir dans le navigateur')}
+            title={t('Ouvrir dans le navigateur')}
           >
             <ExternalLink className="size-3.5" />
           </button>
@@ -529,14 +531,14 @@ export function Toolbar({
         {undoDelete && (
           <div className="animate-in fade-in slide-in-from-right-2 mr-1 flex items-center gap-2 rounded-full bg-shell-active px-2.5 py-1 text-[11px] duration-200">
             <span className="max-w-[160px] truncate text-shell-foreground">
-              {undoDelete} supprimé
+              {t('{nom} supprimé', { nom: undoDelete })}
             </span>
             <button
               type="button"
               onClick={onUndoDelete}
               className="shrink-0 font-medium text-shell-foreground underline underline-offset-2 hover:opacity-80"
             >
-              Annuler
+              {t('Annuler|suppression')}
             </button>
           </div>
         )}
@@ -548,8 +550,8 @@ export function Toolbar({
             size="icon-sm"
             onClick={() => api.media.togglePictureInPicture()}
             className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-            aria-label="Mode vidéo"
-            title="Mode vidéo — sortir la vidéo dans une fenêtre qui reste au-dessus"
+            aria-label={t('Mode vidéo')}
+            title={t('Mode vidéo — sortir la vidéo dans une fenêtre qui reste au-dessus')}
           >
             <PictureInPicture2 />
           </Button>
@@ -568,16 +570,16 @@ export function Toolbar({
                   ? 'text-red-500'
                   : 'text-shell-muted'
             )}
-            title="Installer cette extension dans Hublink"
+            title={t('Installer cette extension dans Hublink')}
           >
             <Blocks className="size-3.5" />
             {installState === 'en-cours'
-              ? 'Installation…'
+              ? t('Installation…')
               : installState === 'fait'
-                ? 'Installée'
+                ? t('Installée')
                 : installState === 'echec'
-                  ? 'Échec'
-                  : 'Installer'}
+                  ? t('Échec')
+                  : t('Installer')}
           </Button>
         )}
         {/* Sobre comme les autres boutons : seul le logo porte la couleur de l'IA.
@@ -608,8 +610,8 @@ export function Toolbar({
           disabled={!service && !browserMode}
           onClick={openCaptureMenu}
           className="text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-          aria-label="Capturer la page"
-          title="Capturer la page"
+          aria-label={t('Capturer la page')}
+          title={t('Capturer la page')}
         >
           <Camera />
         </Button>
@@ -618,8 +620,8 @@ export function Toolbar({
           size="icon-sm"
           onClick={openExtensionsMenu}
           className="relative text-shell-muted hover:bg-shell-active hover:text-shell-foreground"
-          aria-label="Extensions de ce client"
-          title="Extensions de ce client"
+          aria-label={t('Extensions de ce client')}
+          title={t('Extensions de ce client')}
         >
           <Puzzle />
           {loadedExtensions.length > 0 && (

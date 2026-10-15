@@ -9,7 +9,8 @@ import type {
   NavState,
   Service,
   Theme,
-  Update
+  Update,
+  WhatsNew
 } from '@/types';
 import { Button } from '@/components/ui/button';
 import { accountTints, useSyncedTheme } from '@/lib/theme';
@@ -22,6 +23,8 @@ import { ViewDialog } from '@/components/ViewDialog';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { Trame } from '@/components/Trame';
 import { EcranPartage } from '@/components/EcranPartage';
+import { WhatsNewDialog } from '@/components/WhatsNewDialog';
+import { getLanguage, setLanguage, t } from '@/lib/i18n';
 
 const api = window.hublink;
 const isMac = api.platform === 'darwin';
@@ -59,6 +62,7 @@ export default function App() {
   // l'utilisateur se demander pourquoi la page s'est rechargée.
   const [sleeping, setSleeping] = React.useState<string[]>([]);
   const [update, setUpdate] = React.useState<Update | null>(null);
+  const [whatsNew, setWhatsNew] = React.useState<WhatsNew | null>(null);
   // Téléchargements de la session. On n'en garde qu'une poignée : la liste
   // sert à retrouver un fichier qu'on vient de prendre, pas à tenir un
   // historique.
@@ -113,6 +117,10 @@ export default function App() {
   React.useEffect(() => api.nav.onState(setNav), []);
 
   React.useEffect(() => api.onUpdateAvailable(setUpdate), []);
+
+  React.useEffect(() => {
+    api.whatsNew().then(setWhatsNew);
+  }, []);
 
   React.useEffect(
     () =>
@@ -179,7 +187,12 @@ export default function App() {
   // Sans ce masquage, une modale s'ouvre derrière la page — on ne voit que
   // l'overlay sombre et plus aucun clic n'aboutit.
   const overlayOpen =
-    serviceDialog.open || accountDialog.open || settingsOpen || viewDialogOpen || trameOpen;
+    serviceDialog.open ||
+    accountDialog.open ||
+    settingsOpen ||
+    viewDialogOpen ||
+    trameOpen ||
+    whatsNew !== null;
   // La carte de Trame retourne dans son bouton en un peu plus d'une demi-seconde :
   // rendre la vue plus tôt la peindrait par-dessus l'animation.
   const sortieLente = React.useRef(false);
@@ -480,7 +493,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [selectByIndex, toggleSidebar, toggleTrame]);
 
-  if (!state) return <div className="grid h-full place-items-center text-shell-muted">Chargement…</div>;
+  // Fixée avant les enfants : ils lisent la langue au moment de leur rendu.
+  const lang = state ? setLanguage(state.language) : getLanguage();
+  if (!state) return <div className="grid h-full place-items-center text-shell-muted">{t('Chargement…')}</div>;
 
   return (
     <>
@@ -510,6 +525,7 @@ export default function App() {
 
         <div className="flex min-h-0 flex-1">
           <Sidebar
+            lang={lang}
             services={services}
             accounts={state.accounts}
             activeServiceId={serviceMarque}
@@ -578,12 +594,12 @@ export default function App() {
                 <div className="grid h-full place-items-center px-8 text-center">
                   <div className="flex max-w-sm flex-col items-center gap-3">
                     <PictureInPicture2 className="size-7 text-shell-muted" />
-                    <h2 className="text-base font-semibold">{videoSortie.titre} est dans sa fenêtre</h2>
+                    <h2 className="text-base font-semibold">{videoSortie.titre}{' '}{t('est dans sa fenêtre')}</h2>
                     <p className="text-xs leading-relaxed text-shell-muted">
-                      La page continue de tourner à côté, posée au-dessus des autres applications.
+                      {t('La page continue de tourner à côté, posée au-dessus des autres applications.')}
                     </p>
                     <Button size="sm" variant="outline" onClick={() => api.video.fermer()} className="mt-1 gap-2">
-                      <Minimize2 /> La ramener ici
+                      <Minimize2 />{' '}{t('La ramener ici')}
                     </Button>
                   </div>
                 </div>
@@ -591,13 +607,12 @@ export default function App() {
               {!service && !state.browserMode && !videoSortie && (
                 <div className="grid h-full place-items-center px-8 text-center">
                   <div className="flex max-w-sm flex-col items-center gap-3">
-                    <h2 className="text-base font-semibold">Aucun service</h2>
+                    <h2 className="text-base font-semibold">{t('Aucun service')}</h2>
                     <p className="text-xs leading-relaxed text-shell-muted">
-                      Ajoute une webapp — messagerie, intranet, outils. Chacune s'ouvre dans la session du
-                      compte que tu lui attribues.
+                      {t("Ajoute une webapp — messagerie, intranet, outils. Chacune s'ouvre dans la session du compte que tu lui attribues.")}
                     </p>
                     <Button size="sm" onClick={openNewService} className="mt-1 gap-2">
-                      <Plus /> Ajouter un service
+                      <Plus />{' '}{t('Ajouter un service')}
                     </Button>
                   </div>
                 </div>
@@ -660,6 +675,14 @@ export default function App() {
         services={state.services}
         isDark={isDark}
         onSelectService={selectService}
+      />
+
+      <WhatsNewDialog
+        notes={whatsNew}
+        onClose={() => {
+          if (whatsNew) api.whatsNewSeen(whatsNew.version);
+          setWhatsNew(null);
+        }}
       />
 
     </>

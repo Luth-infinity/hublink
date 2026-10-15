@@ -1,5 +1,6 @@
 const { BrowserWindow, desktopCapturer, ipcMain, screen } = require('electron');
 const path = require('path');
+const { t } = require('./i18n');
 
 /**
  * Le partage d'écran.
@@ -76,7 +77,7 @@ async function choisirSource(parent, origine, sonDemande) {
       show: false,
       backgroundColor: '#00000000',
       transparent: true,
-      title: 'Partager votre écran',
+      title: t('Partager votre écran'),
       webPreferences: {
         preload: path.join(__dirname, '..', 'preload', 'shell.js'),
         contextIsolation: true,

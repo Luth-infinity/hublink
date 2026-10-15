@@ -2,6 +2,7 @@ import * as React from 'react';
 import { XIcon } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { cn } from '@/lib/utils';
+import { t } from '@/lib/i18n';
 
 const Dialog = (props: React.ComponentProps<typeof DialogPrimitive.Root>) => (
   <DialogPrimitive.Root data-slot="dialog" {...props} />
@@ -50,7 +51,7 @@ function DialogContent({
             className="absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:outline-hidden [&_svg]:size-4"
           >
             <XIcon />
-            <span className="sr-only">Fermer</span>
+            <span className="sr-only">{t('Fermer')}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>

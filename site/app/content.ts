@@ -202,8 +202,8 @@ export const fr: Contenu = {
     titre: 'Prenez-le, il est libre.',
     sous: (win, mac) =>
       win === mac
-        ? `Gratuit, sous licence MIT, sans compte à créer. Version ${win} sur Windows et macOS.`
-        : `Gratuit, sous licence MIT, sans compte à créer. Version ${win} sur Windows, ${mac} sur macOS.`,
+        ? `Gratuit, sous licence MIT, sans compte à créer, en français et en anglais. Version ${win} sur Windows et macOS.`
+        : `Gratuit, sous licence MIT, sans compte à créer, en français et en anglais. Version ${win} sur Windows, ${mac} sur macOS.`,
     mac: 'macOS — Apple Silicon',
     win: 'Windows — 64 bits',
     noteAvant: 'Mac Intel, Windows ARM et les versions précédentes sont ',
@@ -226,7 +226,8 @@ export const fr: Contenu = {
   },
   changelog: {
     titre: 'Ce qui a changé.',
-    sous: (n) => `Les ${n} dernières versions, telles que publiées sur GitHub.`,
+    sous: (n) =>
+      `Les ${n} dernières versions, telles que publiées sur GitHub. Hublink vous montre les nouveautés au premier lancement après chaque mise à jour.`,
     actuelle: 'actuelle',
     vide: 'Corrections et ajustements.',
     detail: 'Détail et fichiers'
@@ -385,8 +386,8 @@ export const en: Contenu = {
     titre: 'Take it, it is free.',
     sous: (win, mac) =>
       win === mac
-        ? `Free, MIT licensed, no account to create. Version ${win} on Windows and macOS.`
-        : `Free, MIT licensed, no account to create. Version ${win} on Windows, ${mac} on macOS.`,
+        ? `Free, MIT licensed, no account to create, in English and French. Version ${win} on Windows and macOS.`
+        : `Free, MIT licensed, no account to create, in English and French. Version ${win} on Windows, ${mac} on macOS.`,
     mac: 'macOS — Apple Silicon',
     win: 'Windows — 64-bit',
     noteAvant: 'Intel Macs, ARM Windows and earlier versions are ',
@@ -407,7 +408,8 @@ export const en: Contenu = {
   },
   changelog: {
     titre: 'What changed.',
-    sous: (n) => `The last ${n} releases, as published on GitHub.`,
+    sous: (n) =>
+      `The last ${n} releases, as published on GitHub. Hublink shows you what is new the first time it starts after each update.`,
     actuelle: 'current',
     vide: 'Fixes and adjustments.',
     detail: 'Details and files'
