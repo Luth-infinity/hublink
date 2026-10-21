@@ -94,6 +94,10 @@ class ViewManager {
     this.sessions = new Map(); // accountId -> { session, ready }
     this.current = null;
     this.currentId = null;
+    // Afficher une vue attend sa session, longue au démarrage (extensions) :
+    // un clic arrivé entre-temps doit l'emporter. Chaque demande prend un
+    // numéro, et seule la dernière a le droit de poser sa vue.
+    this.demande = 0;
     this.bounds = { x: 0, y: 0, width: 0, height: 0 };
     // Une WebContentsView est une vue native : elle se peint TOUJOURS au-dessus
     // du HTML du shell. Une modale React serait donc invisible derrière la page.
@@ -314,6 +318,9 @@ class ViewManager {
     if (!service) return null;
 
     const ses = await this.ensureSession(service.accountId);
+    // Deux clics pendant l'attente créeraient deux pages pour un même service,
+    // dont une orpheline qui continuerait de tourner (et de sonner).
+    if (this.views.has(serviceId)) return this.views.get(serviceId);
     const view = new WebContentsView({
       webPreferences: {
         session: ses,
@@ -351,6 +358,7 @@ class ViewManager {
     if (!tab) return null;
 
     const ses = await this.ensureSession(BROWSER_ACCOUNT);
+    if (this.views.has(tabId)) return this.views.get(tabId);
     const view = new WebContentsView({
       webPreferences: {
         session: ses,
@@ -652,6 +660,7 @@ class ViewManager {
   }
 
   async showTab(tabId) {
+    const demande = ++this.demande;
     // Le service est parti dans la fenêtre vidéo : le rappeler ici, c'est
     // vouloir le revoir en entier. On referme donc la vidéo d'abord.
     if (this.sortieVideo === tabId && this.ramenerVideo) await this.ramenerVideo();
@@ -659,6 +668,7 @@ class ViewManager {
     // Un onglet n'est jamais partagé : le mode navigateur défait le partage.
     this.finirSplit();
     const view = await this.ensureTabView(tabId);
+    if (demande !== this.demande) return;
 
     // Changer de vue sans quitter le plein écran laisserait la fenêtre pleine
     // avec le shell dedans.
@@ -839,6 +849,7 @@ class ViewManager {
   }
 
   async show(serviceId) {
+    const demande = ++this.demande;
     // Le service est parti dans la fenêtre vidéo : le rappeler ici, c'est
     // vouloir le revoir en entier. On referme donc la vidéo d'abord.
     if (this.sortieVideo === serviceId && this.ramenerVideo) await this.ramenerVideo();
@@ -855,6 +866,10 @@ class ViewManager {
       this.split.ids[this.split.actif] = serviceId;
     }
     const view = await this.ensureView(serviceId);
+    // Un clic plus récent est passé pendant l'attente : c'est lui qu'on veut
+    // voir. Poser cette vue-ci afficherait une page que le panneau ne surligne
+    // pas, et recliquer le service surligné ne ferait que recharger l'autre.
+    if (demande !== this.demande) return;
 
     // Changer de vue sans quitter le plein écran laisserait la fenêtre pleine
     // avec le shell dedans.
@@ -909,6 +924,9 @@ class ViewManager {
   async ouvrirACote(serviceId) {
     if (!this.window || !this.currentId || !store.getService(this.currentId)) return this.show(serviceId);
     if (serviceId === this.currentId) return;
+    // Le partage a déjà réparti les côtés : il doit aller au bout, mais
+    // annule un affichage encore en attente.
+    this.demande++;
     if (!this.split) this.split = { ids: { gauche: this.currentId, droite: null }, actif: 'gauche' };
     const cote = this.coteDe(serviceId) || ViewManager.autre(this.split.actif);
     const ancien = this.split.ids[cote];
@@ -1078,6 +1096,7 @@ class ViewManager {
   }
 
   hide() {
+    this.demande++;
     this.finirSplit();
     this.quitterPleinEcran(this.pleinEcran);
     if (this.current && this.window) this.window.contentView.removeChildView(this.current);
