@@ -37,6 +37,12 @@ Les binaires attendus par le site sont nommés `Hublink-<version>-arm64.dmg` et
 Depuis un Mac, `npm run dist:mac` reste évidemment possible — et `npm run dist:win`
 fonctionne aussi de là (electron-builder embarque NSIS). L'inverse est impossible.
 
+**NSIS est épinglé sur le jeu d'outils 1.2.1** (`toolsets.nsis` dans
+`electron-builder.yml`). Celui par défaut (NSIS 3.0.4) n'a qu'un `makensis` Intel : sur
+un Mac sans Rosetta, `dist:win` échouait sur « spawn Unknown system error -86 ». Le
+1.2.1 (NSIS 3.12) a un binaire Apple Silicon ; les installeurs de la 0.6.9, les
+premiers construits avec, font la même taille que ceux de la 0.6.8 à 70 Ko près.
+
 ## Procédure de release
 
 L'ordre compte : le site se redéploie automatiquement au push sur `main`, donc pousser

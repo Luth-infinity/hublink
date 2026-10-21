@@ -56,6 +56,12 @@ nsis:
   perMachine: false
   artifactName: ${productName}-Setup-${version}-${arch}.${ext}
 
+# L'ancien jeu d'outils NSIS (3.0.4, celui par defaut) n'a qu'un makensis
+# Intel : sur un Mac sans Rosetta, la construction Windows echoue (erreur -86).
+# Le 1.2.1 (NSIS 3.12) en a un pour Apple Silicon.
+toolsets:
+  nsis: "1.2.1"
+
 linux:
   target: [AppImage]
   category: Network
