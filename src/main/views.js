@@ -1,4 +1,4 @@
-const { app, WebContentsView, dialog, screen, session: electronSession } = require('electron');
+const { app, WebContentsView, dialog, screen, shell, session: electronSession } = require('electron');
 const path = require('path');
 const store = require('./store');
 const { t } = require('./i18n');
@@ -839,11 +839,10 @@ class ViewManager {
       if (isAuthUrl(url)) {
         return { action: 'allow', overrideBrowserWindowOptions: popupOptions({ width: 520, height: 720 }) };
       }
-      // Autrefois vers le navigateur système. L'application a désormais le
-      // sien : on y ouvre un onglet plutôt que de faire sortir l'utilisateur.
-      // La session reste neutre — un lien inconnu n'a pas à emprunter
-      // l'identité d'un client.
-      if (isExternalUrl(url)) this.onEvent('tab-requested', { url, sourceId: serviceId });
+      // Option décochée : le lien sort vers le navigateur système, comme
+      // l'annonce le réglage. L'onglet intégré donnait l'impression que
+      // l'option ne servait à rien (Teams).
+      if (isExternalUrl(url)) shell.openExternal(url);
       return { action: 'deny' };
     });
   }

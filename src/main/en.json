@@ -79,7 +79,7 @@
   "Clair": "Light",
   "Client A": "Client A",
   "Clique sur la vignette pour importer un logo.": "Click the thumbnail to import a logo.",
-  "Coché, un lien sortant s'ouvre dans la session de ce compte — utile pour l'intranet d'un client, où il faut être identifié. Sinon il part dans un onglet du navigateur intégré, en session neutre.": "When checked, an outgoing link opens in this account's session — handy for a client's intranet, where you need to be signed in. Otherwise it goes to a tab of the built-in browser, in a neutral session.",
+  "Coché, un lien sortant s'ouvre dans la session de ce compte — utile pour l'intranet d'un client, où il faut être identifié. Sinon il part dans votre navigateur habituel.": "When checked, an outgoing link opens in this account's session — handy for a client's intranet, where you need to be signed in. Otherwise it goes to your usual browser.",
   "Code de la couleur": "Colour code",
   "Code source": "Source code",
   "Coller": "Paste",
