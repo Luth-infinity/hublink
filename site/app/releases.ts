@@ -29,7 +29,7 @@ function summarize(body: string): string[] {
   return body
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith('#') && !l.startsWith('**') && !l.startsWith('>'))
+    .filter((l) => l && !l.startsWith('#') && !l.startsWith('**') && !l.startsWith('>') && !/^(!\[|<img|<video|https:\/\/)/i.test(l))
     .map((l) => l.replace(/^[-*]\s*/, ''))
     .filter((l) => l.length > 25 && !/^`|clic droit|Binaires/i.test(l))
     .slice(0, 4);

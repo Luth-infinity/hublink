@@ -21,7 +21,7 @@ export function WhatsNewDialog({ notes, onClose }: Props) {
 
   return (
     <Dialog open={notes !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className={notes?.media?.length ? 'sm:max-w-xl' : 'sm:max-w-md'}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="size-4" /> {t('Nouveautés de la {version}', { version: notes?.version ?? '' })}
@@ -29,13 +29,23 @@ export function WhatsNewDialog({ notes, onClose }: Props) {
           <DialogDescription>{t('Publiée le {date}', { date })}</DialogDescription>
         </DialogHeader>
 
-        <ul className="grid max-h-[50vh] gap-3 overflow-y-auto text-sm leading-relaxed">
+        <div className="grid max-h-[60vh] gap-4 overflow-y-auto">
+        {/* Une vidéo joue comme un GIF : muette, en boucle, sans attendre de clic. */}
+        {notes?.media?.map((m) =>
+          m.type === 'video' ? (
+            <video key={m.url} src={m.url} autoPlay muted loop playsInline controls className="w-full rounded-md border border-border" />
+          ) : (
+            <img key={m.url} src={m.url} alt="" className="w-full rounded-md border border-border" />
+          )
+        )}
+        <ul className="grid gap-3 text-sm leading-relaxed">
           {notes?.points.map((point) => (
             <li key={point} className="border-l-2 border-border pl-3">
               {point}
             </li>
           ))}
         </ul>
+        </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => notes && window.hublink.openExternal(notes.page)}>

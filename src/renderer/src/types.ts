@@ -166,7 +166,8 @@ export type Shortcut = { type: string; index?: number };
 
 /** Version publiée plus récente que celle installée. */
 export type Update = { version: string; url: string; page: string; notes: string };
-export type WhatsNew = { version: string; date: string; page: string; points: string[] };
+export type WhatsNewMedia = { type: 'image' | 'video'; url: string };
+export type WhatsNew = { version: string; date: string; page: string; points: string[]; media?: WhatsNewMedia[] };
 
 /** Une action ne peut pas traverser l'IPC : on décrit, le principal exécute. */
 export type ToastAction =

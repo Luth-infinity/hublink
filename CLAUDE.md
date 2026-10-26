@@ -53,6 +53,16 @@ le bump de version avant que les binaires n'existent afficherait des liens morts
 3. Créer une branche, la pousser.
 4. `gh release create vX.Y.Z --draft --target <sha>` avec les binaires **et
    `release/latest.yml`** — ce fichier est indispensable à la mise à jour automatique.
+   **Chaque release porte un GIF léger de sa nouveauté principale**, montré en haut de
+   la fenêtre « Nouveautés » : un petit motion design, **pas une capture d'écran**,
+   sans texte pour servir aux deux langues. Il se fait dans `Apps/hublink-motion`
+   (Remotion, hors de ce dépôt : une composition par nouveauté, 640 × 360) avec
+   `npm run gif <composition>`, qui passe par `scripts/gif.sh` (12 images/s, moins de
+   2 Mo ; le premier, `liens-navigateur`, pèse 164 Ko). Le GIF est joint à la
+   release sous le nom `nouveaute.gif`, et appelée en première ligne du corps par
+   `![](https://github.com/Luth-infinity/hublink/releases/download/vX.Y.Z/nouveaute.gif)`.
+   `notesFor` la sort des puces, `summarize()` du site l'écarte. Pas de GIF pour une
+   version de pur correctif sans rien à montrer.
 5. Fusionner sur `main`, pousser.
 6. `gh release edit vX.Y.Z --draft=false`.
 7. Vérifier : liens de téléchargement en 200, bandeau du site, changelog.

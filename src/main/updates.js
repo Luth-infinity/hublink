@@ -128,6 +128,26 @@ function install() {
 }
 
 /**
+ * Une ligne du corps de release qui n'est qu'un média : `![](url)`, la balise
+ * `<img>` que GitHub écrit quand on glisse une image, ou l'adresse nue qu'il
+ * écrit pour une vidéo (`github.com/user-attachments/assets/…`). Un GIF est
+ * une image. Seul le https passe, comme le reste du contenu distant.
+ */
+function mediaOf(ligne) {
+  const url =
+    (ligne.match(/^!\[[^\]]*\]\((https:\/\/[^\s)]+)/) ||
+      ligne.match(/^<(?:img|video)\b[^>]*\bsrc="(https:\/\/[^"]+)"/i) ||
+      ligne.match(/^(https:\/\/\S+)$/))?.[1];
+  if (!url) return null;
+  const chemin = url.split(/[?#]/)[0].toLowerCase();
+  if (/\.(mp4|webm|mov)$/.test(chemin) || /^<video/i.test(ligne)) return { type: 'video', url };
+  if (/\.(gif|png|jpe?g|webp|avif)$/.test(chemin) || !/^https:\/\/\S+$/.test(ligne)) return { type: 'image', url };
+  // Adresse nue sans extension : GitHub n'en écrit ainsi que pour les vidéos.
+  if (/^https:\/\/github\.com\/user-attachments\/assets\//.test(url)) return { type: 'video', url };
+  return null;
+}
+
+/**
  * Notes de la version installée, pour la fenêtre « Nouveautés ».
  *
  * Même source que le changelog du site : le corps de la release GitHub. On
@@ -150,9 +170,14 @@ async function notesFor(version, lang = 'fr') {
     const points = partie
       .split('\n')
       .map((l) => l.trim())
-      .filter((l) => l && !l.startsWith('#') && !l.startsWith('**') && !l.startsWith('>'))
+      .filter((l) => l && !l.startsWith('#') && !l.startsWith('**') && !l.startsWith('>') && !mediaOf(l))
       .map((l) => l.replace(/^[-*]\s*/, ''));
-    return { version, date: release.published_at, page: release.html_url, points };
+    // Les médias se cherchent dans tout le corps : posés une fois avant
+    // « ## English », ils valent pour les deux langues.
+    const media = [
+      ...new Map(body.split('\n').map((l) => mediaOf(l.trim())).filter(Boolean).map((m) => [m.url, m])).values()
+    ];
+    return { version, date: release.published_at, page: release.html_url, points, media };
   } catch {
     return null;
   }
