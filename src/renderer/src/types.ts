@@ -455,6 +455,11 @@ declare global {
       capturePage(options: { fullPage: boolean; toClipboard: boolean }): Promise<string | null>;
       onToast(handler: (toast: Toast) => void): () => void;
       onShortcut(handler: (shortcut: Shortcut) => void): () => void;
+      find: {
+        chercher(texte: string, options?: { nouvelle?: boolean; arriere?: boolean }): void;
+        arreter(): void;
+        onResultat(handler: (resultat: { actif: number; total: number }) => void): () => void;
+      };
     };
   }
 }

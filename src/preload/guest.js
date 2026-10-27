@@ -126,6 +126,11 @@ if (window.top === window) {
     } else if (event.key.toLowerCase() === 'j' && !event.shiftKey) {
       event.preventDefault();
       ipcRenderer.send('guest:shortcut', { type: 'trame' });
+    } else if (event.key.toLowerCase() === 'f' && !event.shiftKey && !event.altKey && !event.defaultPrevented) {
+      // Une page qui a sa propre recherche (Google Docs, Notion, Slack…)
+      // l'a déjà prise en charge et marqué l'événement : on la laisse faire.
+      event.preventDefault();
+      ipcRenderer.send('guest:shortcut', { type: 'find' });
     }
   });
 }

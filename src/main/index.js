@@ -1564,7 +1564,51 @@ function registerExtensionIpc() {
     }
   });
 
-  ipcMain.on('guest:shortcut', (_e, payload) => send('app:shortcut', payload));
+  ipcMain.on('guest:shortcut', (_e, payload) => {
+    // Le champ de recherche est dans le shell : il lui faut le clavier, que la
+    // page tenait au moment du raccourci.
+    if (payload.type === 'find' && win && !win.isDestroyed()) win.webContents.focus();
+    send('app:shortcut', payload);
+  });
+
+  // Recherche dans la page affichée — le côté actif en écran partagé, puisque
+  // c'est `views.current`. Chromium ne dessine aucune barre : il surligne, et
+  // compte les résultats.
+  const suivies = new WeakSet();
+  // La page où l'on cherche : changer de service laisserait sinon ses
+  // surlignages derrière soi.
+  let cherchee = null;
+  const lacher = (mode) => {
+    if (cherchee && !cherchee.isDestroyed()) cherchee.stopFindInPage(mode);
+    cherchee = null;
+  };
+  ipcMain.on('find:chercher', (_e, { texte, nouvelle, arriere }) => {
+    views.withCurrent((wc) => {
+      if (cherchee !== wc) lacher('clearSelection');
+      cherchee = wc;
+      if (!suivies.has(wc)) {
+        suivies.add(wc);
+        wc.on('found-in-page', (_ev, r) => {
+          // Une page restée en arrière-plan n'a plus à parler à la barre.
+          if (r.finalUpdate && views.current?.webContents === wc) {
+            send('find:resultat', { actif: r.activeMatchOrdinal, total: r.matches });
+          }
+        });
+      }
+      if (!texte) {
+        lacher('clearSelection');
+        send('find:resultat', { actif: 0, total: 0 });
+        return;
+      }
+      wc.findInPage(texte, { forward: !arriere, findNext: Boolean(nouvelle) });
+    });
+  });
+  // Fermer garde la sélection du résultat et rend le clavier à la page : on
+  // cherchait pour y faire quelque chose.
+  ipcMain.on('find:arreter', () => {
+    lacher('activateSelection');
+    views.redonnerLeFocus();
+  });
 }
 
 function buildMenu() {
@@ -1612,6 +1656,15 @@ function buildMenu() {
               pushState();
             }
           }))
+        },
+        {
+          label: t('Rechercher dans la page'),
+          accelerator: `${mod}+F`,
+          registerAccelerator: false,
+          click: () => {
+            win?.webContents.focus();
+            send('app:shortcut', { type: 'find' });
+          }
         },
         {
           label: 'Trame',

@@ -24,6 +24,7 @@ import { SettingsDialog } from '@/components/SettingsDialog';
 import { Trame } from '@/components/Trame';
 import { EcranPartage } from '@/components/EcranPartage';
 import { WhatsNewDialog } from '@/components/WhatsNewDialog';
+import { Recherche } from '@/components/Recherche';
 import { getLanguage, setLanguage, t } from '@/lib/i18n';
 
 const api = window.hublink;
@@ -370,6 +371,20 @@ export default function App() {
   // Pas de Trame en mode navigateur : elle lit les services d'un client, et un
   // onglet n'appartient à aucun.
   const browserMode = state?.browserMode ?? false;
+  // Recherche dans la page : null = fermée, sinon un compteur relancé à chaque
+  // Ctrl+F pour reprendre le champ.
+  const [recherche, setRecherche] = React.useState<number | null>(null);
+  const chercher = React.useCallback(() => setRecherche((n) => (n ?? 0) + 1), []);
+  // Changer de page ferme la barre : ses résultats parlaient de l'autre.
+  const pageAffichee = state?.browserMode ? state.activeTabId : state?.activeServiceId;
+  const rechercheOuverte = React.useRef(false);
+  rechercheOuverte.current = recherche !== null;
+  React.useEffect(() => {
+    if (!rechercheOuverte.current) return;
+    api.find.arreter();
+    setRecherche(null);
+  }, [pageAffichee]);
+
   const toggleTrame = React.useCallback(() => {
     if (!browserMode) setTrameOpen((o) => !o);
   }, [browserMode]);
@@ -459,6 +474,7 @@ export default function App() {
         else if (shortcut.type === 'capture-visible') captureVisible();
         else if (shortcut.type === 'select-service') selectByIndex(shortcut.index ?? -1);
         else if (shortcut.type === 'trame') toggleTrame();
+        else if (shortcut.type === 'find') chercher();
       }),
     [
       openNewService,
@@ -487,11 +503,14 @@ export default function App() {
       } else if (event.key.toLowerCase() === 'j') {
         event.preventDefault();
         toggleTrame();
+      } else if (event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        chercher();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectByIndex, toggleSidebar, toggleTrame]);
+  }, [selectByIndex, toggleSidebar, toggleTrame, chercher]);
 
   // Fixée avant les enfants : ils lisent la langue au moment de leur rendu.
   const lang = state ? setLanguage(state.language) : getLanguage();
@@ -618,6 +637,7 @@ export default function App() {
                 </div>
               )}
             </div>
+            {recherche !== null && <Recherche appel={recherche} onClose={() => setRecherche(null)} />}
           </main>
         </div>
       </div>

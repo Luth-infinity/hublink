@@ -207,5 +207,10 @@ contextBridge.exposeInMainWorld('hublink', {
   setBadge: (payload) => ipcRenderer.send('app:badge', payload),
   capturePage: (options) => invoke('capture:page', options),
   onToast: (handler) => on('app:toast', handler),
-  onShortcut: (handler) => on('app:shortcut', handler)
+  onShortcut: (handler) => on('app:shortcut', handler),
+  find: {
+    chercher: (texte, options = {}) => ipcRenderer.send('find:chercher', { texte, ...options }),
+    arreter: () => ipcRenderer.send('find:arreter'),
+    onResultat: (handler) => on('find:resultat', handler)
+  }
 });
