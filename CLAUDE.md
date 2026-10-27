@@ -49,6 +49,8 @@ L'ordre compte : le site se redéploie automatiquement au push sur `main`, donc 
 le bump de version avant que les binaires n'existent afficherait des liens morts.
 
 1. Bump `package.json` + `VERSION` dans `site/app/vitrine.tsx`, commit.
+   **Pas de `.10`** : après x.y.9 vient x.(y+1).0 (0.6.9 → 0.7.0). Les 0.6.10 et
+   0.6.11 sont des exceptions publiées par erreur.
 2. `npm run dist:win` (et `dist:mac` sur un Mac).
 3. Créer une branche, la pousser.
 4. `gh release create vX.Y.Z --draft --target <sha>` avec les binaires **et
