@@ -1109,3 +1109,65 @@ if (window.top === window) {
     if (e) ipcRenderer.send('video:etat', e);
   });
 }
+
+/**
+ * Le Chrome Web Store grise son bouton « Ajouter à Chrome » hors de Chrome, et
+ * le bouton d'installation de la barre passe inaperçu à côté. On rend celui de
+ * la fiche cliquable et on le confie à l'installeur de Hublink. Le principal
+ * relit l'extension dans l'adresse de la page, pas dans ce message.
+ */
+if (location.hostname === 'chromewebstore.google.com') {
+  const fr = () => /^fr/i.test(document.documentElement.lang || navigator.language);
+  const libelle = (b, texte) => {
+    const span = [...b.querySelectorAll('span')].reverse().find((s) => !s.children.length && s.textContent.trim());
+    if (span) span.textContent = texte;
+  };
+  let etat = 'repos';
+  const textes = () =>
+    fr()
+      ? { repos: 'Ajouter à Hublink', cours: 'Installation…', fait: 'Ajoutée à Hublink', echec: 'Échec, réessayer' }
+      : { repos: 'Add to Hublink', cours: 'Installing…', fait: 'Added to Hublink', echec: 'Failed, try again' };
+  const bouton = () =>
+    location.pathname.startsWith('/detail/')
+      ? document.querySelector('button[data-hublink-store]') ||
+        [...document.querySelectorAll('button[disabled]')].find((b) => /Chrome/.test(b.textContent))
+      : null;
+  // La page se redessine seule (navigation interne, changement de fiche) : on
+  // repasse à chaque mutation, au plus une fois par image.
+  let prevu = false;
+  let fiche = location.pathname;
+  const appliquer = () => {
+    prevu = false;
+    if (location.pathname !== fiche) {
+      fiche = location.pathname;
+      etat = 'repos';
+    }
+    const b = bouton();
+    if (!b) return;
+    b.dataset.hublinkStore = '';
+    b.disabled = etat === 'cours' || etat === 'fait';
+    const voulu = textes()[etat];
+    if (b.textContent.trim() !== voulu) libelle(b, voulu);
+  };
+  new MutationObserver(() => {
+    if (!prevu) (prevu = true), requestAnimationFrame(appliquer);
+  }).observe(document, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['disabled'] });
+
+  // Capturé avant le gestionnaire de Google, qui ouvrirait sa propre réponse.
+  document.addEventListener(
+    'click',
+    async (event) => {
+      const b = event.target.closest?.('button[data-hublink-store]');
+      if (!b) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (etat === 'cours' || etat === 'fait') return;
+      etat = 'cours';
+      appliquer();
+      const r = await ipcRenderer.invoke('ext:install-fiche').catch(() => null);
+      etat = r ? 'fait' : 'echec';
+      appliquer();
+    },
+    true
+  );
+}

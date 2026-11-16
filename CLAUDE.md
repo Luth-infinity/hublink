@@ -664,6 +664,12 @@ session : la lib exige un onglet de la même session.
 Le menu Extensions est dans le pied du panneau latéral ; son panneau vit dans le
 calque. Le popup s'ancre sur le bouton qui l'ouvre (`activateClick` de la lib).
 
+**Le bouton « Ajouter à Chrome » de la fiche installe dans Hublink** (0.7.2). Le
+Store le grise hors de Chrome, et le bouton de la barre passait inaperçu : on a
+cru que Dashlane ne s'installait pas. `guest.js` le réactive, le renomme
+« Ajouter à Hublink » et capture son clic (`ext:install-fiche`) ; le principal
+relit l'identifiant dans l'adresse du cadre qui demande, jamais dans le message.
+
 ## Contrainte structurante : la vue web est native
 
 Une `WebContentsView` **se peint au-dessus du HTML du shell**, quoi qu'on fasse. Tout ce

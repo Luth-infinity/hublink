@@ -1565,13 +1565,24 @@ function registerExtensionIpc() {
     }
   });
 
-  ipcMain.handle('ext:install-store', async (_e, idOrUrl) => {
+  const installerDuStore = async (idOrUrl) => {
     try {
       return await afterInstall(await extensions.installFromStore(idOrUrl));
     } catch (err) {
       toast('error', err.message);
       return null;
     }
+  };
+  ipcMain.handle('ext:install-store', (_e, idOrUrl) => installerDuStore(idOrUrl));
+
+  // Le bouton « Ajouter à Chrome » de la fiche, rendu cliquable par guest.js.
+  // L'extension se lit dans l'adresse de la page qui demande, pas dans le
+  // message : n'importe quelle page reçoit ce preload.
+  ipcMain.handle('ext:install-fiche', (e) => {
+    const m = (e.senderFrame?.url || '').match(
+      /^https:\/\/chromewebstore\.google\.com\/detail\/(?:[^/?#]+\/)?([a-p]{32})(?:[/?#]|$)/
+    );
+    return m ? installerDuStore(m[1]) : null;
   });
 
   ipcMain.handle('ext:remove', async (_e, id) => {
