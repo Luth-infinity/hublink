@@ -12,7 +12,7 @@ Les commentaires expliquent *pourquoi*, pas *quoi*.
 
 | | Version |
 |---|---|
-| Windows | **0.7.4** |
+| Windows | **0.7.5** |
 | macOS | **0.7.4** |
 
 Les deux plateformes sont à parité, et **le restent sans rien faire** depuis la 0.5.2 :
