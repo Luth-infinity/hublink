@@ -98,7 +98,9 @@ contextBridge.exposeInMainWorld('hublink', {
     remove: (id) => invoke('ext:remove', id),
     toggle: (id, accountId, enabled) => invoke('ext:toggle', { id, accountId, enabled }),
     loaded: (accountId) => invoke('ext:loaded', accountId),
-    openPopup: (chromeExtensionId) => invoke('ext:popup', chromeExtensionId)
+    icones: () => invoke('ext:icones'),
+    openPopup: (chromeExtensionId, anchorRect, alignment) =>
+      invoke('ext:popup', { chromeExtensionId, anchorRect, alignment })
   },
 
   setContentBounds: (bounds) => ipcRenderer.send('layout:bounds', bounds),
@@ -184,6 +186,7 @@ contextBridge.exposeInMainWorld('hublink', {
   },
   runToastAction: (action) => ipcRenderer.send('overlay:action', action),
   openAccountsSettings: () => ipcRenderer.send('settings:accounts'),
+  openExtensionsSettings: () => ipcRenderer.send('settings:extensions'),
 
   setTheme: (theme) => invoke('app:set-theme', theme),
   setLanguage: (language) => invoke('app:set-language', language),

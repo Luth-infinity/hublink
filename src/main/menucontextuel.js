@@ -16,7 +16,7 @@ function extrait(texte) {
   return net.length > MAX_EXTRAIT ? `${net.slice(0, MAX_EXTRAIT)}…` : net;
 }
 
-function brancher(wc, { fenetre, onEvent, rechercher, dev = false }) {
+function brancher(wc, { fenetre, onEvent, rechercher, extensions = () => [], dev = false }) {
   wc.on('context-menu', (_e, params) => {
     const items = [];
     const ajouter = (opts) => items.push(new MenuItem(opts));
@@ -98,6 +98,13 @@ function brancher(wc, { fenetre, onEvent, rechercher, dev = false }) {
       ajouter({ label: t('Recharger'), click: () => wc.reload() });
       separer();
       ajouter({ label: t("Copier l'adresse de la page"), click: () => clipboard.writeText(wc.getURL()) });
+    }
+
+    // Les entrées que les extensions ont ajoutées (chrome.contextMenus).
+    const ext = extensions(params);
+    if (ext.length) {
+      separer();
+      for (const item of ext) items.push(item);
     }
 
     if (dev) {

@@ -7,8 +7,8 @@ directories:
   buildResources: build
 
 # Le renderer est bundle par Vite. Le main n'utilise que des modules Electron,
-# a une exception pres : electron-updater, qui doit donc etre embarque avec ses
-# dependances de production.
+# a deux exceptions pres : electron-updater et electron-chrome-extensions, qui
+# doivent donc etre embarques avec leurs dependances de production.
 files:
   - src/main/**/*
   - src/preload/**/*

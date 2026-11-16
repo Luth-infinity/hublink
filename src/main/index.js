@@ -526,6 +526,37 @@ function ouvrirSiPasDeRepli({ url, sourceId }) {
 let derniereOuverture = { url: null, at: 0, id: null };
 const DELAI_DOUBLON = 1500;
 
+async function selectService(id) {
+  if (!store.getService(id)) return;
+  store.load().activeServiceId = id;
+  store.save();
+  pushState();
+  await views.show(id);
+}
+
+async function selectTab(id) {
+  if (!store.getTab(id)) return;
+  store.load().activeTabId = id;
+  store.save();
+  pushState();
+  await views.showTab(id);
+}
+
+async function closeTab(id) {
+  views.destroyTab(id);
+  const nextId = store.removeTab(id);
+  // Fermer le dernier onglet ne doit pas laisser une fenêtre vide : on en
+  // rouvre un neuf, comme n'importe quel navigateur.
+  if (!nextId) {
+    await openTab();
+    return;
+  }
+  store.load().activeTabId = nextId;
+  store.save();
+  pushState();
+  await views.showTab(nextId);
+}
+
 async function openTab(url) {
   const maintenant = Date.now();
   if (url && url === derniereOuverture.url && maintenant - derniereOuverture.at < DELAI_DOUBLON) {
@@ -646,6 +677,7 @@ function registerIpc() {
   // Le calque ne peut pas ouvrir une modale de la fenêtre principale : il lui
   // demande de le faire.
   ipcMain.on('settings:accounts', () => send('app:shortcut', { type: 'accounts' }));
+  ipcMain.on('settings:extensions', () => send('app:shortcut', { type: 'extensions' }));
 
   // Le calque ne prend jamais le clavier (`focusable: false`) : le nom d'une
   // vue se tape dans une modale de la fenêtre principale.
@@ -907,13 +939,7 @@ function registerIpc() {
     await restoreActive();
   });
 
-  ipcMain.handle('service:select', async (_e, id) => {
-    if (!store.getService(id)) return;
-    store.load().activeServiceId = id;
-    store.save();
-    pushState();
-    await views.show(id);
-  });
+  ipcMain.handle('service:select', (_e, id) => selectService(id));
 
   // Mise en sommeil à la main : même chose que le balayage automatique, sans
   // attendre le délai ni se soucier de `keepAwake` — c'est un geste explicite.
@@ -1132,28 +1158,8 @@ function registerIpc() {
     }
   });
 
-  ipcMain.handle('tab:select', async (_e, id) => {
-    if (!store.getTab(id)) return;
-    store.load().activeTabId = id;
-    store.save();
-    pushState();
-    await views.showTab(id);
-  });
-
-  ipcMain.handle('tab:close', async (_e, id) => {
-    views.destroyTab(id);
-    const nextId = store.removeTab(id);
-    // Fermer le dernier onglet ne doit pas laisser une fenêtre vide : on en
-    // rouvre un neuf, comme n'importe quel navigateur.
-    if (!nextId) {
-      await openTab();
-      return;
-    }
-    store.load().activeTabId = nextId;
-    store.save();
-    pushState();
-    await views.showTab(nextId);
-  });
+  ipcMain.handle('tab:select', (_e, id) => selectTab(id));
+  ipcMain.handle('tab:close', (_e, id) => closeTab(id));
 
   ipcMain.handle('layout:toggle-sidebar', (_e, collapsed) => {
     const state = store.load();
@@ -1474,11 +1480,51 @@ function registerIpc() {
   registerExtensionIpc();
 }
 
+// La fenêtre qu'une extension a ouverte pour un compte (creerOnglet), ou null.
+// `BrowserWindow.fromWebContents` rend la fenêtre principale pour la page d'un
+// service : s'y fier fermait toute l'application dès qu'un service s'endormait.
+function fenetreExtension(wc) {
+  const fenetre = BrowserWindow.fromWebContents(wc);
+  return fenetre && fenetre !== win && fenetre.webContents === wc ? fenetre : null;
+}
+
 function registerExtensionIpc() {
-  const activeAccountId = () => {
-    const service = store.getService(store.load().activeServiceId);
-    return service ? service.accountId : null;
-  };
+  // Ce qu'une extension peut faire des onglets (chrome.tabs.create, update,
+  // remove). Le navigateur a de vrais onglets ; un compte n'en a pas, et la lib
+  // exige un onglet de la même session : ses pages s'ouvrent donc dans une
+  // fenêtre de cette session, jamais dans le navigateur.
+  extensions.definirPont({
+    creerOnglet: async ({ url, active }, ses) => {
+      if (ses === views.getSession('__browser__')) {
+        const tab = await openTab(url);
+        return [views.views.get(tab.id).webContents, win];
+      }
+      const fenetre = new BrowserWindow({
+        width: 1100,
+        height: 800,
+        autoHideMenuBar: true,
+        show: active !== false,
+        webPreferences: { session: ses, contextIsolation: true, nodeIntegration: false, sandbox: true }
+      });
+      if (url) fenetre.loadURL(url);
+      return [fenetre.webContents, fenetre];
+    },
+    activerOnglet: (wc) => {
+      const id = views.idDe(wc);
+      if (store.getTab(id)) selectTab(id);
+      else if (store.getService(id)) selectService(id);
+      else fenetreExtension(wc)?.focus();
+    },
+    // Une extension peut fermer un onglet ou sa fenêtre, pas un service : il
+    // disparaîtrait du panneau sur la seule décision d'un tiers. La lib passe
+    // aussi par ici quand une vue se ferme (mise en veille).
+    fermerOnglet: (wc) => {
+      const id = views.idDe(wc);
+      if (store.getTab(id)) closeTab(id);
+      else fenetreExtension(wc)?.close();
+    },
+    fenetre: () => win
+  });
 
   const afterInstall = async (record) => {
     pushState();
@@ -1549,16 +1595,19 @@ function registerExtensionIpc() {
       chromeId: ext.id,
       name: ext.name,
       version: ext.version,
-      path: ext.path,
-      hasPopup: Boolean((ext.manifest.action || ext.manifest.browser_action || {}).default_popup)
+      path: ext.path
     }));
   });
 
-  ipcMain.handle('ext:popup', (_e, chromeExtensionId) => {
-    const session = views.getSession(activeAccountId());
-    if (!session) return;
+  ipcMain.handle('ext:icones', () =>
+    Object.fromEntries(store.load().extensions.map((x) => [x.id, extensions.icone(x.dir)]))
+  );
+
+  ipcMain.handle('ext:popup', (_e, { chromeExtensionId, anchorRect, alignment }) => {
+    const page = views.current?.webContents;
+    if (!page || page.isDestroyed()) return;
     try {
-      extensions.openPopup(session, chromeExtensionId, win);
+      extensions.openPopup(page, chromeExtensionId, anchorRect, alignment);
     } catch (err) {
       toast('error', err.message);
     }
@@ -1729,6 +1778,11 @@ if (!app.requestSingleInstanceLock()) {
     // Après l'affichage : ces services occupent de la mémoire sans être vus,
     // ils ne doivent pas retarder l'apparition de la fenêtre.
     views.preloadKeepAwake();
+    // Hors du chemin du démarrage : un téléchargement ne doit pas retarder la fenêtre.
+    extensions
+      .rattraperCles()
+      .then((change) => change && (pushState(), views.refreshAllExtensions()))
+      .catch((err) => console.error('[extensions]', err));
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

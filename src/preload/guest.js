@@ -1,6 +1,11 @@
 // Preload minimal des webapps invitées : aucune API Node exposée.
 const { contextBridge, ipcRenderer } = require('electron');
 
+// `nodeIntegrationInSubFrames` (pour les extensions, voir views.js) fait aussi
+// tourner ce preload dans chaque cadre. Tout ce qui suit ne vaut que pour la
+// page elle-même : un cadre publicitaire n'a ni pastille ni vidéo à sortir.
+if (window.top !== window.self) return;
+
 const flag = (name) => process.argv.some((arg) => arg === `--hublink-${name}`);
 
 // Les onglets du navigateur reçoivent ce preload pour le mode vidéo et le

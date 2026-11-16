@@ -5,13 +5,16 @@ import {
   FileDown,
   FolderOpen,
   Layers2,
+  Plus,
+  Puzzle,
   Search,
   Settings,
   Trash2,
   Users,
   X
 } from 'lucide-react';
-import type { Account, AccountView, Download, HistoryEntry } from '@/types';
+import type { Account, AccountView, Download, ExtensionRecord, HistoryEntry, LoadedExtension } from '@/types';
+import { Switch } from '@/components/ui/switch';
 import { cn, hostOf } from '@/lib/utils';
 import { useOptimiste } from '@/lib/optimiste';
 import { normaliser, vueCourante } from '@/lib/selection';
@@ -468,6 +471,142 @@ export function AccountsPanel({
         >
           <Settings className="size-4 shrink-0" aria-hidden />
           {t('Gérer les comptes…')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Les extensions du client affiché, depuis le pied du panneau latéral.
+ *
+ * Une ligne ouvre le popup de l'extension (ou lui transmet le clic si elle
+ * n'en a pas) ; l'interrupteur l'active ou la coupe pour ce client seulement.
+ * Le popup se pose au-dessus du bouton qui a ouvert le panneau.
+ */
+export function ExtensionsPanel({
+  extensions,
+  client,
+  nomClient,
+  ancre
+}: {
+  extensions: ExtensionRecord[];
+  /** Le compte dont on règle les extensions, ou '__browser__'. */
+  client: string;
+  nomClient: string;
+  ancre: { x: number; y: number; width: number; height: number };
+}) {
+  const [icones, setIcones] = React.useState<Record<string, string | null>>({});
+  const [chargees, setChargees] = React.useState<LoadedExtension[]>([]);
+  // Activer une extension la charge dans la session : la liste des chargées
+  // suit, d'où la clé qui change avec les interrupteurs.
+  const cle = extensions.map((x) => `${x.id}:${x.enabled[client] !== false}`).join('|');
+  React.useEffect(() => {
+    api.extensions.icones().then(setIcones);
+  }, [extensions.length]);
+  React.useEffect(() => {
+    let annule = false;
+    api.extensions.loaded(client).then((l) => !annule && setChargees(l));
+    return () => {
+      annule = true;
+    };
+  }, [client, cle]);
+
+  const ouvrir = (x: ExtensionRecord) => {
+    const chargee = chargees.find((c) => c.path === x.dir);
+    if (!chargee) return;
+    api.panels.close();
+    api.extensions.openPopup(chargee.chromeId, ancre, 'top right');
+  };
+
+  return (
+    <div role="dialog" aria-label={t('Extensions')} className={cn(CADRE, 'max-h-[420px] w-[300px]')}>
+      <div className="flex items-baseline justify-between gap-2 border-b border-shell-border px-3 py-2">
+        <span className="text-[12px] font-medium text-shell-foreground">{t('Extensions')}</span>
+        <span className="truncate text-[11px] text-shell-muted">{nomClient}</span>
+      </div>
+
+      {extensions.length === 0 ? (
+        <div className="flex flex-col items-center gap-1.5 px-6 py-6 text-center">
+          <Puzzle className="size-5 text-shell-muted/70" aria-hidden />
+          <span className="text-[12px] text-shell-foreground">{t('Aucune extension pour l’instant')}</span>
+          <span className="text-[11px] leading-relaxed text-shell-muted">
+            {t('Dashlane, Bitwarden, Dark Reader… s’installent depuis le Chrome Web Store.')}
+          </span>
+        </div>
+      ) : (
+        <ListeSurlignee className="min-h-0 flex-1 overflow-y-auto py-1">
+          <ul>
+            {extensions.map((x) => {
+              const active = x.enabled[client] !== false;
+              const prete = active && chargees.some((c) => c.path === x.dir);
+              return (
+                <li key={x.id} data-surlignable className={LIGNE}>
+                  <button
+                    type="button"
+                    disabled={!prete}
+                    onClick={() => ouvrir(x)}
+                    title={prete ? t('Ouvrir {nom}', { nom: x.name }) : undefined}
+                    className={cn(ZONE, 'disabled:cursor-default')}
+                  >
+                    {icones[x.id] ? (
+                      <img
+                        src={icones[x.id]!}
+                        alt=""
+                        className={cn('size-5 shrink-0 rounded', !active && 'opacity-40 grayscale')}
+                      />
+                    ) : (
+                      <Puzzle className="size-5 shrink-0 text-shell-muted" aria-hidden />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={cn(
+                          'block truncate',
+                          active ? 'text-shell-foreground' : 'text-shell-muted'
+                        )}
+                      >
+                        {x.name}
+                      </span>
+                      <span className="block truncate text-[11px] text-shell-muted">
+                        {active ? (prete ? t('Cliquer pour ouvrir') : t('Chargement…')) : t('Désactivée ici')}
+                      </span>
+                    </span>
+                  </button>
+                  <Switch
+                    checked={active}
+                    onCheckedChange={(on) => api.extensions.toggle(x.id, client, on)}
+                    aria-label={t('Activer {nom} pour {client}', { nom: x.name, client: nomClient })}
+                    className="mr-3 ml-2 shrink-0 scale-90"
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </ListeSurlignee>
+      )}
+
+      <div className="border-t border-shell-border py-1">
+        <button
+          type="button"
+          onClick={() => {
+            api.browser.addTab('https://chromewebstore.google.com/category/extensions');
+            api.panels.close();
+          }}
+          className={PIED}
+        >
+          <Plus className="size-4 shrink-0" aria-hidden />
+          {t('Ajouter depuis le Chrome Web Store')}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            api.openExtensionsSettings();
+            api.panels.close();
+          }}
+          className={PIED}
+        >
+          <Settings className="size-4 shrink-0" aria-hidden />
+          {t('Gérer les extensions…')}
         </button>
       </div>
     </div>

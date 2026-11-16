@@ -424,7 +424,6 @@
   "une page": "a page",
   "utiliser votre caméra et votre microphone": "use your camera and microphone",
   "{comptes} compte(s) et {services} service(s) importés": "{comptes} account(s) and {services} service(s) imported",
-  "{nom} (pas de popup)": "{nom} (no popup)",
   "{nom} : {raison}": "{nom}: {raison}",
   "{nom} désinstallée": "{nom} uninstalled",
   "{nom} est en veille : ouvre-le pour que Trame le lise": "{nom} is asleep: open it so Trame can read it",
@@ -456,5 +455,12 @@
   "Résultat précédent": "Previous result",
   "Résultat suivant": "Next result",
   "Fermer la recherche": "Close search",
-  "Aucun résultat": "No results"
+  "Aucun résultat": "No results",
+  "Paquet d'extension refusé : {raison}": "Extension package rejected: {raison}",
+  "Aucune extension pour l’instant": "No extensions yet",
+  "Dashlane, Bitwarden, Dark Reader… s’installent depuis le Chrome Web Store.": "Dashlane, Bitwarden, Dark Reader… install from the Chrome Web Store.",
+  "Cliquer pour ouvrir": "Click to open",
+  "Désactivée ici": "Off here",
+  "Activer {nom} pour {client}": "Turn on {nom} for {client}",
+  "Ajouter depuis le Chrome Web Store": "Add from the Chrome Web Store"
 }

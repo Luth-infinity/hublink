@@ -159,7 +159,6 @@ export type LoadedExtension = {
   name: string;
   version: string;
   path: string;
-  hasPopup: boolean;
 };
 
 export type Shortcut = { type: string; index?: number };
@@ -334,7 +333,13 @@ declare global {
         restore(): Promise<Service | null>;
         toggle(id: string, accountId: string, enabled: boolean): Promise<void>;
         loaded(accountId: string): Promise<LoadedExtension[]>;
-        openPopup(chromeExtensionId: string): Promise<void>;
+        /** Icône de chaque extension installée (data URL), par identifiant Hublink. */
+        icones(): Promise<Record<string, string | null>>;
+        openPopup(
+          chromeExtensionId: string,
+          anchorRect: { x: number; y: number; width: number; height: number },
+          alignment?: string
+        ): Promise<void>;
       };
 
       setContentBounds(bounds: { x: number; y: number; width: number; height: number }): void;
@@ -395,14 +400,14 @@ declare global {
       /** Panneaux déroulants, dessinés par le calque. */
       panels: {
         toggle(
-          kind: 'downloads' | 'history' | 'accounts',
+          kind: 'downloads' | 'history' | 'accounts' | 'extensions',
           anchor: { x: number; y: number; width: number; height: number }
         ): void;
         close(): void;
         onState(
           handler: (
             p: {
-              kind: 'downloads' | 'history' | 'accounts';
+              kind: 'downloads' | 'history' | 'accounts' | 'extensions';
               anchor: { x: number; y: number; width: number; height: number };
             } | null
           ) => void
@@ -426,6 +431,7 @@ declare global {
       };
       runToastAction(action: ToastAction): void;
       openAccountsSettings(): void;
+      openExtensionsSettings(): void;
       setTheme(theme: Theme): Promise<void>;
       setLanguage(language: Language): Promise<void>;
       setAccent(color: string | null): Promise<void>;

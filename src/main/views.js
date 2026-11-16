@@ -92,7 +92,7 @@ class ViewManager {
     this.window = null;
     this.views = new Map(); // serviceId -> WebContentsView
     this.sessions = new Map(); // accountId -> { session, ready }
-    this.current = null;
+    this._current = null;
     this.currentId = null;
     // Afficher une vue attend sa session, longue au démarrage (extensions) :
     // un clic arrivé entre-temps doit l'emporter. Chaque demande prend un
@@ -141,6 +141,52 @@ class ViewManager {
     this.window = window;
   }
 
+  // Toutes les bascules (service, onglet, côté du partage) passent par ici :
+  // les extensions apprennent ainsi quelle page on regarde, sans que chacune
+  // ait à y penser.
+  get current() {
+    return this._current;
+  }
+
+  set current(vue) {
+    const change = vue !== this._current;
+    this._current = vue;
+    if (vue && change) extensions.activerOnglet(vue.webContents);
+  }
+
+  // --- extensions ----------------------------------------------------------
+
+  /** Présente la vue à la lib d'extensions comme un onglet de la fenêtre. */
+  suivreOnglet(view) {
+    const wc = view.webContents;
+    extensions.ajouterOnglet(wc, this.window);
+    // L'ajout l'a marquée active côté lib : on rétablit la page réellement affichée.
+    if (this.current && this.current !== view) extensions.activerOnglet(this.current.webContents);
+    // Le script de contenu d'un gestionnaire de mots de passe repart « inactif »
+    // à chaque document : on lui redit que la page affichée l'est, une fois sa
+    // propre initialisation passée.
+    let minuteurs = [];
+    const resurligner = () => {
+      if (this.current !== view) return;
+      minuteurs.forEach(clearTimeout);
+      minuteurs = [300, 1500, 4000].map((ms) =>
+        setTimeout(() => this.current === view && !wc.isDestroyed() && extensions.surligner(wc), ms)
+      );
+    };
+    wc.on('did-finish-load', resurligner);
+    wc.on('did-frame-finish-load', resurligner);
+    wc.once('destroyed', () => minuteurs.forEach(clearTimeout));
+  }
+
+  // Retirée de la table AVANT la fermeture : la lib d'extensions rappelle le
+  // pont pendant close(), et la vue ne doit plus y être trouvée.
+  fermerVue(id, view) {
+    this.views.delete(id);
+    this.lastActiveAt.delete(id);
+    extensions.retirerOnglet(view.webContents);
+    view.webContents.close();
+  }
+
   // Chaque service vivant est un process Chromium complet (~110 Mo). Les
   // laisser tous en mémoire fait swapper la machine bien avant que l'app
   // paraisse lourde. On libère ceux qu'on ne regarde plus ; ils se rechargent
@@ -177,11 +223,21 @@ class ViewManager {
     if (cached) return cached.ready.then(() => cached.session);
 
     const ses = electronSession.fromPartition(partitionFor(accountId));
+    // Avant tout chargement d'extension : la lib suit les extensions chargées.
+    extensions.brancherSession(ses);
+    const relais = (details) => extensions.diffuserRequete(ses, details);
     // La page d'accueil n'existe que pour le navigateur, et son schéma doit
     // être posé sur cette session : le registre est propre à chaque partition.
+    // Electron ne garde qu'un écouteur webRequest par session : le bloqueur
+    // relaie lui-même les requêtes aux extensions.
     if (accountId === BROWSER_ACCOUNT) {
       startpage.serveOn(ses);
-      adblock.applyTo(ses);
+      adblock.applyTo(ses, relais);
+    } else {
+      ses.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+        relais(details);
+        callback({});
+      });
     }
     // Les téléchargements sont suivis sur toutes les sessions : un intranet de
     // client sert des pièces jointes comme n'importe quel site.
@@ -327,6 +383,12 @@ class ViewManager {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
+        // Malgré son nom, il ne donne pas Node aux cadres (sandbox) : il y fait
+        // tourner le preload d'electron-chrome-extensions. Sans lui, le menu de
+        // remplissage d'un gestionnaire de mots de passe (un cadre
+        // chrome-extension:// posé dans la page) n'a ni chrome.tabs.getCurrent,
+        // ni permissions, ni windows. guest.js s'écarte lui-même des cadres.
+        nodeIntegrationInSubFrames: true,
         spellcheck: true,
         preload: path.join(__dirname, '..', 'preload', 'guest.js'),
         // Le preload lit ces drapeaux dans `process.argv` : c'est le seul canal
@@ -341,6 +403,7 @@ class ViewManager {
     view.webContents.setUserAgent(uaFor(service));
     this.views.set(serviceId, view);
     this.wire(view, serviceId);
+    this.suivreOnglet(view);
     view.webContents.loadURL(service.url);
     return view;
   }
@@ -365,6 +428,12 @@ class ViewManager {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
+        // Malgré son nom, il ne donne pas Node aux cadres (sandbox) : il y fait
+        // tourner le preload d'electron-chrome-extensions. Sans lui, le menu de
+        // remplissage d'un gestionnaire de mots de passe (un cadre
+        // chrome-extension:// posé dans la page) n'a ni chrome.tabs.getCurrent,
+        // ni permissions, ni windows. guest.js s'écarte lui-même des cadres.
+        nodeIntegrationInSubFrames: true,
         spellcheck: true,
         preload: path.join(__dirname, '..', 'preload', 'guest.js'),
         // Le même preload que les services, mais sans aucune de leurs
@@ -379,6 +448,7 @@ class ViewManager {
     view.setBackgroundColor('#ffffff');
     this.views.set(tabId, view);
     this.wireTab(view, tabId);
+    this.suivreOnglet(view);
     // Un onglet dont l'URL a été perdue (vue détruite en cours d'écriture)
     // retombe sur l'accueil plutôt que sur une page blanche.
     view.webContents.loadURL(tab.url || store.BROWSER_HOME);
@@ -532,6 +602,7 @@ class ViewManager {
       fenetre: this.window,
       onEvent: (type, payload) => this.onEvent(type, payload),
       rechercher: searchUrl,
+      extensions: (params) => extensions.menuContextuel(wc, params),
       dev: !app.isPackaged
     });
   }
@@ -704,9 +775,7 @@ class ViewManager {
     const view = this.views.get(tabId);
     if (!view) return;
     if (this.current === view) this.hide();
-    view.webContents.close();
-    this.views.delete(tabId);
-    this.lastActiveAt.delete(tabId);
+    this.fermerVue(tabId, view);
   }
 
   // Rafraîchit la barre d'URL pour le service affiché. Indispensable au moment
@@ -1172,19 +1241,13 @@ class ViewManager {
     if (cote) this.fermerCote(cote);
     this.pastilleParApi.delete(serviceId);
     if (this.current === view) this.hide();
-    view.webContents.close();
-    this.views.delete(serviceId);
-    this.lastActiveAt.delete(serviceId);
+    this.fermerVue(serviceId, view);
   }
 
   /** Ferme toutes les vues : après un import, plus rien ne correspond. */
   destroyAll() {
     this.hide();
-    for (const [id, view] of [...this.views]) {
-      view.webContents.close();
-      this.views.delete(id);
-      this.lastActiveAt.delete(id);
-    }
+    for (const [id, view] of [...this.views]) this.fermerVue(id, view);
     this.pastilleParApi.clear();
     this.avecMedia.clear();
   }

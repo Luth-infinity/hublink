@@ -616,6 +616,54 @@ Lucas a écarté : une page qui se défait en lignes (« glauque »), le bouton 
 et le nom « Hublink IA » (« too much »), le logo en # (« trop Slack »). Le logo est
 la vannerie (`TrameLogo.tsx`), toujours en dégradé ; le reste du bouton est sobre.
 
+## Les extensions passent par electron-chrome-extensions
+
+Repris d'Escale (0.7.1), où Dashlane a coûté cher. Electron seul charge une
+extension mais ne lui donne presque aucune API : la lib (`extensions.js`) fournit
+`chrome.tabs`, `windows`, `contextMenus`, les popups, sur chaque session (comptes
+et navigateur). L'installeur reste celui de Hublink (Store, `.crx`, dossier) et
+l'activation reste **par client**. Chaque piège ci-dessous empêchait Dashlane de
+remplir un champ, sans erreur :
+
+- **`manifest.key`** : chargée en dossier, une extension prend un identifiant
+  tiré du chemin. La clé du développeur, lue dans le CRX vérifié (`crx.js`, deux
+  signatures exigées : développeur et Chrome Web Store), lui rend son identifiant
+  du Store. `rattraperCles()` retélécharge au démarrage celles installées avant.
+- **`tabs.onHighlighted`** émis à l'activation et 300 ms / 1,5 s / 4 s après chaque
+  chargement (`extensions.surligner`) : Electron ne dit jamais l'onglet actif, et
+  Dashlane n'analyse pas les champs d'une page qu'il croit en arrière-plan.
+  L'onglet actif est annoncé par le setter de `views.current`.
+- **`webRequest.onBeforeRequest`** relayé depuis l'unique écouteur réseau de la
+  session (le bloqueur sur le navigateur, un écouteur neutre sur les comptes) :
+  Electron 41 n'émet rien, et Dashlane ne sait plus quel cadre contient lequel.
+- **`chrome.privacy`** qui répond (`preload/privacy-ext.js`) : Dashlane attendait
+  sans fin `passwordSavingEnabled`.
+- **`nodeIntegrationInSubFrames`** sur les vues : sans lui, le menu de Dashlane
+  posé dans la page (un cadre `chrome-extension://`) n'a pas les API de la lib.
+  `guest.js` s'écarte donc lui-même des cadres (`window.top !== window.self`).
+- **Popups sous Windows mis à l'échelle** : `ajusterPopup` reprend taille et
+  placement (Dashlane en 323 × 548 au lieu de 350 × 561 à 125 %).
+
+**Une seule connexion Dashlane pour tous les clients.** Chaque partition a son
+stockage d'extension : il fallait se connecter client par client.
+`preload/stockage-ext.js` remplace `chrome.storage.local` et `.session` dans les
+pages et service workers d'extension par un stockage commun tenu par le principal
+(`stockage-ext.js`, `userData/extensions-stockage/<id>.json`, session en mémoire),
+qui prévient tous les clients à chaque changement. Les écritures sont recopiées
+dans le stockage natif de la session, que lisent les scripts de contenu.
+Éprouvé : écrit dans le Dashlane d'un client, lu et signalé dans celui d'un autre.
+
+**Le pont (`definirPont` dans `index.js`) ne ferme jamais un service ni la
+fenêtre principale.** La lib l'appelle aussi quand une vue se ferme (mise en
+veille) ; `BrowserWindow.fromWebContents` sur la page d'un service rend la
+fenêtre principale, et la fermer faisait disparaître l'application après
+quelques bascules. `fenetreExtension()` n'accepte que les fenêtres ouvertes pour
+une extension. Pour un compte, `chrome.tabs.create` ouvre une fenêtre de sa
+session : la lib exige un onglet de la même session.
+
+Le menu Extensions est dans le pied du panneau latéral ; son panneau vit dans le
+calque. Le popup s'ancre sur le bouton qui l'ouvre (`activateClick` de la lib).
+
 ## Contrainte structurante : la vue web est native
 
 Une `WebContentsView` **se peint au-dessus du HTML du shell**, quoi qu'on fasse. Tout ce

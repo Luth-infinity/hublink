@@ -70,7 +70,7 @@ export default function App() {
   const [downloads, setDownloads] = React.useState<Download[]>([]);
   // Panneau ouvert dans le calque : c'est le processus principal qui en décide,
   // les deux fenêtres doivent en dire la même chose.
-  const [openPanel, setOpenPanel] = React.useState<'downloads' | 'history' | 'accounts' | null>(
+  const [openPanel, setOpenPanel] = React.useState<'downloads' | 'history' | 'accounts' | 'extensions' | null>(
     null
   );
   // Nom du dernier service supprimé, le temps de pouvoir revenir dessus.

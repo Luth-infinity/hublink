@@ -3,15 +3,15 @@ import { cn } from '@/lib/utils';
 import { Toaster, toast } from 'sonner';
 import type { AppState, Download, EtatSuggestions } from '@/types';
 import { useSyncedTheme } from '@/lib/theme';
-import { AccountsPanel, DownloadsPanel, HistoryPanel } from '@/components/panels';
+import { AccountsPanel, DownloadsPanel, ExtensionsPanel, HistoryPanel } from '@/components/panels';
 import { MenuFlottant, type DemandeMenu } from '@/components/MenuFlottant';
 import { Suggestions } from '@/components/Suggestions';
-import { setLanguage } from '@/lib/i18n';
+import { setLanguage, t } from '@/lib/i18n';
 
 const api = window.hublink;
 
 type Ancre = { x: number; y: number; width: number; height: number };
-type Panneau = { kind: 'downloads' | 'history' | 'accounts'; anchor: Ancre } | null;
+type Panneau = { kind: 'downloads' | 'history' | 'accounts' | 'extensions'; anchor: Ancre } | null;
 
 /**
  * Calque de l'application : messages et panneaux déroulants.
@@ -40,6 +40,15 @@ function surUnMessage(x: number, y: number) {
     const r = noeud.getBoundingClientRect();
     return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
   });
+}
+
+// Le client dont le panneau des extensions règle les extensions : celui de la
+// page affichée — le navigateur, ou le compte du service actif.
+function clientExtensions(etat: AppState) {
+  if (etat.browserMode) return { client: '__browser__', nomClient: t('Navigateur') };
+  const compteId = etat.services.find((s) => s.id === etat.activeServiceId)?.accountId;
+  const compte = etat.accounts.find((a) => a.id === compteId);
+  return compte ? { client: compte.id, nomClient: compte.name } : { client: '__browser__', nomClient: t('Navigateur') };
 }
 
 export default function Overlay() {
@@ -151,14 +160,21 @@ export default function Overlay() {
                semblerait sortir du mauvais bord. */
             className={cn(
               'ouvre-panneau pointer-events-auto fixed',
-              panneau.kind === 'accounts' ? 'origin-top-left' : 'origin-top-right'
+              panneau.kind === 'accounts'
+                ? 'origin-top-left'
+                : panneau.kind === 'extensions'
+                  ? 'origin-bottom-left'
+                  : 'origin-top-right'
             )}
             style={
               // Les boutons de la barre sont à droite, celui des comptes en
-              // haut du panneau latéral : on aligne du côté le plus proche.
+              // haut du panneau latéral, celui des extensions en bas : on
+              // aligne du côté le plus proche.
               panneau.kind === 'accounts'
                 ? { top: panneau.anchor.y + panneau.anchor.height + 6, left: Math.max(6, panneau.anchor.x) }
-                : {
+                : panneau.kind === 'extensions'
+                  ? { bottom: window.innerHeight - panneau.anchor.y + 6, left: Math.max(6, panneau.anchor.x) }
+                  : {
                     top: panneau.anchor.y + panneau.anchor.height + 6,
                     right: Math.max(6, window.innerWidth - (panneau.anchor.x + panneau.anchor.width))
                   }
@@ -166,6 +182,7 @@ export default function Overlay() {
           >
             {panneau.kind === 'downloads' && <DownloadsPanel downloads={downloads} />}
             {panneau.kind === 'history' && <HistoryPanel history={etat?.history ?? []} />}
+            {panneau.kind === 'extensions' && etat && <ExtensionsPanel {...clientExtensions(etat)} extensions={etat.extensions} ancre={panneau.anchor} />}
             {panneau.kind === 'accounts' && etat && (
               <AccountsPanel
                 accounts={etat.accounts}

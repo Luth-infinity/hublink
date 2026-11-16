@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ChevronRight, Compass, EyeOff, Moon, Plus, Settings, Star, X } from 'lucide-react';
+import { ChevronRight, Compass, EyeOff, Moon, Plus, Puzzle, Settings, Star, X } from 'lucide-react';
 import type { Account, AccountView, Favorite, MenuItem, Service, Tab, Update } from '@/types';
 import { cn, hostOf } from '@/lib/utils';
 import { useFlip } from '@/lib/flip';
@@ -369,6 +369,29 @@ function SidebarImpl({
     <ModeSwitch browserMode={browserMode} onToggle={onToggleBrowser} collapsed={collapsed} />
   );
 
+  /**
+   * Les extensions du client affiché. Le panneau vit dans le calque : déplié
+   * ici, il passerait sous la page dès qu'il déborde du panneau latéral.
+   */
+  const ExtensionsButton = () => (
+    <Button
+      variant="ghost"
+      size={collapsed ? 'icon-sm' : 'sm'}
+      onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        window.hublink.panels.toggle('extensions', { x: r.x, y: r.y, width: r.width, height: r.height });
+      }}
+      title={t('Extensions')}
+      aria-label={t('Extensions')}
+      className={cn(
+        'text-shell-muted hover:bg-shell-hover hover:text-shell-foreground',
+        !collapsed && 'w-full justify-start gap-2'
+      )}
+    >
+      <Puzzle /> {!collapsed && t('Extensions')}
+    </Button>
+  );
+
   /** Bascule du mode discrétion, jumelle de celle du mode navigateur. */
   const DiscreetToggle = () =>
     collapsed ? (
@@ -583,6 +606,7 @@ function SidebarImpl({
           <DiscreetToggle />
           <BrowserToggle />
           {update && <UpdateBadge update={update} collapsed />}
+          <ExtensionsButton />
           <Button
             variant="ghost"
             size={collapsed ? 'icon-sm' : 'sm'}
@@ -707,6 +731,7 @@ function SidebarImpl({
           <DiscreetToggle />
           <BrowserToggle />
           {update && <UpdateBadge update={update} collapsed={collapsed} />}
+          <ExtensionsButton />
           <Button
             variant="ghost"
             size="icon-sm"
@@ -892,6 +917,7 @@ function SidebarImpl({
         <DiscreetToggle />
         <BrowserToggle />
         {update && <UpdateBadge update={update} collapsed={false} />}
+        <ExtensionsButton />
         <Button
           variant="ghost"
           size="sm"

@@ -23,7 +23,7 @@ type Props = {
   onToggleFavorite: () => void;
   downloads: Download[];
   /** Panneau actuellement ouvert dans le calque, s'il y en a un. */
-  openPanel: 'downloads' | 'history' | 'accounts' | null;
+  openPanel: 'downloads' | 'history' | 'accounts' | 'extensions' | null;
   /** La page courante montre une vidéo. */
   hasVideo: boolean;
   /** Réglage « Ambiance » de YouTube, basculé depuis la barre. */
@@ -402,13 +402,12 @@ export function Toolbar({
     api.capturePage({ fullPage: picked.startsWith('full'), toClipboard: picked.endsWith('copy') });
   };
 
-  const openExtensionsMenu = async () => {
+  const openExtensionsMenu = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Le popup s'ouvre sous le bouton, comme la barre d'extensions de Chrome.
+    const { x, y, width, height } = e.currentTarget.getBoundingClientRect();
+    // Une extension sans popup reçoit le clic (action.onClicked).
     const items: MenuItem[] = loadedExtensions.length
-      ? loadedExtensions.map((ext) => ({
-          id: ext.chromeId,
-          label: ext.hasPopup ? ext.name : t('{nom} (pas de popup)', { nom: ext.name }),
-          enabled: ext.hasPopup
-        }))
+      ? loadedExtensions.map((ext) => ({ id: ext.chromeId, label: ext.name }))
       : [{ id: 'none', label: t('Aucune extension chargée'), enabled: false }];
 
     const picked = await api.popupMenu([
@@ -417,7 +416,7 @@ export function Toolbar({
       { id: '__manage', label: t('Gérer les extensions…') }
     ]);
     if (picked === '__manage') onOpenExtensions();
-    else if (picked && picked !== 'none') api.extensions.openPopup(picked);
+    else if (picked && picked !== 'none') api.extensions.openPopup(picked, { x, y, width, height });
   };
 
   return (

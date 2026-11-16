@@ -129,9 +129,13 @@ function isBlocked(hostname) {
  * Posé sur la seule session du navigateur : les services ne paient donc rien
  * pour ce filtre, et le réglage est relu à chaque requête plutôt que de
  * réinstaller l'écouteur — le basculement prend effet aussitôt.
+ *
+ * C'est le seul écouteur webRequest de la session (Electron n'en garde qu'un) :
+ * `observer` le partage avec les extensions, bloquée ou non.
  */
-function applyTo(session) {
+function applyTo(session, observer = () => {}) {
   session.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+    observer(details);
     if (!store.load().blockAds) return callback({});
     // Une navigation principale reste toujours permise : taper une adresse à la
     // main ne doit jamais aboutir sur une page morte.
