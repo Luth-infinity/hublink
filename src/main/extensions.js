@@ -344,6 +344,19 @@ function ajusterPopup(popup) {
   };
   win.webContents.on('preferred-size-changed', dimensionner);
   win.webContents.on('did-finish-load', dimensionner);
+
+  // La lib ne ferme le popup que s'il perd le focus au profit d'une fenêtre de
+  // Hublink. Parti vers une autre app, il restait ouvert, et n'ayant plus de
+  // focus à perdre, plus rien ne le fermait. Revenir dans Hublink le ferme, Échap aussi.
+  const parent = popup.parent;
+  const fermer = () => popup.destroy();
+  if (parent && !parent.isDestroyed()) {
+    parent.on('focus', fermer);
+    win.once('closed', () => !parent.isDestroyed() && parent.off('focus', fermer));
+  }
+  win.webContents.on('before-input-event', (_e, input) => {
+    if (input.type === 'keyDown' && input.key === 'Escape') fermer();
+  });
 }
 
 /** À appeler avant de charger la moindre extension dans la session. */

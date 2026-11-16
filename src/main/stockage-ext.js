@@ -124,8 +124,16 @@ function operer(id, { zone: nom, op, arg }, abonne) {
       return lire(zone, arg);
     case 'getKeys':
       return Object.keys(zone);
-    case 'getBytesInUse':
-      return Buffer.byteLength(JSON.stringify(arg == null ? zone : lire(zone, arg)));
+    // Comme Chrome : clé + valeur en JSON, et 0 pour une clé absente. Dashlane
+    // range ses réglages en morceaux (`….cdata.1`, `.2`…) et lit le suivant tant
+    // que sa taille n'est pas nulle : compter les « {} » d'un objet vide le
+    // faisait boucler sans fin, et son popup ne se chargeait jamais.
+    case 'getBytesInUse': {
+      const cles = arg == null ? Object.keys(zone) : [].concat(Array.isArray(arg) || typeof arg === 'string' ? arg : Object.keys(arg));
+      return cles
+        .filter((k) => k in zone)
+        .reduce((n, k) => n + Buffer.byteLength(k) + Buffer.byteLength(JSON.stringify(zone[k])), 0);
+    }
     case 'set':
       for (const [k, v] of Object.entries(arg || {})) changer(k, v);
       break;
