@@ -51,6 +51,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let win = null;
+let enSortie = false;
 
 // --- calque des messages ----------------------------------------------------
 
@@ -310,6 +311,11 @@ function createWindow() {
       pushState();
     }
     if (type === 'tab-meta') send('tab:meta', payload);
+    // Pendant la sortie, les pages meurent avec la fenêtre : ce ne sont pas des
+    // onglets à oublier.
+    if (type === 'tab-fermee-par-la-page' && !enSortie && win && !win.isDestroyed() && store.getTab(payload.tabId)) {
+      closeTab(payload.tabId);
+    }
     if (type === 'media-present') send('media:present', payload);
     if (type === 'download-started') {
       telechargements = [
@@ -1808,5 +1814,8 @@ if (!app.requestSingleInstanceLock()) {
     if (process.platform !== 'darwin') app.quit();
   });
 
-  app.on('before-quit', () => store.saveNow());
+  app.on('before-quit', () => {
+    enSortie = true;
+    store.saveNow();
+  });
 }

@@ -676,6 +676,15 @@ stockage commun, puis tracer les opérations dans `operer`.
 (`ajusterPopup`). `maybeClose` de la lib ne le ferme que si une autre fenêtre de
 Hublink prend le focus : parti vers une autre app, il restait ouvert.
 
+**Un onglet dont la page se ferme elle-même se ferme aussi** (`window.close()`,
+événement `tab-fermee-par-la-page`). Après l'email, Dashlane ouvre deux onglets :
+sa page de code et `check.dashlane.com`, qui se ferme une fois la vérification
+passée. Hublink gardait la vue morte à l'écran : zone blanche, page du code
+cachée derrière, et l'onglet suivant levait une exception (`this.current`
+sans `webContents`). `fermerVue` retire la vue de la table avant de la fermer :
+si elle y est encore quand sa page meurt, c'est la page qui est partie. Rien ne
+se ferme pendant la sortie de l'app (`enSortie`).
+
 Le menu Extensions est dans le pied du panneau latéral ; son panneau vit dans le
 calque. Le popup s'ancre sur le bouton qui l'ouvre (`activateClick` de la lib).
 
@@ -734,6 +743,11 @@ Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en 
   après : WhatsApp répond « fonctionne avec Google Chrome 100 ou version ultérieure », et
   les portails Microsoft filtrent de la même façon. `src/main/ua.js` efface les deux. Le
   défaut est invisible en développement, où l'application se nomme « Electron ».
+  **Ne pas étendre ce nettoyage à `app.userAgentFallback`** : essayé pour les
+  service workers d'extension, Google refusait aussitôt toute connexion
+  (« Ce navigateur ou cette application ne sont peut-être pas sécurisés »), même
+  dans les onglets dont l'UA, posé vue par vue, n'avait pas changé. Mesuré avec une
+  adresse inexistante : refus avec le défaut nettoyé, « compte introuvable » sans.
 - `navigator.setAppBadge()` existe dans Electron mais **n'est reliée à rien**. Le relais
   vers l'application se fait dans `src/preload/guest.js`. C'est par là que Slack et Teams
   signalent leurs non-lus, plus par le titre de la page.

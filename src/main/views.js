@@ -183,8 +183,11 @@ class ViewManager {
   fermerVue(id, view) {
     this.views.delete(id);
     this.lastActiveAt.delete(id);
-    extensions.retirerOnglet(view.webContents);
-    view.webContents.close();
+    // Une page qui s'est fermée elle-même n'a plus de webContents.
+    const wc = view.webContents;
+    if (!wc || wc.isDestroyed()) return;
+    extensions.retirerOnglet(wc);
+    wc.close();
   }
 
   // Chaque service vivant est un process Chromium complet (~110 Mo). Les
@@ -458,6 +461,13 @@ class ViewManager {
   wireTab(view, tabId) {
     const wc = view.webContents;
     const emit = (type, payload) => this.onEvent(type, { tabId, ...payload });
+
+    // Une page peut se fermer elle-même (window.close()) : la vérification
+    // anti-robot de Dashlane le fait une fois passée. Chrome ferme alors
+    // l'onglet ; ici la vue morte restait affichée, blanche, et l'onglet
+    // suivant levait une exception. `fermerVue` retire la vue de la table avant
+    // de la fermer : si elle y est encore, c'est la page qui est partie.
+    wc.once('destroyed', () => this.views.get(tabId) === view && emit('tab-fermee-par-la-page'));
 
     // L'historique ne suit que le navigateur : consigner chaque changement de
     // canal dans Slack le noierait sous du bruit.
