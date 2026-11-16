@@ -658,7 +658,10 @@ fenêtre principale.** La lib l'appelle aussi quand une vue se ferme (mise en
 veille) ; `BrowserWindow.fromWebContents` sur la page d'un service rend la
 fenêtre principale, et la fermer faisait disparaître l'application après
 quelques bascules. `fenetreExtension()` n'accepte que les fenêtres ouvertes pour
-une extension. Pour un compte, `chrome.tabs.create` ouvre une fenêtre de sa
+une extension. La lib l'appelle aussi sur une page **déjà détruite** : le pont
+sort aussitôt (`isDestroyed`). Jusqu'à la 0.7.2, `fromWebContents` y levait une
+exception dont la boîte d'erreur, modale, empêchait de quitter l'app — et donc la
+mise à jour automatique de s'installer. Pour un compte, `chrome.tabs.create` ouvre une fenêtre de sa
 session : la lib exige un onglet de la même session.
 
 Le menu Extensions est dans le pied du panneau latéral ; son panneau vit dans le

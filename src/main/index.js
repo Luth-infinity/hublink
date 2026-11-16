@@ -1484,6 +1484,7 @@ function registerIpc() {
 // `BrowserWindow.fromWebContents` rend la fenêtre principale pour la page d'un
 // service : s'y fier fermait toute l'application dès qu'un service s'endormait.
 function fenetreExtension(wc) {
+  if (wc.isDestroyed()) return null;
   const fenetre = BrowserWindow.fromWebContents(wc);
   return fenetre && fenetre !== win && fenetre.webContents === wc ? fenetre : null;
 }
@@ -1517,8 +1518,11 @@ function registerExtensionIpc() {
     },
     // Une extension peut fermer un onglet ou sa fenêtre, pas un service : il
     // disparaîtrait du panneau sur la seule décision d'un tiers. La lib passe
-    // aussi par ici quand une vue se ferme (mise en veille).
+    // aussi par ici quand une vue se ferme (mise en veille, sortie de l'app) :
+    // la page est alors déjà détruite, il n'y a rien à fermer, et
+    // `fromWebContents` lèverait une exception qui bloquait la sortie.
     fermerOnglet: (wc) => {
+      if (wc.isDestroyed()) return;
       const id = views.idDe(wc);
       if (store.getTab(id)) closeTab(id);
       else fenetreExtension(wc)?.close();
