@@ -8,12 +8,12 @@ Le code et les commits sont **en français**, au présent, décrivant le comport
 plutôt que la modification (« Corrige l'import manquant qui cassait le démarrage »).
 Les commentaires expliquent *pourquoi*, pas *quoi*.
 
-## État au 27 octobre 2026
+## État au 16 novembre 2026
 
 | | Version |
 |---|---|
-| Windows | **0.7.3** |
-| macOS | **0.7.3** |
+| Windows | **0.7.4** |
+| macOS | **0.7.4** |
 
 Les deux plateformes sont à parité, et **le restent sans rien faire** depuis la 0.5.2 :
 publier une release déclenche la construction des `.dmg` sur un runner macOS de GitHub
@@ -663,6 +663,18 @@ sort aussitôt (`isDestroyed`). Jusqu'à la 0.7.2, `fromWebContents` y levait un
 exception dont la boîte d'erreur, modale, empêchait de quitter l'app — et donc la
 mise à jour automatique de s'installer. Pour un compte, `chrome.tabs.create` ouvre une fenêtre de sa
 session : la lib exige un onglet de la même session.
+
+**`chrome.storage` émulé doit coller à Chrome au détail près** (0.7.4) : Dashlane
+en dépend sans rien signaler. `getBytesInUse` renvoyait 2 (`{}`) pour une clé
+absente ; Dashlane bouclait alors sans fin sur ses morceaux
+`ApplicationSettings.cdata.N` (214 000 opérations en 20 s) et son popup restait
+sur « taking longer than expected to load ». Il compte désormais clé + JSON de la
+valeur, 0 si la clé manque. Pour isoler un tel problème : relancer sans le
+stockage commun, puis tracer les opérations dans `operer`.
+
+**Le popup se ferme quand la fenêtre principale reprend le focus, et à Échap**
+(`ajusterPopup`). `maybeClose` de la lib ne le ferme que si une autre fenêtre de
+Hublink prend le focus : parti vers une autre app, il restait ouvert.
 
 Le menu Extensions est dans le pied du panneau latéral ; son panneau vit dans le
 calque. Le popup s'ancre sur le bouton qui l'ouvre (`activateClick` de la lib).
