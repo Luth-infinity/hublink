@@ -758,6 +758,12 @@ Avant la 0.4.4, dix-neuf messages étaient invisibles sans que personne ne s'en 
   calque s'en servait pour savoir si le pointeur était sur un message : la réponse était
   toujours non, il ne devenait donc jamais réceptif, et le bouton d'un message n'a
   jamais pu être cliqué. On mesure désormais les rectangles.
+- **Rien ne part vers un calque qui naît avant son `overlay:pret`.** React pose
+  ses écouteurs après `did-finish-load` : un panneau ou un menu envoyé à ce
+  moment-là se perdait, et le calque, rendu réceptif, avalait sans rien dessiner
+  tous les clics de la fenêtre. Le calque se refermant seul après 15 s, ça arrivait
+  souvent au premier clic sur Extensions (0.7.5, Mac et Windows). Les envois passent
+  par `quandCalquePret`, et le calque ne prend la souris qu'une fois prêt.
 - **Le shell ne voit jamais le pointeur le quitter** quand celui-ci passe sur la page :
   la vue est native, aucun événement ne lui parvient, et son dernier bouton survolé le
   reste. `src/preload/guest.js` le prévient, `index.js` répond par un `mouseLeave`.

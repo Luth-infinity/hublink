@@ -373,7 +373,7 @@ declare global {
       whatsNew(): Promise<WhatsNew | null>;
       whatsNewSeen(version: string): void;
       onUpdateAvailable(handler: (update: Update) => void): () => void;
-      overlay: { setInteractive(on: boolean): void };
+      overlay: { setInteractive(on: boolean): void; pret(): void };
       suggestions: {
         demander(texte: string, ancre: { x: number; y: number; width: number; height: number }): void;
         deplacer(delta: number): void;

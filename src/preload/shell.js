@@ -124,7 +124,8 @@ contextBridge.exposeInMainWorld('hublink', {
   whatsNewSeen: (version) => ipcRenderer.send('app:whats-new-seen', version),
   onUpdateAvailable: (handler) => on('update:available', handler),
   overlay: {
-    setInteractive: (on) => ipcRenderer.send('overlay:interactive', on)
+    setInteractive: (on) => ipcRenderer.send('overlay:interactive', on),
+    pret: () => ipcRenderer.send('overlay:pret')
   },
 
   // Les suggestions de la barre d'adresse : le champ envoie ce qu'on tape et

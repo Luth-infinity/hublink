@@ -89,6 +89,17 @@ function pousserTelechargements() {
 // fenêtres partagent la même origine.
 let panneau = null;
 
+// Le calque qui naît ne reçoit rien avant d'avoir posé ses écouteurs, que React
+// installe après `did-finish-load`. Un panneau envoyé avant était perdu : le
+// calque devenait réceptif sans rien dessiner et avalait tous les clics de la
+// fenêtre. Il annonce donc lui-même qu'il écoute (`overlay:pret`).
+let calquePret = false;
+let attenteCalque = [];
+function quandCalquePret(fn) {
+  if (calquePret) fn();
+  else attenteCalque.push(fn);
+}
+
 // Dernière liste de suggestions montrée : le calque qui naît pour l'afficher
 // n'a pas encore chargé sa page quand elle part, il la reçoit à son arrivée.
 let dernieresSuggestions = null;
@@ -112,7 +123,7 @@ function pousserPanneau() {
  */
 function majReceptiviteCalque() {
   if (!calque || calque.isDestroyed()) return;
-  calque.setIgnoreMouseEvents(!panneau && !menuEnCours, { forward: true });
+  calque.setIgnoreMouseEvents(!calquePret || (!panneau && !menuEnCours), { forward: true });
 }
 
 // Actions proposées dans un message. La fonction ne peut pas traverser l'IPC :
@@ -187,10 +198,11 @@ function ensureCalque() {
   if (isDev && !fs.existsSync(rendererDist)) calque.loadURL(`${DEV_SERVER}?overlay=1`);
   else calque.loadFile(rendererDist, { search: 'overlay=1' });
 
-  calque.webContents.on('did-finish-load', () => {
-    calque.webContents.send('downloads:list', telechargements);
-    calque.webContents.send('panel:state', panneau);
-    calque.webContents.send('suggestions:etat', dernieresSuggestions);
+  calquePret = false;
+  attenteCalque = [];
+  // Un rechargement (plantage du rendu) repart sans écouteurs.
+  calque.webContents.on('did-start-loading', () => {
+    calquePret = false;
     majReceptiviteCalque();
   });
   calque.once('ready-to-show', () => {
@@ -198,6 +210,8 @@ function ensureCalque() {
   });
   calque.on('closed', () => {
     calque = null;
+    calquePret = false;
+    attenteCalque = [];
     // Un menu meurt avec la fenêtre qui le dessine. Sans ce dénouement, son
     // appelant attendrait indéfiniment et `menuEnCours` resterait vrai — le
     // calque suivant naîtrait en avalant tous les clics.
@@ -232,9 +246,7 @@ const pushState = () => send('state:changed', store.load());
 function toast(variant, message, action) {
   const c = ensureCalque();
   if (!c) return;
-  const envoyer = () => c.webContents.send('app:toast', { variant, message, action });
-  if (c.webContents.isLoading()) c.webContents.once('did-finish-load', envoyer);
-  else envoyer();
+  quandCalquePret(() => c.isDestroyed() || c.webContents.send('app:toast', { variant, message, action }));
   planifierFermetureCalque();
 }
 
@@ -760,6 +772,18 @@ function registerIpc() {
     pousserTelechargements();
   });
 
+  ipcMain.on('overlay:pret', (e) => {
+    if (!calque || calque.isDestroyed() || e.sender !== calque.webContents) return;
+    calque.webContents.send('downloads:list', telechargements);
+    calque.webContents.send('panel:state', panneau);
+    calque.webContents.send('suggestions:etat', dernieresSuggestions);
+    calquePret = true;
+    majReceptiviteCalque();
+    const enAttente = attenteCalque;
+    attenteCalque = [];
+    for (const fn of enAttente) fn();
+  });
+
   ipcMain.on('overlay:interactive', (_e, on) => {
     // Un panneau ou un menu ouvert impose sa réceptivité : le suivi du
     // pointeur, qui ne connaît que les messages, la lèverait sans le savoir et
@@ -1230,9 +1254,7 @@ function registerIpc() {
     menuEnCours = id;
     majReceptiviteCalque();
 
-    const envoyer = () => c.webContents.send('menu:open', { id, items, ancre });
-    if (c.webContents.isLoading()) c.webContents.once('did-finish-load', envoyer);
-    else envoyer();
+    quandCalquePret(() => c.isDestroyed() || c.webContents.send('menu:open', { id, items, ancre }));
 
     return new Promise((resolve) => {
       menuAttente.set(id, resolve);

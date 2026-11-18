@@ -104,6 +104,9 @@ export default function Overlay() {
       }),
     []
   );
+  // Après tous les écouteurs (les effets passent dans l'ordre) : le principal
+  // attend ce signal pour envoyer panneau, menus et messages.
+  React.useEffect(() => api.overlay.pret(), []);
 
   const dernierPoint = React.useRef({ x: -1, y: -1 });
 
