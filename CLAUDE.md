@@ -8,11 +8,11 @@ Le code et les commits sont **en français**, au présent, décrivant le comport
 plutôt que la modification (« Corrige l'import manquant qui cassait le démarrage »).
 Les commentaires expliquent *pourquoi*, pas *quoi*.
 
-## État au 16 novembre 2026
+## État au 18 novembre 2026
 
 | | Version |
 |---|---|
-| Windows | **0.7.5** |
+| Windows | **0.7.6** |
 | macOS | **0.7.5** |
 
 Les deux plateformes sont à parité, et **le restent sans rien faire** depuis la 0.5.2 :
